@@ -420,6 +420,11 @@ ERROR(noescape_functiontype_mismatch,none,
       "invalid conversion from non-escaping function of type %0 to "
       "potentially escaping function type %1", (Type, Type))
 
+// Declaration name expressions.
+ERROR(expr_decl_name_literal_no_declaration,none,
+      "argument of '#name' does not refer to a method, property, "
+      "or initializer", ())
+
 // Key-path expressions.
 ERROR(expr_keypath_no_objc_runtime,none,
       "'#keyPath' can only be used with the Objective-C runtime", ())

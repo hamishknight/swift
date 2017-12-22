@@ -2256,6 +2256,19 @@ public:
     PrintWithColorRAII(OS, ParenthesisColor) << ')';
   }
 
+  void visitDeclNameLiteralExpr(DeclNameLiteralExpr *E) {
+    printCommon(E, "decl_name_literal_expr");
+
+    OS << " encoding="
+       << getStringLiteralExprEncodingString(E->getStringEncoding())
+       << " builtin_initializer=";
+    E->getBuiltinInitializer().dump(OS);
+    OS << " initializer=";
+    E->getInitializer().dump(OS);
+
+    PrintWithColorRAII(OS, ParenthesisColor) << ')';
+  }
+
   void visitOpaqueValueExpr(OpaqueValueExpr *E) {
     printCommon(E, "opaque_value_expr") << " @ " << (void*)E;
     PrintWithColorRAII(OS, ParenthesisColor) << ')';

@@ -420,9 +420,6 @@ namespace {
     RValue visitIntegerLiteralExpr(IntegerLiteralExpr *E, SGFContext C);
     RValue visitFloatLiteralExpr(FloatLiteralExpr *E, SGFContext C);
     RValue visitBooleanLiteralExpr(BooleanLiteralExpr *E, SGFContext C);
-
-    RValue emitStringLiteral(Expr *E, StringRef Str, SGFContext C,
-                             StringLiteralExpr::Encoding encoding);
         
     RValue visitStringLiteralExpr(StringLiteralExpr *E, SGFContext C);
     RValue visitLoadExpr(LoadExpr *E, SGFContext C);
@@ -467,6 +464,7 @@ namespace {
                                      SGFContext C);
     RValue visitTupleShuffleExpr(TupleShuffleExpr *E, SGFContext C);
     RValue visitDynamicTypeExpr(DynamicTypeExpr *E, SGFContext C);
+    RValue visitDeclNameLiteralExpr(DeclNameLiteralExpr *E, SGFContext C);
     RValue visitCaptureListExpr(CaptureListExpr *E, SGFContext C);
     RValue visitAbstractClosureExpr(AbstractClosureExpr *E, SGFContext C);
     RValue visitInterpolatedStringLiteralExpr(InterpolatedStringLiteralExpr *E,
@@ -1359,6 +1357,10 @@ RValue RValueEmitter::visitBooleanLiteralExpr(BooleanLiteralExpr *E,
 
 RValue RValueEmitter::visitStringLiteralExpr(StringLiteralExpr *E,
                                              SGFContext C) {
+  return SGF.emitLiteral(E, C);
+}
+
+RValue RValueEmitter::visitDeclNameLiteralExpr(DeclNameLiteralExpr *E, SGFContext C) {
   return SGF.emitLiteral(E, C);
 }
 

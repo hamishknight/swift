@@ -2748,6 +2748,10 @@ namespace {
       return E->getType();
     }
 
+    Type visitDeclNameLiteralExpr(DeclNameLiteralExpr *E) {
+      return visitLiteralExpr(E);
+    }
+
     Type visitObjCSelectorExpr(ObjCSelectorExpr *E) {
       // #selector only makes sense when we have the Objective-C
       // runtime.
@@ -3100,6 +3104,13 @@ namespace {
       // unevaluated.
       if (auto sel = dyn_cast<ObjCSelectorExpr>(expr)) {
         CG.getConstraintSystem().UnevaluatedRootExprs.insert(sel->getSubExpr());
+      }
+
+      // Note that the subexpression of a #name expression is
+      // unevaluated.
+      if (auto nameExpr = dyn_cast<DeclNameLiteralExpr>(expr)) {
+        CG.getConstraintSystem().UnevaluatedRootExprs.insert(
+          nameExpr->getSubExpr());
       }
 
       // Check an objc key-path expression, which fills in its semantic

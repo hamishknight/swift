@@ -155,6 +155,11 @@ ProtocolDecl *TypeChecker::getLiteralProtocol(Expr *expr) {
     }
   }
 
+  if (auto E = dyn_cast<DeclNameLiteralExpr>(expr)) {
+    return getProtocol(expr->getLoc(),
+                       KnownProtocolKind::ExpressibleByStringLiteral);
+  }
+
   if (auto E = dyn_cast<ObjectLiteralExpr>(expr)) {
     switch (E->getLiteralKind()) {
 #define POUND_OBJECT_LITERAL(Name, Desc, Protocol)\

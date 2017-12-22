@@ -1852,6 +1852,18 @@ public:
       verifyCheckedBase(E);
     }
 
+    void verifyChecked(DeclNameLiteralExpr *E) {
+      PrettyStackTraceExpr debugStack(Ctx, "verifying NameOfExpr", E);
+
+      if (!E->getDecl()) {
+        Out << "Missing declaration\n";
+        E->dump(Out);
+        abort();
+      }
+
+      verifyCheckedBase(E);
+    }
+
     void verifyChecked(InjectIntoOptionalExpr *E) {
       PrettyStackTraceExpr debugStack(Ctx, "verifying InjectIntoOptionalExpr",
                                       E);

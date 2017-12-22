@@ -232,6 +232,10 @@ class alignas(8) Expr {
     StringEncoding : 1
   );
 
+  SWIFT_INLINE_BITFIELD(DeclNameLiteralExpr, LiteralExpr, 1,
+    StringEncoding : 1
+  );
+
   SWIFT_INLINE_BITFIELD_FULL(ObjectLiteralExpr, LiteralExpr, 3+1+1+16,
     LitKind : 3,
     /// Whether the ObjectLiteralExpr also has source locations for the argument
@@ -325,6 +329,7 @@ protected:
     SWIFT_INLINE_BITS(OverloadSetRefExpr);
     SWIFT_INLINE_BITS(BooleanLiteralExpr);
     SWIFT_INLINE_BITS(MagicIdentifierLiteralExpr);
+    SWIFT_INLINE_BITS(DeclNameLiteralExpr);
     SWIFT_INLINE_BITS(ObjectLiteralExpr);
     SWIFT_INLINE_BITS(AbstractClosureExpr);
     SWIFT_INLINE_BITS(ClosureExpr);
@@ -4507,6 +4512,102 @@ public:
 
   static bool classof(const Expr *E) {
     return E->getKind() == ExprKind::ObjCSelector;
+  }
+};
+
+/// DeclNameLiteralExpr - "#name(...)" - Produces a variable name.
+///
+class DeclNameLiteralExpr : public LiteralExpr {
+  SourceLoc KeywordLoc;
+  SourceLoc LParenLoc;
+  Expr *SubExpr;
+  SourceLoc RParenLoc;
+  ValueDecl *ResolvedDecl = nullptr;
+
+  ConcreteDeclRef BuiltinInitializer;
+  ConcreteDeclRef Initializer;
+
+public:
+  DeclNameLiteralExpr(SourceLoc KeywordLoc, SourceLoc LParenLoc,
+                      Expr *SubExpr, SourceLoc RParenLoc,
+                      bool implicit = false)
+  : LiteralExpr(ExprKind::DeclNameLiteral, /*implicit=*/implicit),
+  KeywordLoc(KeywordLoc), LParenLoc(LParenLoc), SubExpr(SubExpr),
+  RParenLoc(RParenLoc) {
+    Bits.DeclNameLiteralExpr.StringEncoding
+      = static_cast<unsigned>(StringLiteralExpr::UTF8);
+  }
+
+  SourceLoc getLParenLoc() const { return LParenLoc; }
+  SourceLoc getRParenLoc() const { return RParenLoc; }
+
+  Expr *getSubExpr() const { return SubExpr; }
+  void setSubExpr(Expr *subExpr) { SubExpr = subExpr; }
+
+  /// Retrieve the declaration to which this expression refers.
+  ValueDecl *getDecl() const { return ResolvedDecl; }
+
+  /// Set the decleration to which this expression refers.
+  void setDecl(ValueDecl *decl) { ResolvedDecl = decl; }
+
+  // For a magic identifier that produces a string literal, retrieve the
+  // encoding for that string literal.
+  StringLiteralExpr::Encoding getStringEncoding() const {
+    return static_cast<StringLiteralExpr::Encoding>(
+      Bits.DeclNameLiteralExpr.StringEncoding);
+  }
+
+  // For a magic identifier that produces a string literal, set the encoding
+  // for the string literal.
+  void setStringEncoding(StringLiteralExpr::Encoding encoding) {
+    Bits.DeclNameLiteralExpr.StringEncoding
+      = static_cast<unsigned>(encoding);
+  }
+
+  /// Retrieve the builtin initializer that will be used to construct the string
+  /// literal.
+  ///
+  /// Any type-checked string literal will have a builtin initializer, which is
+  /// called first to form a concrete Swift type.
+  ConcreteDeclRef getBuiltinInitializer() const {
+    return BuiltinInitializer;
+  }
+
+  /// Set the builtin initializer that will be used to construct the string
+  /// literal.
+  void setBuiltinInitializer(ConcreteDeclRef builtinInitializer) {
+    BuiltinInitializer = builtinInitializer;
+  }
+
+  /// Retrieve the initializer that will be used to construct the string
+  /// literal from the result of the initializer.
+  ///
+  /// Only string literals that have no builtin literal conformance will have
+  /// this initializer, which will be called on the result of the builtin
+  /// initializer.
+  ConcreteDeclRef getInitializer() const {
+    return Initializer;
+  }
+
+  /// Set the initializer that will be used to construct the string literal.
+  void setInitializer(ConcreteDeclRef initializer) {
+    Initializer = initializer;
+  }
+
+  SourceLoc getLoc() const { return KeywordLoc; }
+  SourceRange getSourceRange() const {
+    return SourceRange(KeywordLoc, RParenLoc);
+  }
+
+  SourceLoc getStartLoc() const {
+    return KeywordLoc;
+  }
+  SourceLoc getEndLoc() const {
+    return RParenLoc;
+  }
+
+  static bool classof(const Expr *E) {
+    return E->getKind() == ExprKind::DeclNameLiteral;
   }
 };
 

@@ -1209,6 +1209,14 @@ ERROR(expr_keypath_expected_rparen,PointsToFirstBadToken,
 ERROR(expr_keypath_expected_expr,none,
       "expected expression path in Swift key path",())
 
+// Declaration name expressions.
+ERROR(expr_decl_name_literal_expected_lparen,PointsToFirstBadToken,
+      "expected '(' following '#name'", ())
+ERROR(expr_decl_name_literal_expected_property_or_type,PointsToFirstBadToken,
+      "expected expression naming a property or method within '#name(...)'", ())
+ERROR(expr_decl_name_literal_expected_rparen,PointsToFirstBadToken,
+      "expected ')' to complete '#name' expression", ())
+
 // Selector expressions.
 ERROR(expr_selector_expected_lparen,PointsToFirstBadToken,
       "expected '(' following '#selector'", ())

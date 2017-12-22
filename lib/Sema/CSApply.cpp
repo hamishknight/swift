@@ -1993,8 +1993,17 @@ namespace {
       
       auto stringLiteral = dyn_cast<StringLiteralExpr>(expr);
       auto magicLiteral = dyn_cast<MagicIdentifierLiteralExpr>(expr);
-      assert(bool(stringLiteral) != bool(magicLiteral) &&
-             "literal must be either a string literal or a magic literal");
+      auto declNameLiteral = dyn_cast<DeclNameLiteralExpr>(expr);
+
+      if (stringLiteral)
+        assert(!bool(magicLiteral) && !bool(declNameLiteral) &&
+               "literal must be either a string, magic, or declName");
+      else if (magicLiteral)
+        assert(!bool(stringLiteral) && !bool(declNameLiteral) &&
+               "literal must be either a string, magic, or declName");
+      else if (declNameLiteral)
+        assert(!bool(stringLiteral) && !bool(magicLiteral) &&
+                "literal must be either a string, magic, or declName");
 
       auto type = simplifyType(cs.getType(expr));
       auto &tc = cs.getTypeChecker();
@@ -2078,8 +2087,10 @@ namespace {
 
           if (stringLiteral)
             stringLiteral->setEncoding(StringLiteralExpr::UTF16ConstString);
-          else
+          else if (magicLiteral)
             magicLiteral->setStringEncoding(StringLiteralExpr::UTF16);
+          else
+            declNameLiteral->setStringEncoding(StringLiteralExpr::UTF16);
         } else if (!forceASCII && (tc.conformsToProtocol(
                                       type, builtinProtocol, cs.DC,
                                       ConformanceCheckFlags::InExpression))) {
@@ -2090,8 +2101,10 @@ namespace {
 
           if (stringLiteral)
             stringLiteral->setEncoding(StringLiteralExpr::UTF16);
-          else
+          else if (magicLiteral)
             magicLiteral->setStringEncoding(StringLiteralExpr::UTF16);
+          else
+            declNameLiteral->setStringEncoding(StringLiteralExpr::UTF16);
         } else if (tc.conformsToProtocol(type, builtinConstStringProtocol,
                                          cs.DC,
                                          ConformanceCheckFlags::InExpression)) {
@@ -2101,8 +2114,10 @@ namespace {
                        {tc.Context.Id_builtinConstStringLiteral});
           if (stringLiteral)
             stringLiteral->setEncoding(StringLiteralExpr::UTF8ConstString);
-          else
+          else if (magicLiteral)
             magicLiteral->setStringEncoding(StringLiteralExpr::UTF8);
+          else
+            declNameLiteral->setStringEncoding(StringLiteralExpr::UTF8);
         } else {
           // Otherwise, fall back to UTF-8.
           builtinProtocol = tc.getProtocol(
@@ -2115,8 +2130,10 @@ namespace {
                          tc.Context.getIdentifier("isASCII") });
           if (stringLiteral)
             stringLiteral->setEncoding(StringLiteralExpr::UTF8);
-          else
+          else if (magicLiteral)
             magicLiteral->setStringEncoding(StringLiteralExpr::UTF8);
+          else
+            declNameLiteral->setStringEncoding(StringLiteralExpr::UTF8);
         }
         brokenProtocolDiag = diag::string_literal_broken_proto;
         brokenBuiltinProtocolDiag = diag::builtin_string_literal_broken_proto;
@@ -2155,8 +2172,10 @@ namespace {
             diag::builtin_utf16_extended_grapheme_cluster_literal_broken_proto;
           if (stringLiteral)
             stringLiteral->setEncoding(StringLiteralExpr::UTF16);
-          else
+          else if (magicLiteral)
             magicLiteral->setStringEncoding(StringLiteralExpr::UTF16);
+          else
+            declNameLiteral->setStringEncoding(StringLiteralExpr::UTF16);
         }
       } else {
         // Otherwise, we should have just one Unicode scalar.
@@ -3753,101 +3772,140 @@ namespace {
       return E;
     }
 
-    Expr *visitObjCSelectorExpr(ObjCSelectorExpr *E) {
-      // Dig out the reference to a declaration.
-      Expr *subExpr = E->getSubExpr();
+    ValueDecl *findDeclRefFromExpr(Expr **E) {
+
       ValueDecl *foundDecl = nullptr;
-      while (subExpr) {
+      while (*E) {
         // Declaration reference.
-        if (auto declRef = dyn_cast<DeclRefExpr>(subExpr)) {
+        if (auto declRef = dyn_cast<DeclRefExpr>(*E)) {
           foundDecl = declRef->getDecl();
           break;
         }
 
         // Constructor reference.
-        if (auto ctorRef = dyn_cast<OtherConstructorDeclRefExpr>(subExpr)) {
+        if (auto ctorRef = dyn_cast<OtherConstructorDeclRefExpr>(*E)) {
           foundDecl = ctorRef->getDecl();
           break;
         }
 
         // Member reference.
-        if (auto memberRef = dyn_cast<MemberRefExpr>(subExpr)) {
+        if (auto memberRef = dyn_cast<MemberRefExpr>(*E)) {
           foundDecl = memberRef->getMember().getDecl();
           break;
         }
 
+        // Subscript reference.
+        if (auto subscriptRef = dyn_cast<SubscriptExpr>(*E)) {
+          if (subscriptRef->hasDecl()) {
+            foundDecl = subscriptRef->getDecl().getDecl();
+            break;
+          }
+        }
+
         // Dynamic member reference.
-        if (auto dynMemberRef = dyn_cast<DynamicMemberRefExpr>(subExpr)) {
+        if (auto dynMemberRef = dyn_cast<DynamicMemberRefExpr>(*E)) {
           foundDecl = dynMemberRef->getMember().getDecl();
           break;
         }
 
         // Look through parentheses.
-        if (auto paren = dyn_cast<ParenExpr>(subExpr)) {
-          subExpr = paren->getSubExpr();
+        if (auto paren = dyn_cast<ParenExpr>(*E)) {
+          *E = paren->getSubExpr();
           continue;
         }
 
         // Look through "a.b" to "b".
-        if (auto dotSyntax = dyn_cast<DotSyntaxBaseIgnoredExpr>(subExpr)) {
-          subExpr = dotSyntax->getRHS();
+        if (auto dotSyntax = dyn_cast<DotSyntaxBaseIgnoredExpr>(*E)) {
+          *E = dotSyntax->getRHS();
           continue;
         }
 
         // Look through self-rebind expression.
-        if (auto rebindSelf = dyn_cast<RebindSelfInConstructorExpr>(subExpr)) {
-          subExpr = rebindSelf->getSubExpr();
+        if (auto rebindSelf = dyn_cast<RebindSelfInConstructorExpr>(*E)) {
+          *E = rebindSelf->getSubExpr();
           continue;
         }
 
         // Look through optional binding within the monadic "?".
-        if (auto bind = dyn_cast<BindOptionalExpr>(subExpr)) {
-          subExpr = bind->getSubExpr();
+        if (auto bind = dyn_cast<BindOptionalExpr>(*E)) {
+          *E = bind->getSubExpr();
           continue;
         }
 
         // Look through optional evaluation of the monadic "?".
-        if (auto optEval = dyn_cast<OptionalEvaluationExpr>(subExpr)) {
-          subExpr = optEval->getSubExpr();
+        if (auto optEval = dyn_cast<OptionalEvaluationExpr>(*E)) {
+          *E = optEval->getSubExpr();
           continue;
         }
 
         // Look through an implicit force-value.
-        if (auto force = dyn_cast<ForceValueExpr>(subExpr)) {
-          subExpr = force->getSubExpr();
+        if (auto force = dyn_cast<ForceValueExpr>(*E)) {
+          *E = force->getSubExpr();
           continue;
         }
 
         // Look through implicit open-existential operations.
-        if (auto open = dyn_cast<OpenExistentialExpr>(subExpr)) {
+        if (auto open = dyn_cast<OpenExistentialExpr>(*E)) {
           if (open->isImplicit()) {
-            subExpr = open->getSubExpr();
+            *E = open->getSubExpr();
             continue;
           }
           break;
         }
 
         // Look to the referenced member in a self-application.
-        if (auto selfApply = dyn_cast<SelfApplyExpr>(subExpr)) {
-          subExpr = selfApply->getFn();
+        if (auto selfApply = dyn_cast<SelfApplyExpr>(*E)) {
+          *E = selfApply->getFn();
           continue;
         }
 
         // Look through implicit conversions.
-        if (auto conversion = dyn_cast<ImplicitConversionExpr>(subExpr)) {
-          subExpr = conversion->getSubExpr();
+        if (auto conversion = dyn_cast<ImplicitConversionExpr>(*E)) {
+          *E = conversion->getSubExpr();
           continue;
         }
 
         // Look through explicit coercions.
-        if (auto coercion = dyn_cast<CoerceExpr>(subExpr)) {
-          subExpr = coercion->getSubExpr();
+        if (auto coercion = dyn_cast<CoerceExpr>(*E)) {
+          *E = coercion->getSubExpr();
           continue;
         }
 
         break;
       }
 
+      return foundDecl;
+    }
+
+    Expr *visitDeclNameLiteralExpr(DeclNameLiteralExpr *E) {
+
+      // Dig out the reference to a declaration.
+      Expr *subExpr = E->getSubExpr();
+      ValueDecl *foundDecl = findDeclRefFromExpr(&subExpr);
+      if (!subExpr) return nullptr;
+
+      // If we didn't find any declaration at all, we're stuck.
+      if (!foundDecl) {
+        auto &tc = cs.getTypeChecker();
+        tc.diagnose(E->getLoc(), diag::expr_decl_name_literal_no_declaration)
+          .highlight(subExpr->getSourceRange());
+        return handleStringLiteralExpr(E);
+      }
+
+      if (isa<VarDecl>(foundDecl) && cs.getType(subExpr)->hasLValueType()) {
+        // Treat this like a read of the property.
+        cs.propagateLValueAccessKind(subExpr, AccessKind::Read);
+      }
+
+      E->setDecl(foundDecl);
+
+      return handleStringLiteralExpr(E);
+    }
+
+    Expr *visitObjCSelectorExpr(ObjCSelectorExpr *E) {
+      // Dig out the reference to a declaration.
+      Expr *subExpr = E->getSubExpr();
+      ValueDecl *foundDecl = findDeclRefFromExpr(&subExpr);
       if (!subExpr) return nullptr;
 
       // If we didn't find any declaration at all, we're stuck.
@@ -6813,10 +6871,10 @@ Expr *ExprRewriter::convertLiteralInPlace(Expr *literal,
     // Set the builtin initializer.
     if (auto stringLiteral = dyn_cast<StringLiteralExpr>(literal))
       stringLiteral->setBuiltinInitializer(builtinRef);
-    else {
-      cast<MagicIdentifierLiteralExpr>(literal)
-        ->setBuiltinInitializer(builtinRef);
-    }
+    else if (auto magicLiteral = dyn_cast<MagicIdentifierLiteralExpr>(literal))
+      magicLiteral->setBuiltinInitializer(builtinRef);
+    else
+      cast<DeclNameLiteralExpr>(literal)->setBuiltinInitializer(builtinRef);
 
     // The literal expression has this type.
     cs.setType(literal, type);
@@ -6877,8 +6935,11 @@ Expr *ExprRewriter::convertLiteralInPlace(Expr *literal,
   // Set the initializer.
   if (auto stringLiteral = dyn_cast<StringLiteralExpr>(literal))
     stringLiteral->setInitializer(ref);
+  else if (auto magicLiteral =
+           dyn_cast<MagicIdentifierLiteralExpr>(literal))
+    magicLiteral->setInitializer(ref);
   else
-    cast<MagicIdentifierLiteralExpr>(literal)->setInitializer(ref);
+    cast<DeclNameLiteralExpr>(literal)->setInitializer(ref);
 
   // The literal expression has this type.
   cs.setType(literal, type);

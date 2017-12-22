@@ -4572,11 +4572,12 @@ RValue SILGenFunction::emitLiteral(LiteralExpr *literal, SGFContext C) {
                                            stringLiteral->getEncoding());
     builtinInit = stringLiteral->getBuiltinInitializer();
     init = stringLiteral->getInitializer();
-  } else {
+  } else if (auto magicLiteral =
+             dyn_cast<MagicIdentifierLiteralExpr>(literal)) {
+
     ASTContext &ctx = getASTContext();
     SourceLoc loc = literal->getStartLoc();
 
-    auto magicLiteral = cast<MagicIdentifierLiteralExpr>(literal);
     switch (magicLiteral->getKind()) {
     case MagicIdentifierLiteralExpr::File: {
       StringRef value = "";
@@ -4605,6 +4606,19 @@ RValue SILGenFunction::emitLiteral(LiteralExpr *literal, SGFContext C) {
     case MagicIdentifierLiteralExpr::DSOHandle:
       llvm_unreachable("handled elsewhere");
     }
+  } else {
+    auto declNameLiteral = cast<DeclNameLiteralExpr>(literal);
+
+    llvm::SmallString<64> nameScratch;
+    auto declName =
+      declNameLiteral->getDecl()->getFullName().getString(nameScratch);
+
+    builtinLiteralArgs = emitStringLiteral(*this, literal, declName, C,
+                                           declNameLiteral
+                                             ->getStringEncoding());
+
+    builtinInit = declNameLiteral->getBuiltinInitializer();
+    init = declNameLiteral->getInitializer();
   }
 
   // Helper routine to add an argument label if we need one.

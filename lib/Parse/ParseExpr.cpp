@@ -602,6 +602,51 @@ ParserResult<Expr> Parser::parseExprKeyPath() {
   return makeParserResult(keypath);
 }
 
+/// expr-decl-name-literal:
+/// '#name' '(' expr ')'
+///
+ParserResult<Expr> Parser::parseExprDeclNameLiteral() {
+
+  // Consume '#name'.
+  SourceLoc keywordLoc = consumeToken(tok::pound_name);
+
+  // Parse the leading '('.
+  if (!Tok.is(tok::l_paren)) {
+    diagnose(Tok, diag::expr_decl_name_literal_expected_lparen);
+    return makeParserError();
+  }
+  SourceLoc lParenLoc = consumeToken(tok::l_paren);
+
+  // Parse the subexpression.
+  ParserResult<Expr> subExpr = parseExpr(
+    diag::expr_decl_name_literal_expected_property_or_type);
+  
+  if (subExpr.hasCodeCompletion())
+    return makeParserCodeCompletionResult<Expr>();
+
+  // Parse the closing ')'.
+  SourceLoc rParenLoc;
+  if (subExpr.isParseError()) {
+    skipUntilDeclStmtRBrace(tok::r_paren);
+    if (Tok.is(tok::r_paren))
+      rParenLoc = consumeToken();
+    else
+      rParenLoc = PreviousLoc;
+  } else {
+    parseMatchingToken(tok::r_paren, rParenLoc,
+                       diag::expr_decl_name_literal_expected_rparen, lParenLoc);
+  }
+
+  // If the subexpression was in error, just propagate the error.
+  if (subExpr.isParseError())
+    return makeParserResult<Expr>(
+      new (Context) ErrorExpr(SourceRange(keywordLoc, rParenLoc)));
+
+  return makeParserResult<Expr>(
+    new (Context) DeclNameLiteralExpr(keywordLoc, lParenLoc,
+                             subExpr.get(), rParenLoc));
+}
+
 ///   expr-keypath-objc:
 ///     '#keyPath' '(' unqualified-name ('.' unqualified-name) * ')'
 ///
@@ -1590,6 +1635,10 @@ Parser::parseExprPostfixWithoutSuffix(Diag<> ID, bool isExprBasic) {
 
   case tok::pound_selector: // expr-selector
     Result = parseExprSelector();
+    break;
+
+  case tok::pound_name: // expr-decl-name-literal
+    Result = parseExprDeclNameLiteral();
     break;
 
   case tok::l_brace:     // expr-closure

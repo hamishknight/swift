@@ -597,7 +597,7 @@ public:
 
     // Some kinds of expression don't really evaluate their subexpression,
     // so we don't need to traverse.
-    if (isa<ObjCSelectorExpr>(E)) {
+    if (isa<ObjCSelectorExpr>(E) || isa<DeclNameLiteralExpr>(E)) {
       return { false, E };
     }
 

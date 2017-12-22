@@ -406,6 +406,7 @@ ConcreteDeclRef Expr::getReferencedDecl() const {
   NO_REFERENCE(InterpolatedStringLiteral);
   NO_REFERENCE(ObjectLiteral);
   NO_REFERENCE(MagicIdentifierLiteral);
+  NO_REFERENCE(DeclNameLiteral);
   NO_REFERENCE(DiscardAssignment);
 
   SIMPLE_REFERENCE(DeclRef, getDeclRef);
@@ -678,6 +679,7 @@ bool Expr::canAppendPostfixExpression(bool appendingPostfixOperator) const {
   case ExprKind::InterpolatedStringLiteral:
   case ExprKind::MagicIdentifierLiteral:
   case ExprKind::ObjCSelector:
+  case ExprKind::DeclNameLiteral:
   case ExprKind::KeyPath:
     return true;
 
@@ -951,6 +953,17 @@ shallowCloneImpl(const MagicIdentifierLiteralExpr *E, ASTContext &Ctx,
 }
 
 static LiteralExpr *
+shallowCloneImpl(const DeclNameLiteralExpr *E, ASTContext &Ctx,
+                 llvm::function_ref<Type(const Expr *)> getType) {
+  auto res = new (Ctx) DeclNameLiteralExpr(E->getLoc(), E->getLParenLoc(),
+                                           E->getSubExpr(), E->getRParenLoc(),
+                                           E->isImplicit());
+  res->setDecl(E->getDecl());
+  res->setStringEncoding(E->getStringEncoding());
+  return res;
+}
+
+static LiteralExpr *
 shallowCloneImpl(const ObjectLiteralExpr *E, ASTContext &Ctx,
                  llvm::function_ref<Type(const Expr *)> getType) {
   auto res =
@@ -980,6 +993,7 @@ LiteralExpr *LiteralExpr::shallowClone(
     DISPATCH_CLONE(InterpolatedStringLiteral)
     DISPATCH_CLONE(ObjectLiteral)
     DISPATCH_CLONE(MagicIdentifierLiteral)
+    DISPATCH_CLONE(DeclNameLiteral)
 #undef DISPATCH_CLONE
   }
 

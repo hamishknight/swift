@@ -1011,6 +1011,7 @@ static void diagnoseIgnoredLiteral(TypeChecker &TC, LiteralExpr *LE) {
       case MagicIdentifierLiteralExpr::Kind::Function: return "#function";
       case MagicIdentifierLiteralExpr::Kind::DSOHandle: return "#dsohandle";
       }
+    case ExprKind::DeclNameLiteral: return "#name";
     case ExprKind::NilLiteral: return "nil";
     case ExprKind::ObjectLiteral: return "object";
 
