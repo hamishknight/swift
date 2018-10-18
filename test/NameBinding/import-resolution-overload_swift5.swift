@@ -9,7 +9,7 @@ func useString(_ str: String) {}
 // In Swift 5, properties from this module currently always shadow properties
 // from the other module – therefore meaning that the properties from the other
 // module never show up in the overload set.
-// FIX-ME: It seems reasonable for both to show up in the overload set.
+// FIXME: It seems reasonable for both to show up in the overload set.
 
 extension HasFooGeneric {
   var foo: String { return "" }

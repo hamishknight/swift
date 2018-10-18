@@ -386,6 +386,6 @@ func testAnyObjectAmbiguity(_ x: AnyObject) {
 
   _ = x[ambiguousSubscript: 0] // expected-error {{ambiguous use of 'subscript(ambiguousSubscript:)'}}
 
-  // FIX-ME(SR-8611): This is currently ambiguous but shouldn't be.
+  // FIXME(SR-8611): This is currently ambiguous but shouldn't be.
   _ = x[unambiguousSubscript: ""] // expected-error {{ambiguous use of 'subscript(unambiguousSubscript:)'}}
 }

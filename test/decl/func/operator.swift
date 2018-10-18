@@ -406,7 +406,7 @@ func testPostfixOperatorOnTuple<A, B>(a: A, b: B) {
   let foo = (a, (b, b), a)
   _ = foo§
 
-  // FIX-ME: "...could not be inferred" is irrelevant
+  // FIXME: "...could not be inferred" is irrelevant
   _ = (§)foo
   // expected-error@-1 {{consecutive statements on a line must be separated by ';'}}
   // expected-error@-2 {{generic parameter 'T' could not be inferred}}

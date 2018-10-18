@@ -30,7 +30,7 @@ extension HasFooGeneric {
 // But in Swift 5 mode, properties from this module currently always shadow
 // properties from the other module – therefore meaning that the properties from
 // the other module never show up in the overload set.
-// FIX-ME: It seems reasonable for both to show up in the overload set.
+// FIXME: It seems reasonable for both to show up in the overload set.
 // SWIFT5_SELF_DOT_1: Begin completions
 // SWIFT5_SELF_DOT_1-NOT: Decl[InstanceVar]/CurrNominal:      foo[#Int#]; name=foo
 // SWIFT5_SELF_DOT_1-DAG: Decl[InstanceVar]/CurrNominal:      foo[#String#]; name=foo
@@ -57,7 +57,7 @@ extension HasFooNonGeneric {
 
 // Again, in Swift 5 mode, we currently consistently shadow the properties from
 // the other module.
-// FIX-ME: It seems reasonable to not shadow them.
+// FIXME: It seems reasonable to not shadow them.
 // SWIFT5_SELF_DOT_2: Begin completions
 // SWIFT5_SELF_DOT_2-NOT: Decl[InstanceVar]/CurrNominal:      foo[#Int#]; name=foo
 // SWIFT5_SELF_DOT_2-DAG: Decl[InstanceVar]/CurrNominal:      foo[#String#]; name=foo

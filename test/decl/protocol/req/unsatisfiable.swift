@@ -49,7 +49,7 @@ protocol Sub2: Base {
 
 struct S {}
 
-// FIX-ME: One of these errors is redundant.
+// FIXME: One of these errors is redundant.
 protocol P4 {
   associatedtype X : S
   // expected-error@-1 {{type 'Self.X' constrained to non-protocol, non-class type 'S'}}
