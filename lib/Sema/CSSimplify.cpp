@@ -913,8 +913,8 @@ ConstraintSystem::TypeMatchResult constraints::matchCallArguments(
 
     // Compare each of the bound arguments for this parameter.
     for (auto argIdx : parameterBindings[paramIdx]) {
-      auto loc = locator.withPathElement(
-          LocatorPathElt::ApplyArgToParam(argIdx, paramIdx));
+      auto loc = locator.withPathElement(LocatorPathElt::ApplyArgToParam(
+          argIdx, paramIdx, param.getParameterFlags()));
       auto argTy = argsWithLabels[argIdx].getOldType();
 
       bool matchingAutoClosureResult = param.isAutoClosure();
