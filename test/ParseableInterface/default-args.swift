@@ -3,7 +3,7 @@
 // RUN: %target-swift-frontend -merge-modules -emit-module -o %t/Test.swiftmodule %t/Test~partial.swiftmodule
 // RUN: %target-swift-ide-test -print-module -module-to-print=Test -source-filename=x -I %t | %FileCheck %s
 
-// RUN: %target-swift-frontend -typecheck -emit-parseable-module-interface-path %t/Test.swiftinterface -enable-library-evolution %s
+// RUN: %target-swift-frontend -typecheck -module-name Test -emit-parseable-module-interface-path %t/Test.swiftinterface -enable-library-evolution %s
 // RUN: rm %t/Test.swiftmodule
 // RUN: echo "import Test" > %t/test-client.swift
 // RUN: %target-swift-frontend -typecheck -I%t %t/test-client.swift

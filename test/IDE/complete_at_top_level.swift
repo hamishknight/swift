@@ -178,6 +178,7 @@ fooObject#^TYPE_CHECKED_EXPR_1^#
 // TYPE_CHECKED_EXPR_1: Begin completions
 // TYPE_CHECKED_EXPR_1-NEXT: Decl[InstanceVar]/CurrNominal:      .instanceVar[#Int#]{{; name=.+$}}
 // TYPE_CHECKED_EXPR_1-NEXT: Decl[InstanceMethod]/CurrNominal:   .instanceFunc({#(a): Int#})[#Void#]{{; name=.+$}}
+// TYPE_CHECKED_EXPR_1-NEXT: Decl[InstanceMethod]/Super: .copy()[#FooStruct#]; name=copy()
 // TYPE_CHECKED_EXPR_1-NEXT: BuiltinOperator/None:               = {#FooStruct#}[#Void#]; name== FooStruct
 // TYPE_CHECKED_EXPR_1-NEXT: Keyword[self]/CurrNominal:          .self[#FooStruct#]; name=self
 // TYPE_CHECKED_EXPR_1-NEXT: End completions
@@ -191,6 +192,7 @@ fooObject#^TYPE_CHECKED_EXPR_2^#
 // TYPE_CHECKED_EXPR_2: Begin completions
 // TYPE_CHECKED_EXPR_2-NEXT: Decl[InstanceVar]/CurrNominal: .instanceVar[#Int#]{{; name=.+$}}
 // TYPE_CHECKED_EXPR_2-NEXT: Decl[InstanceMethod]/CurrNominal: .instanceFunc({#(a): Int#})[#Void#]{{; name=.+$}}
+// TYPE_CHECKED_EXPR_2-NEXT: Decl[InstanceMethod]/Super: .copy()[#FooStruct#]; name=copy()
 // TYPE_CHECKED_EXPR_2-NEXT: BuiltinOperator/None:                     = {#FooStruct#}[#Void#]; name== FooStruct
 // TYPE_CHECKED_EXPR_2-NEXT: Keyword[self]/CurrNominal: .self[#FooStruct#]; name=self
 // TYPE_CHECKED_EXPR_2-NEXT: End completions
@@ -201,6 +203,7 @@ fooObject#^TYPE_CHECKED_EXPR_3^#.bar
 // TYPE_CHECKED_EXPR_3: Begin completions
 // TYPE_CHECKED_EXPR_3-NEXT: Decl[InstanceVar]/CurrNominal: .instanceVar[#Int#]{{; name=.+$}}
 // TYPE_CHECKED_EXPR_3-NEXT: Decl[InstanceMethod]/CurrNominal: .instanceFunc({#(a): Int#})[#Void#]{{; name=.+$}}
+// TYPE_CHECKED_EXPR_3-NEXT: Decl[InstanceMethod]/Super: .copy()[#FooStruct#]; name=copy()
 // TYPE_CHECKED_EXPR_3-NEXT: BuiltinOperator/None:                     = {#FooStruct#}[#Void#]; name== FooStruct
 // TYPE_CHECKED_EXPR_3-NEXT: Keyword[self]/CurrNominal: .self[#FooStruct#]; name=self
 // TYPE_CHECKED_EXPR_3-NEXT: End completions
@@ -212,6 +215,7 @@ fooObject.#^TYPE_CHECKED_EXPR_4^#
 // TYPE_CHECKED_EXPR_4-NEXT: Keyword[self]/CurrNominal: self[#FooStruct#]; name=self
 // TYPE_CHECKED_EXPR_4-NEXT: Decl[InstanceVar]/CurrNominal: instanceVar[#Int#]{{; name=.+$}}
 // TYPE_CHECKED_EXPR_4-NEXT: Decl[InstanceMethod]/CurrNominal: instanceFunc({#(a): Int#})[#Void#]{{; name=.+$}}
+// TYPE_CHECKED_EXPR_4-NEXT: Decl[InstanceMethod]/Super: copy()[#FooStruct#]; name=copy()
 // TYPE_CHECKED_EXPR_4-NEXT: End completions
 
 func resyncParser5() {}
@@ -221,6 +225,7 @@ fooObject.#^TYPE_CHECKED_EXPR_5^#.bar
 // TYPE_CHECKED_EXPR_5-NEXT: Keyword[self]/CurrNominal: self[#FooStruct#]; name=self
 // TYPE_CHECKED_EXPR_5-NEXT: Decl[InstanceVar]/CurrNominal: instanceVar[#Int#]{{; name=.+$}}
 // TYPE_CHECKED_EXPR_5-NEXT: Decl[InstanceMethod]/CurrNominal: instanceFunc({#(a): Int#})[#Void#]{{; name=.+$}}
+// TYPE_CHECKED_EXPR_5-NEXT: Decl[InstanceMethod]/Super: copy()[#FooStruct#]; name=copy()
 // TYPE_CHECKED_EXPR_5-NEXT: End completions
 
 func resyncParser6() {}
@@ -244,6 +249,7 @@ fooObjectWithErrorInInit.#^TYPE_CHECKED_EXPR_WITH_ERROR_IN_INIT_1^#
 // TYPE_CHECKED_EXPR_WITH_ERROR_IN_INIT_1-NEXT: Keyword[self]/CurrNominal: self[#FooStruct#]; name=self
 // TYPE_CHECKED_EXPR_WITH_ERROR_IN_INIT_1-NEXT: Decl[InstanceVar]/CurrNominal: instanceVar[#Int#]{{; name=.+$}}
 // TYPE_CHECKED_EXPR_WITH_ERROR_IN_INIT_1-NEXT: Decl[InstanceMethod]/CurrNominal: instanceFunc({#(a): Int#})[#Void#]{{; name=.+$}}
+// TYPE_CHECKED_EXPR_WITH_ERROR_IN_INIT_1-NEXT: Decl[InstanceMethod]/Super: copy()[#FooStruct#]; name=copy()
 // TYPE_CHECKED_EXPR_WITH_ERROR_IN_INIT_1-NEXT: End completions
 
 func resyncParser6a() {}
@@ -266,6 +272,7 @@ var topLevelVar2 = FooStruct#^TOP_LEVEL_VAR_INIT_2^#
 // TOP_LEVEL_VAR_INIT_2-NEXT: Decl[Constructor]/CurrNominal: ()[#FooStruct#]{{; name=.+$}}
 // TOP_LEVEL_VAR_INIT_2-NEXT: Decl[Constructor]/CurrNominal: ({#instanceVar: Int#})[#FooStruct#]{{; name=.+$}}
 // TOP_LEVEL_VAR_INIT_2-NEXT: Decl[Constructor]/CurrNominal: ()[#FooStruct#]{{; name=.+$}}
+// TOP_LEVEL_VAR_INIT_2-NEXT: Decl[InstanceMethod]/Super: .copy({#(self): FooStruct#})[#() -> FooStruct#]; name=copy(self: FooStruct)
 // TOP_LEVEL_VAR_INIT_2-NEXT: Keyword[self]/CurrNominal: .self[#FooStruct.Type#]; name=self
 // TOP_LEVEL_VAR_INIT_2-NEXT: Keyword/CurrNominal:       .Type[#FooStruct.Type#]; name=Type
 // TOP_LEVEL_VAR_INIT_2-NEXT: End completions

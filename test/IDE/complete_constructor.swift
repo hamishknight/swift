@@ -61,7 +61,7 @@ struct ImplicitConstructors1 {
 
 func testImplicitConstructors1() {
   ImplicitConstructors1#^IMPLICIT_CONSTRUCTORS_1^#
-// IMPLICIT_CONSTRUCTORS_1: Begin completions, 3 items
+// IMPLICIT_CONSTRUCTORS_1: Begin completions, 4 items
 // IMPLICIT_CONSTRUCTORS_1-DAG: Decl[Constructor]/CurrNominal: ()[#ImplicitConstructors1#]{{; name=.+$}}
 // IMPLICIT_CONSTRUCTORS_1-DAG: Keyword[self]/CurrNominal:     .self[#ImplicitConstructors1.Type#]; name=self
 // IMPLICIT_CONSTRUCTORS_1-DAG: Keyword/CurrNominal:           .Type[#ImplicitConstructors1.Type#]; name=Type
@@ -80,7 +80,7 @@ struct ImplicitConstructors2 {
 
 func testImplicitConstructors2() {
   ImplicitConstructors2#^IMPLICIT_CONSTRUCTORS_2^#
-// IMPLICIT_CONSTRUCTORS_2: Begin completions, 5 items
+// IMPLICIT_CONSTRUCTORS_2: Begin completions, 6 items
 // IMPLICIT_CONSTRUCTORS_2-DAG: Decl[Constructor]/CurrNominal: ()[#ImplicitConstructors2#]{{; name=.+$}}
 // IMPLICIT_CONSTRUCTORS_2-DAG: Decl[Constructor]/CurrNominal: ({#instanceVar: Int#})[#ImplicitConstructors2#]{{; name=.+$}}
 // IMPLICIT_CONSTRUCTORS_2-DAG: Decl[Constructor]/CurrNominal: ()[#ImplicitConstructors2#]{{; name=.+$}}
@@ -105,7 +105,7 @@ struct ExplicitConstructors1 {
 
 func testExplicitConstructors1() {
   ExplicitConstructors1#^EXPLICIT_CONSTRUCTORS_1^#
-// EXPLICIT_CONSTRUCTORS_1: Begin completions, 5 items
+// EXPLICIT_CONSTRUCTORS_1: Begin completions, 6 items
 // EXPLICIT_CONSTRUCTORS_1-DAG: Decl[Constructor]/CurrNominal: ()[#ExplicitConstructors1#]{{; name=.+$}}
 // EXPLICIT_CONSTRUCTORS_1-DAG: Decl[Constructor]/CurrNominal: ({#a: Int#})[#ExplicitConstructors1#]{{; name=.+$}}
 // EXPLICIT_CONSTRUCTORS_1-DAG: Decl[Constructor]/CurrNominal: ({#a: Int#}, {#b: Float#})[#ExplicitConstructors1#]{{; name=.+$}}
@@ -124,7 +124,7 @@ func testExplicitConstructors1P() {
 
 ExplicitConstructors1#^EXPLICIT_CONSTRUCTORS_2^#
 
-// EXPLICIT_CONSTRUCTORS_2: Begin completions, 5 items
+// EXPLICIT_CONSTRUCTORS_2: Begin completions, 6 items
 // EXPLICIT_CONSTRUCTORS_2-DAG: Decl[Constructor]/CurrNominal: ()[#ExplicitConstructors1#]
 // EXPLICIT_CONSTRUCTORS_2-DAG: Decl[Constructor]/CurrNominal: ({#a: Int#})[#ExplicitConstructors1#]
 // EXPLICIT_CONSTRUCTORS_2-DAG: Decl[Constructor]/CurrNominal: ({#a: Int#}, {#b: Float#})[#ExplicitConstructors1#]
@@ -162,7 +162,7 @@ struct ExplicitConstructorsSelector1 {
 
 func testExplicitConstructorsSelector1() {
   ExplicitConstructorsSelector1#^EXPLICIT_CONSTRUCTORS_SELECTOR_1^#
-// EXPLICIT_CONSTRUCTORS_SELECTOR_1: Begin completions, 4 items
+// EXPLICIT_CONSTRUCTORS_SELECTOR_1: Begin completions, 5 items
 // EXPLICIT_CONSTRUCTORS_SELECTOR_1-DAG: Decl[Constructor]/CurrNominal: ({#int: Int#})[#ExplicitConstructorsSelector1#]{{; name=.+$}}
 // EXPLICIT_CONSTRUCTORS_SELECTOR_1-DAG: Decl[Constructor]/CurrNominal: ({#int: Int#}, {#andFloat: Float#})[#ExplicitConstructorsSelector1#]{{; name=.+$}}
 // EXPLICIT_CONSTRUCTORS_SELECTOR_1-DAG: Keyword[self]/CurrNominal:     .self[#ExplicitConstructorsSelector1.Type#]; name=self

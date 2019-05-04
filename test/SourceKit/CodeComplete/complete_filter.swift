@@ -71,6 +71,7 @@ func foo() {
 // CHECK-NEXT:   b()
 // CHECK-NEXT:   c()
 // CHECK-NEXT:   self
+// CHECK-NEXT:   copy()
 // CHECK-NEXT: ]
 // CHECK-LABEL: Results for filterText: a [
 // CHECK-NEXT:   aaa()

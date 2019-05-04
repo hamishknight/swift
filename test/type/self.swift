@@ -1,4 +1,4 @@
-// RUN: %target-typecheck-verify-swift -swift-version 5
+// RUN: %target-typecheck-verify-swift -disable-copyable-synthesis -swift-version 5
 
 struct S0<T> {
   func foo(_ other: Self) { }

@@ -56,7 +56,8 @@ protocol P {
 
 struct MyStruct : P {
   func #^METHODNAME_CONFORMANCE^#
-// METHODNAME_CONFORMANCE: Begin completions, 1 items
+// METHODNAME_CONFORMANCE: Begin completions, 2 items
+// METHODNAME_CONFORMANCE-NEXT: Decl[InstanceMethod]/Super: copy() -> MyStruct {|}; name=copy() -> MyStruct
 // METHODNAME_CONFORMANCE-NEXT: Decl[InstanceMethod]/Super: foo() {|}; name=foo()
 // METHODNAME_CONFORMANCE-NEXT: End completions
   typealias #^TYPEALIASNAME_CONFORMANCE^#

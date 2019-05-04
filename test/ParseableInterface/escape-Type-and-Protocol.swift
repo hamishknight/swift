@@ -1,4 +1,4 @@
-// RUN: %target-swift-frontend -typecheck -emit-module-interface-path - %s | %FileCheck %s
+// RUN: %target-swift-frontend -typecheck -disable-copyable-synthesis -emit-module-interface-path - %s | %FileCheck %s
 
 // CHECK: public let Type: Swift.Int
 public let Type = 0

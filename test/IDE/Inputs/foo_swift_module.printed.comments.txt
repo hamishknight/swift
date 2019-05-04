@@ -9,11 +9,13 @@ postfix func => (lhs: Int) -> Int
 struct BarGenericSwiftStruct1<T> {
   init(t: T)
   func bar1InstanceFunc()
+  init(_copying: BarGenericSwiftStruct1<T>)
 }
 
 struct BarGenericSwiftStruct2<T, U> where T : BarProtocol {
   init(t: T, u: U)
   func bar2InstanceFunc()
+  init(_copying: BarGenericSwiftStruct2<T, U>)
 }
 
 protocol BarProtocol {
@@ -35,6 +37,7 @@ struct FooSwiftStruct {
    */
   func fooInstanceFunc()
   init()
+  init(_copying: FooSwiftStruct)
 }
 
 /// rdar://18457785

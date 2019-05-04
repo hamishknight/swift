@@ -45,6 +45,7 @@ struct FooStruct {
 // FOO_STRUCT_COMMON-NEXT: Decl[InstanceMethod]/CurrNominal: instanceFunc0()[#Void#]{{; name=.+$}}
 // FOO_STRUCT_COMMON-NEXT: Decl[InstanceMethod]/CurrNominal: builderFunc1()[#FooStruct#]{{; name=.+$}}
 // FOO_STRUCT_COMMON-NEXT: Decl[InstanceMethod]/CurrNominal: builderFunc2({#(a): Int#})[#FooStruct#]{{; name=.+$}}
+// FOO_STRUCT_COMMON-NEXT: Decl[InstanceMethod]/Super: copy()[#FooStruct#]; name=copy()
 // FOO_STRUCT_COMMON-NEXT: End completions
 
 // ERROR_COMMON: found code completion token

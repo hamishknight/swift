@@ -16,6 +16,7 @@ func testObjectExpr() {
 // T1-NEXT: Keyword[self]/CurrNominal: self[#FooStruct#]; name=self
 // T1-NEXT: Decl[InstanceVar]/CurrNominal:    instanceVar[#Int#]{{; name=.+$}}
 // T1-NEXT: Decl[InstanceMethod]/CurrNominal: instanceFunc0()[#Void#]{{; name=.+$}}
+// T1-NEXT: Decl[InstanceMethod]/Super: copy()[#FooStruct#]; name=copy()
 // T1-NEXT: End completions
 
 func testGenericObjectExpr() {
@@ -25,6 +26,7 @@ func testGenericObjectExpr() {
 // T2-NEXT: Keyword[self]/CurrNominal: self[#GenericFooStruct<Void>#]; name=self
 // T2-NEXT: Decl[InstanceVar]/CurrNominal:    instanceVar[#Int#]{{; name=.+$}}
 // T2-NEXT: Decl[InstanceMethod]/CurrNominal: instanceFunc0()[#Void#]{{; name=.+$}}
+// T2-NEXT: Decl[InstanceMethod]/Super: copy()[#GenericFooStruct<Void>#]; name=copy()
 // T2-NEXT: End completions
 
 func topLevel1() {

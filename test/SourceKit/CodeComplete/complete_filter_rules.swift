@@ -3,7 +3,7 @@
 
 import Foo
 
-struct TestHideName {
+enum TestHideName {
   func hideThis1() {}
   func hideThis2(_ x: Int, namedParam2: Int) {}
   func hideThis3(namedParam1: Int, _ unnamedParam: Int) {}

@@ -26,6 +26,20 @@
       key.entities: [
         {
           key.kind: source.lang.swift.decl.function.method.instance,
+          key.usr: "s:s17_CompilerCopyablePsE4copyxyF",
+          key.line: 11,
+          key.column: 8,
+          key.is_implicit: 1,
+          key.related: [
+            {
+              key.kind: source.lang.swift.ref.function.method.instance,
+              key.name: "copy()",
+              key.usr: "s:s8CopyableP4copyxyF"
+            }
+          ],
+        },
+        {
+          key.kind: source.lang.swift.decl.function.method.instance,
           key.name: "test_startsWithTest_takesNoParams_returnsVoid_butIsDefinedOnAStruct()",
           key.usr: "s:28index_is_test_candidate_objc8MyStructV0C63_startsWithTest_takesNoParams_returnsVoid_butIsDefinedOnAStructyyF",
           key.line: 12,

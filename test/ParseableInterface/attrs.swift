@@ -13,4 +13,5 @@
   public var x: Int
   // CHECK-NEXT: public var y: Int
   public var y: Int
+  // CHECK-NEXT: public init(_copying: attrs.Point)
 } // CHECK-NEXT: {{^}$}}

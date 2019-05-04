@@ -82,6 +82,7 @@ public enum OkayEnumWithSelfRefs {
 // CHECK-LABEL: enum OkayEnumWithSelfRefs {
 // CHECK-NEXT:   struct Nested {
 // CHECK-NEXT:     init()
+// CHECK-NEXT:     init(_copying: OkayEnumWithSelfRefs.Nested)
 // CHECK-NEXT:   }
 // CHECK-NEXT:   indirect case selfRef(OkayEnumWithSelfRefs)
 // CHECK-NEXT:   case nested(OkayEnumWithSelfRefs.Nested)
@@ -89,6 +90,7 @@ public enum OkayEnumWithSelfRefs {
 // CHECK-RECOVERY-LABEL: enum OkayEnumWithSelfRefs {
 // CHECK-RECOVERY-NEXT:   struct Nested {
 // CHECK-RECOVERY-NEXT:     init()
+// CHECK-RECOVERY-NEXT:     init(_copying: OkayEnumWithSelfRefs.Nested)
 // CHECK-RECOVERY-NEXT:   }
 // CHECK-RECOVERY-NEXT:   indirect case selfRef(OkayEnumWithSelfRefs)
 // CHECK-RECOVERY-NEXT:   case nested(OkayEnumWithSelfRefs.Nested)

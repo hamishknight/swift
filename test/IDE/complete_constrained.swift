@@ -61,7 +61,7 @@ extension MyStruct: Proto_String where T == String {}
 
 func foo(s: MyStruct<Int>) {
   let _ = s.#^MYSTRUCT_INT_DOT^#
-// MYSTRUCT_INT_DOT: Begin completions, 7 items
+// MYSTRUCT_INT_DOT: Begin completions, 8 items
 // MYSTRUCT_INT_DOT-DAG: Keyword[self]/CurrNominal:          self[#MyStruct<Int>#]; name=self
 // MYSTRUCT_INT_DOT-DAG: Decl[InstanceMethod]/CurrNominal:   methodWithConstrainedGenericParam({#x: SomeProto#})[#Int#]; name=methodWithConstrainedGenericParam(x: SomeProto)
 // MYSTRUCT_INT_DOT-DAG: Decl[InstanceMethod]/CurrNominal:   concreteExt_TEqInt_None()[#Int#]; name=concreteExt_TEqInt_None()
@@ -72,7 +72,7 @@ func foo(s: MyStruct<Int>) {
 // MYSTRUCT_INT_DOT: End completions
 
   let _ = MyStruct<Int>.#^META_MYSTRUCT_INT_DOT^#
-// META_MYSTRUCT_INT_DOT: Begin completions, 11 items
+// META_MYSTRUCT_INT_DOT: Begin completions, 12 items
 // META_MYSTRUCT_INT_DOT-DAG: Keyword[self]/CurrNominal:          self[#MyStruct<Int>.Type#]; name=self
 // META_MYSTRUCT_INT_DOT-DAG: Keyword/CurrNominal:                Type[#MyStruct<Int>.Type#]; name=Type
 // META_MYSTRUCT_INT_DOT-DAG: Decl[TypeAlias]/CurrNominal:        Assoc[#T#]; name=Assoc

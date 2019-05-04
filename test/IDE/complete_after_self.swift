@@ -319,7 +319,7 @@ struct S1 {
   init() {}
   init(x: Int) {
     self.#^STRUCT_CONSTRUCTOR_SELF_DOT_1^#
-// STRUCT_CONSTRUCTOR_SELF_DOT_1: Begin completions, 2 items
+// STRUCT_CONSTRUCTOR_SELF_DOT_1: Begin completions, 3 items
 // STRUCT_CONSTRUCTOR_SELF_DOT_1-DAG: Keyword[self]/CurrNominal:          self[#S1#]; name=self
 // STRUCT_CONSTRUCTOR_SELF_DOT_1-NOT: Decl[Constructor]
 // STRUCT_CONSTRUCTOR_SELF_DOT_1-DAG: Decl[InstanceMethod]/CurrNominal:   f()[#Void#];

@@ -31,6 +31,8 @@ cake1: Struct Somestruct2 has been renamed to Struct NSSomestruct2
 cake1: AssociatedType AssociatedTypePro.T3 has default type change from C1 to C6
 cake1: Class TChangesFromIntToString has type witness type for AssociatedTypesProtocol.T changing from Int to String
 cake1: Constructor S1.init(_:) has parameter 0 type change from Int to Double
+cake1: Constructor Somestruct2.init(_copying:) has parameter 0 type change from Somestruct2 to NSSomestruct2
+cake1: Constructor Somestruct2.init(_copying:) has return type change from Somestruct2 to NSSomestruct2
 cake1: Func C1.foo2(_:) has parameter 0 type change from Int to () -> ()
 cake1: Func C7.foo(_:_:) has removed default argument from parameter 0
 cake1: Func C7.foo(_:_:) has removed default argument from parameter 1

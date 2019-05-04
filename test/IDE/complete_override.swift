@@ -828,11 +828,11 @@ struct RequiredS : RequiredP {
 // PROTOINIT_NORM-DAG: required init(p: Int) {|}; name=required init(p: Int)
 // PROTOINIT_NORM: End completions
 
-// PROTOINIT_FINAL: Begin completions, 1 items
+// PROTOINIT_FINAL: Begin completions, 2 items
 // PROTOINIT_FINAL-DAG: init(p: Int) {|}; name=init(p: Int)
 // PROTOINIT_FINAL: End completions
 
-// PROTOINIT_STRUCT: Begin completions, 1 items
+// PROTOINIT_STRUCT: Begin completions, 2 items
 // PROTOINIT_STRUCT-DAG: init(p: Int) {|}; name=init(p: Int)
 // PROTOINIT_STRUCT: End completions
 

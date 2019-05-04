@@ -253,7 +253,7 @@ func testInfix11() {
   S2#^INFIX_11^#
 }
 
-// INFIX_11: Begin completions, 3 items
+// INFIX_11: Begin completions, 4 items
 // INFIX_11-DAG: Decl[Constructor]/CurrNominal:      ()[#S2#]; name=()
 // INFIX_11-DAG: Keyword[self]/CurrNominal:          .self[#S2.Type#]; name=self
 // INFIX_11-DAG: Keyword/CurrNominal:                .Type[#S2.Type#]; name=Type

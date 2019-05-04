@@ -65,6 +65,20 @@
       key.entities: [
         {
           key.kind: source.lang.swift.decl.function.method.instance,
+          key.usr: "s:s17_CompilerCopyablePsE4copyxyF",
+          key.line: 12,
+          key.column: 8,
+          key.is_implicit: 1,
+          key.related: [
+            {
+              key.kind: source.lang.swift.ref.function.method.instance,
+              key.name: "copy()",
+              key.usr: "s:s8CopyableP4copyxyF"
+            }
+          ],
+        },
+        {
+          key.kind: source.lang.swift.decl.function.method.instance,
           key.name: "method()",
           key.usr: "s:15index_operators7StructBV6methodyyF",
           key.line: 13,

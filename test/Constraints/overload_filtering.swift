@@ -36,6 +36,7 @@ func testSubscript(x: X, i: Int) {
 func testUnresolvedMember(i: Int) -> X {
   // CHECK: disabled disjunction term {{.*}} bound to decl overload_filtering.(file).X.init(_:)
   // CHECK-NEXT: disabled disjunction term {{.*}} bound to decl overload_filtering.(file).X.init(_:_:_:)
+  // CHECK-NEXT:  (disabled disjunction term {{.*}} bound to decl overload_filtering.(file).X.init(_copying:)
   // CHECK-NEXT: introducing single enabled disjunction term {{.*}} bound to decl overload_filtering.(file).X.init(_:_:)
   return .init(i, i)
 }

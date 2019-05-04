@@ -179,7 +179,7 @@ func testStruct3(a: StructWithAssociatedTypes) {
 }
 // STRUCT_TYPE_COUNT: Begin completions, 25 items
 
-// STRUCT_INSTANCE: Begin completions, 15 items
+// STRUCT_INSTANCE: Begin completions, 16 items
 // STRUCT_INSTANCE-DAG: Decl[InstanceMethod]/CurrNominal:   deduceCommonA()[#Int#]
 // STRUCT_INSTANCE-DAG: Decl[InstanceMethod]/CurrNominal:   deduceCommonB()[#Int#]
 // STRUCT_INSTANCE-DAG: Decl[InstanceMethod]/CurrNominal:   deduceCommonC()[#Int#]
@@ -267,7 +267,7 @@ struct StructWithBrokenConformance : FooProtocolWithAssociatedTypes {
 func testBrokenConformances1() {
   StructWithBrokenConformance.#^BROKEN_CONFORMANCE_1^#
 }
-// BROKEN_CONFORMANCE_1: Begin completions, 34 items
+// BROKEN_CONFORMANCE_1: Begin completions, 35 items
 // BROKEN_CONFORMANCE_1-DAG: Decl[TypeAlias]/CurrNominal:        DefaultedTypeCommonA[#StructWithBrokenConformance.DefaultedTypeCommonA#]; name=DefaultedTypeCommonA
 // BROKEN_CONFORMANCE_1-DAG: Decl[TypeAlias]/CurrNominal:        DefaultedTypeCommonB[#StructWithBrokenConformance.DefaultedTypeCommonB#]; name=DefaultedTypeCommonB
 // BROKEN_CONFORMANCE_1-DAG: Decl[TypeAlias]/CurrNominal:        FooBaseDefaultedTypeB[#StructWithBrokenConformance.FooBaseDefaultedTypeB#]; name=FooBaseDefaultedTypeB

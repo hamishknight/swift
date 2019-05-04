@@ -17,7 +17,7 @@ struct MyStruct<T> {
 
 func test1() {
   let _ = MyStruct #^METATYPE_UNRESOLVED^#
-// METATYPE_UNRESOLVED: Begin completions, 4 items
+// METATYPE_UNRESOLVED: Begin completions, 5 items
 // METATYPE_UNRESOLVED-DAG: Decl[Subscript]/CurrNominal:        [{#(x): Int#}, {#static: _#}][#MyStruct<_>#];
 // METATYPE_UNRESOLVED-DAG: Decl[Constructor]/CurrNominal:      ()[#MyStruct<_>#];
 // METATYPE_UNRESOLVED-DAG: Keyword[self]/CurrNominal:          .self[#MyStruct<_>.Type#];
@@ -26,7 +26,7 @@ func test1() {
 
 
   let _ = MyStruct<Int> #^METATYPE_INT^#
-// METATYPE_INT: Begin completions, 4 items
+// METATYPE_INT: Begin completions, 5 items
 // METATYPE_INT-DAG: Decl[Subscript]/CurrNominal:        [{#(x): Int#}, {#static: Int#}][#MyStruct<Int>#];
 // METATYPE_INT-DAG: Decl[Constructor]/CurrNominal:      ()[#MyStruct<Int>#];
 // METATYPE_INT-DAG: Keyword[self]/CurrNominal:          .self[#MyStruct<Int>.Type#];
@@ -34,7 +34,7 @@ func test1() {
 // METATYPE_INT: End completions
 
   let _ = MyStruct<Int>()#^INSTANCE_INT^#
-// INSTANCE_INT: Begin completions, 2 items
+// INSTANCE_INT: Begin completions, 3 items
 // INSTANCE_INT-DAG: Decl[Subscript]/CurrNominal:        [{#(x): Int#}, {#instance: Int#}][#Int#];
 // INSTANCE_INT-DAG: Keyword[self]/CurrNominal:          .self[#MyStruct<Int>#];
 // INSTANCE_INT: End completions
@@ -42,7 +42,7 @@ func test1() {
 }
 func test2<U>(value: MyStruct<U>) {
   let _ = MyStruct<U>#^METATYPE_ARCHETYPE^#
-// METATYPE_ARCHETYPE: Begin completions, 4 items
+// METATYPE_ARCHETYPE: Begin completions, 5 items
 // METATYPE_ARCHETYPE-DAG: Decl[Subscript]/CurrNominal:        [{#(x): Int#}, {#static: U#}][#MyStruct<U>#];
 // METATYPE_ARCHETYPE-DAG: Decl[Constructor]/CurrNominal:      ()[#MyStruct<U>#];
 // METATYPE_ARCHETYPE-DAG: Keyword[self]/CurrNominal:          .self[#MyStruct<U>.Type#];
@@ -50,7 +50,7 @@ func test2<U>(value: MyStruct<U>) {
 // METATYPE_ARCHETYPE: End completions
 
   let _ = value #^INSTANCE_ARCHETYPE^#
-// INSTANCE_ARCHETYPE: Begin completions, 2 items
+// INSTANCE_ARCHETYPE: Begin completions, 3 items
 // INSTANCE_ARCHETYPE-DAG: Decl[Subscript]/CurrNominal:        [{#(x): Int#}, {#instance: U#}][#Int#];
 // INSTANCE_ARCHETYPE-DAG: Keyword[self]/CurrNominal:          .self[#MyStruct<U>#];
 // INSTANCE_ARCHETYPE: End completions

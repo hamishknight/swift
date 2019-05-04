@@ -43,7 +43,9 @@ struct Basic: P1 {
 // Recursive conformances should have finite output.
 
 // CHECK-LABEL: StructDecl name=Recur
-// CHECK-NEXT: (normal_conformance type=Recur protocol=P2
+// CHECK-NEXT: (normal_conformance type=Recur protocol=Copyable
+// CHECK-NEXT:   (value req=copy() witness=Swift.(file)._CompilerCopyable extension.copy()))
+// CHECK:      (normal_conformance type=Recur protocol=P2
 // CHECK-NEXT:   (assoc_type req=A type=Recur)
 // CHECK-NEXT:   (assoc_type req=B type=Recur)
 // CHECK-NEXT:   (normal_conformance type=Recur protocol=P2 (details printed above))
@@ -56,7 +58,9 @@ struct Recur: P2 {
 // The full information about a conformance doesn't need to be printed twice.
 
 // CHECK-LABEL: StructDecl name=NonRecur
-// CHECK-NEXT: (normal_conformance type=NonRecur protocol=P2
+// CHECK-NEXT: (normal_conformance type=NonRecur protocol=Copyable
+// CHECK-NEXT:   (value req=copy() witness=Swift.(file)._CompilerCopyable extension.copy()))
+// CHECK:      (normal_conformance type=NonRecur protocol=P2
 // CHECK-NEXT:   (assoc_type req=A type=Recur)
 // CHECK-NEXT:   (assoc_type req=B type=Recur)
 // CHECK-NEXT:   (normal_conformance type=Recur protocol=P2
@@ -74,7 +78,7 @@ struct NonRecur: P2 {
 
 struct Generic<T> {}
 // CHECK-LABEL: ExtensionDecl line={{.*}} base=Generic<T>
-// CHECK-NEXT: (normal_conformance type=Generic<T> protocol=P1
+// CHECK:      (normal_conformance type=Generic<T> protocol=P1
 // CHECK-NEXT:   (assoc_type req=A type=T)
 // CHECK-NEXT:   (value req=f() witness=main.(file).Generic extension.f()@{{.*}})
 // CHECK-NEXT:   conforms_to: T P1)
@@ -132,7 +136,9 @@ class Sub: Super<NonRecur, Recur> {}
 // should work through SubstitutionMaps.
 
 // CHECK-LABEL: StructDecl name=RecurGeneric
-// CHECK-NEXT: (normal_conformance type=RecurGeneric<T> protocol=P3
+// CHECK-NEXT: (normal_conformance type=RecurGeneric<T> protocol=Copyable
+// CHECK-NEXT:   (value req=copy() witness=Swift.(file)._CompilerCopyable extension.copy()))
+// CHECK:      (normal_conformance type=RecurGeneric<T> protocol=P3
 // CHECK-NEXT:   (assoc_type req=A type=RecurGeneric<T>)
 // CHECK-NEXT:   (normal_conformance type=RecurGeneric<T> protocol=P3 (details printed above)))
 struct RecurGeneric<T: P3>: P3 {
@@ -140,7 +146,9 @@ struct RecurGeneric<T: P3>: P3 {
 }
 
 // CHECK-LABEL: StructDecl name=Specialize
-// CHECK-NEXT: (normal_conformance type=Specialize protocol=P3
+// CHECK-NEXT: (normal_conformance type=Specialize protocol=Copyable
+// CHECK-NEXT:   (value req=copy() witness=Swift.(file)._CompilerCopyable extension.copy()))
+// CHECK:      (normal_conformance type=Specialize protocol=P3
 // CHECK-NEXT:   (assoc_type req=A type=RecurGeneric<Specialize>)
 // CHECK-NEXT:   (specialized_conformance type=Specialize.A protocol=P3
 // CHECK-NEXT:     (substitution_map generic_signature=<T where T : P3>

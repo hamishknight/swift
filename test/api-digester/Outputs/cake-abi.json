@@ -126,6 +126,31 @@
           "usr": "s:4cake2S1V4foo6yyF",
           "moduleName": "cake",
           "funcSelfKind": "NonMutating"
+        },
+        {
+          "kind": "Constructor",
+          "name": "init",
+          "printedName": "init(_copying:)",
+          "children": [
+            {
+              "kind": "TypeNominal",
+              "name": "S1",
+              "printedName": "S1",
+              "usr": "s:4cake2S1V"
+            },
+            {
+              "kind": "TypeNominal",
+              "name": "S1",
+              "printedName": "S1",
+              "usr": "s:4cake2S1V"
+            }
+          ],
+          "declKind": "Constructor",
+          "usr": "s:4cake2S1V8_copyingA2C_tcfc",
+          "moduleName": "cake",
+          "implicit": true,
+          "declAttributes": [
+          ]
         }
       ],
       "declKind": "Struct",
@@ -135,6 +160,16 @@
         "FixedLayout"
       ],
       "conformances": [
+        {
+          "kind": "Conformance",
+          "name": "Copyable",
+          "printedName": "Copyable"
+        },
+        {
+          "kind": "Conformance",
+          "name": "_CompilerCopyable",
+          "printedName": "_CompilerCopyable"
+        },
         {
           "kind": "Conformance",
           "name": "P1",
@@ -1444,6 +1479,11 @@
           "kind": "Conformance",
           "name": "_HasCustomAnyHashableRepresentation",
           "printedName": "_HasCustomAnyHashableRepresentation"
+        },
+        {
+          "kind": "Conformance",
+          "name": "Copyable",
+          "printedName": "Copyable"
         },
         {
           "kind": "Conformance",

@@ -80,8 +80,10 @@ extension B7: PrivateSubProto {}
 public struct OuterGeneric<T> {
   // CHECK-NEXT: public struct Inner {
   public struct Inner: PrivateSubProto {}
+  // CHECK-NEXT: public init(_copying: conformances.OuterGeneric<T>.Inner)
   // CHECK-NEXT: {{^  }$}}
 }
+// CHECK-NEXT: public init(_copying: conformances.OuterGeneric<T>)
 // CHECK-NEXT: {{^}$}}
 
 public protocol ConditionallyConformed {}

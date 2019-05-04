@@ -17,6 +17,7 @@ struct FooStruct : FooMoreRefinedProtocol {
 // FOO_OBJECT_DOT: Begin completions
 // FOO_OBJECT_DOT-NEXT: Keyword[self]/CurrNominal: self[#FooStruct#]; name=self
 // FOO_OBJECT_DOT-NEXT: Decl[InstanceVar]/CurrNominal:      instanceProperty[#Int#]
+// FOO_OBJECT_DOT-NEXT: Decl[InstanceMethod]/Super: copy()[#FooStruct#]; name=copy()
 // FOO_OBJECT_DOT-NEXT: End completions
 
 struct BarStruct : FooEvenMoreRefinedProtocol {
@@ -25,6 +26,7 @@ struct BarStruct : FooEvenMoreRefinedProtocol {
 // BAR_OBJECT_DOT: Begin completions
 // BAR_OBJECT_DOT-NEXT: Keyword[self]/CurrNominal: self[#BarStruct#]; name=self
 // BAR_OBJECT_DOT-NEXT: Decl[InstanceVar]/CurrNominal:      instanceProperty[#Int#]
+// BAR_OBJECT_DOT-NEXT: Decl[InstanceMethod]/Super: copy()[#BarStruct#]; name=copy()
 // BAR_OBJECT_DOT-NEXT: End completions
 
 func test(a: FooStruct) {

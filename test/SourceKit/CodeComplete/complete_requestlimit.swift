@@ -1,7 +1,7 @@
 // XFAIL: broken_std_regex
 
-struct A {}
-struct B {
+enum A {}
+enum B {
   let a: A
   let b: A
   let c: A
@@ -71,7 +71,7 @@ func test002(x: B) {
 // B_INSTANCE_1_
 }
 
-struct C {
+enum C {
   let aaa: A
   let aab: A
   let aac: A
@@ -92,7 +92,7 @@ func test003(x: C) {
 // C_INSTANCE_0_1-NOT: aa
 }
 
-struct D {
+enum D {
   func aaa(x: A) {}
   func aaa(x: B) {}
   func aab() {}

@@ -1424,7 +1424,7 @@ private:
   };
 
   bool walkToDeclPre(Decl *D, CharSourceRange Range) override {
-    if (Range.getByteLength() == 0)
+    if (Range.isInvalid() || Range.getByteLength() == 0)
       return true;
     if (auto *VD = dyn_cast<ValueDecl>(D))
       annotateSourceEntity({ Range, VD, nullptr, /*IsRef=*/false});

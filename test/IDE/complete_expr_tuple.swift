@@ -113,8 +113,9 @@ func testTupleNested1() {
   var t = (foo: FooStruct(), i: Int)
   t.foo.#^TUPLE_NESTED_1^#
 }
-// TUPLE_NESTED_1: Begin completions, 3 items
+// TUPLE_NESTED_1: Begin completions, 4 items
 // TUPLE_NESTED_1-NEXT: Keyword[self]/CurrNominal: self[#FooStruct#]; name=self
 // TUPLE_NESTED_1-NEXT: Decl[InstanceVar]/CurrNominal: fooInstanceVar[#Int#]{{; name=.+$}}
 // TUPLE_NESTED_1-NEXT: Decl[InstanceVar]/CurrNominal: barInstanceVar[#Double#]{{; name=.+$}}
+// TUPLE_NESTED_1-NEXT: Decl[InstanceMethod]/Super: copy()[#FooStruct#]; name=copy()
 // TUPLE_NESTED_1-NEXT: End completions

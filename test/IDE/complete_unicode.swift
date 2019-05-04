@@ -23,4 +23,5 @@ func unicode_test_1() {
 // UNICODE_1-NEXT: Decl[InstanceMethod]/CurrNominal: カタカナでも()[#Void#]{{; name=.+$}}
 // UNICODE_1-NEXT: Decl[InstanceMethod]/CurrNominal: 漢字でも()[#Void#]{{; name=.+$}}
 // UNICODE_1-NEXT: Decl[InstanceMethod]/CurrNominal: いいです()[#Void#]{{; name=.+$}}
+// UNICODE_1-NEXT: Decl[InstanceMethod]/Super: copy()[#Unicode1#]; name=copy()
 // UNICODE_1-NEXT: End completions

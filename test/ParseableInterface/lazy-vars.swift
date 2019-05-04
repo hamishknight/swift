@@ -19,6 +19,7 @@
 // CHECK: private var $__lazy_storage_$_foo: [[INT]]?
 // CHECK-NOT: private var bar
 // CHECK: private var $__lazy_storage_$_bar: [[INT]]?
+// CHECK: public init(_copying: {{.+}}.HasLazyVarsFixedLayout)
 // CHECK-NEXT: }
 @_fixed_layout
 public struct HasLazyVarsFixedLayout {
@@ -34,6 +35,7 @@ public struct HasLazyVarsFixedLayout {
 // NONRESILIENT: private var $__lazy_storage_$_foo: [[INT]]?
 // CHECK-NOT: private var bar
 // NONRESILIENT: private var $__lazy_storage_$_bar: [[INT]]?
+// CHECK-NEXT: public init(_copying: {{.+}}.HasLazyVars)
 // CHECK-NEXT: }
 public struct HasLazyVars {
   public lazy var foo: Int = 0

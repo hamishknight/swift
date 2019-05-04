@@ -65,6 +65,7 @@ func testReturnInt2(_ fooObject: FooStruct) {
 // RETURN_INT_2: Begin completions
 // RETURN_INT_2-NEXT: Keyword[self]/CurrNominal: self[#FooStruct#]; name=self
 // RETURN_INT_2-NEXT: Decl[InstanceVar]/CurrNominal: instanceVar[#Int#]{{; name=.+$}}
+// RETURN_INT_2-NEXT: Decl[InstanceMethod]/Super: copy()[#FooStruct#]; name=copy()
 // RETURN_INT_2-NEXT: End completions
 }
 

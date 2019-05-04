@@ -324,11 +324,13 @@ struct NestedOuter1 {
 // NESTED_NOMINAL_DECL_A_4: End completions
 
     NestedInnerA(aInstanceVar: 42)#^NESTED_NOMINAL_DECL_A_5^#
-// NESTED_NOMINAL_DECL_A_5: Begin completions, 5 items
+// NESTED_NOMINAL_DECL_A_5: Begin completions, 7 items
 // NESTED_NOMINAL_DECL_A_5-NEXT: Decl[InstanceMethod]/CurrNominal: .aTestInstanceFunc()[#Void#]{{; name=.+$}}
 // NESTED_NOMINAL_DECL_A_5-NEXT: Decl[InstanceVar]/CurrNominal:    .aInstanceVar[#Int#]{{; name=.+$}}
 // NESTED_NOMINAL_DECL_A_5-NEXT: Decl[InstanceMethod]/CurrNominal: .aInstanceFunc()[#Void#]{{; name=.+$}}
 // NESTED_NOMINAL_DECL_A_5-NEXT: Decl[Subscript]/CurrNominal:      [{#(i): Int#}][#Double#]{{; name=.+$}}
+// NESTED_NOMINAL_DECL_A_5-NEXT: Decl[InstanceMethod]/Super: .copy()[#NestedInnerA#]; name=copy()
+// NESTED_NOMINAL_DECL_A_5-NEXT: Decl[InstanceMethod]/Super: .copy()[#NestedInnerA#]; name=copy()
 // NESTED_NOMINAL_DECL_A_5-NEXT: Keyword[self]/CurrNominal:        .self[#NestedInnerA#]; name=self
 // NESTED_NOMINAL_DECL_A_5-NEXT: End completions
   }
@@ -434,7 +436,7 @@ struct NestedOuter1 {
 // NESTED_NOMINAL_DECL_B_4: End completions
 
     NestedInnerB(bInstanceVar: 42)#^NESTED_NOMINAL_DECL_B_5^#
-// NESTED_NOMINAL_DECL_B_5: Begin completions, 5 items
+// NESTED_NOMINAL_DECL_B_5: Begin completions, 7 items
 // NESTED_NOMINAL_DECL_B_5-DAG: Decl[InstanceMethod]/CurrNominal: .bTestInstanceFunc()[#Void#]{{; name=.+$}}
 // NESTED_NOMINAL_DECL_B_5-DAG: Decl[InstanceVar]/CurrNominal:    .bInstanceVar[#Int#]{{; name=.+$}}
 // NESTED_NOMINAL_DECL_B_5-DAG: Decl[InstanceMethod]/CurrNominal: .bInstanceFunc()[#Void#]{{; name=.+$}}
@@ -526,11 +528,13 @@ func testOuterC() {
 // NESTED_NOMINAL_DECL_C_4: End completions
 
   NestedInnerC(cInstanceVar: 42)#^NESTED_NOMINAL_DECL_C_5^#
-// NESTED_NOMINAL_DECL_C_5: Begin completions, 5 items
+// NESTED_NOMINAL_DECL_C_5: Begin completions, 7 items
 // NESTED_NOMINAL_DECL_C_5-NEXT: Decl[InstanceMethod]/CurrNominal: .cTestInstanceFunc()[#Void#]{{; name=.+$}}
 // NESTED_NOMINAL_DECL_C_5-NEXT: Decl[InstanceVar]/CurrNominal:    .cInstanceVar[#Int#]{{; name=.+$}}
 // NESTED_NOMINAL_DECL_C_5-NEXT: Decl[InstanceMethod]/CurrNominal: .cInstanceFunc()[#Void#]{{; name=.+$}}
 // NESTED_NOMINAL_DECL_C_5-NEXT: Decl[Subscript]/CurrNominal:      [{#(i): Int#}][#Double#]{{; name=.+$}}
+// NESTED_NOMINAL_DECL_C_5-NEXT: Decl[InstanceMethod]/Super: .copy()[#NestedInnerC#]; name=copy()
+// NESTED_NOMINAL_DECL_C_5-NEXT: Decl[InstanceMethod]/Super: .copy()[#NestedInnerC#]; name=copy()
 // NESTED_NOMINAL_DECL_C_5-NEXT: Keyword[self]/CurrNominal:        .self[#NestedInnerC#]; name=self
 // NESTED_NOMINAL_DECL_C_5-NEXT: End completions
 }

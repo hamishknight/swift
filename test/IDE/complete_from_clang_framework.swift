@@ -46,6 +46,7 @@ func testSwiftCompletions(foo: SwiftStruct) {
 // SWIFT_COMPLETIONS: Begin completions
 // SWIFT_COMPLETIONS-NEXT: Keyword[self]/CurrNominal: self[#SwiftStruct#]; name=self
 // SWIFT_COMPLETIONS-NEXT: Decl[InstanceVar]/CurrNominal: instanceVar[#Int#]{{; name=.+$}}
+// SWIFT_COMPLETIONS-NEXT: Decl[InstanceMethod]/Super: copy()[#SwiftStruct#]; name=copy()
 // SWIFT_COMPLETIONS-NEXT: End completions
 }
 

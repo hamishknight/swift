@@ -95,5 +95,6 @@ public struct MyStruct {
     mutating get { return 0 }
     @inlinable nonmutating set {}
   }
+  // CHECK-NEXT: public init(_copying: Test.MyStruct)
   // CHECK-NEXT: }
 }

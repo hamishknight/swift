@@ -549,7 +549,7 @@ func testInOut(_ arg: inout Int) {
 var pi_f: Float
 var pi_d: Double
 
-struct SpecialPi {} // Type with no implicit construction.
+class SpecialPi {} // Type with no implicit construction.
 
 var pi_s: SpecialPi
 

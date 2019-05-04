@@ -366,6 +366,7 @@ var fooObject: FooStruct
 // FOO_OBJECT_DOT-NEXT: Decl[InstanceMethod]/CurrNominal: selectorStringFunc3({#(a): Int#}, {#b: (Float, Double)#})[#String#]{{; name=.+$}}
 // FOO_OBJECT_DOT-NEXT: Decl[InstanceVar]/CurrNominal:    extProp[#Int#]{{; name=.+$}}
 // FOO_OBJECT_DOT-NEXT: Decl[InstanceMethod]/CurrNominal{{(/TypeRelation\[Identical\])?}}: extFunc0()[#Void#]{{; name=.+$}}
+// FOO_OBJECT_DOT-NEXT: Decl[InstanceMethod]/Super: copy()[#FooStruct#]; name=copy()
 // FOO_OBJECT_DOT-NEXT: End completions
 
 // FOO_OBJECT_NO_DOT: Begin completions
@@ -403,6 +404,7 @@ var fooObject: FooStruct
 // FOO_OBJECT_NO_DOT-NEXT: Decl[InstanceMethod]/CurrNominal: .selectorStringFunc3({#(a): Int#}, {#b: (Float, Double)#})[#String#]{{; name=.+$}}
 // FOO_OBJECT_NO_DOT-NEXT: Decl[InstanceVar]/CurrNominal:    .extProp[#Int#]{{; name=.+$}}
 // FOO_OBJECT_NO_DOT-NEXT: Decl[InstanceMethod]/CurrNominal: .extFunc0()[#Void#]{{; name=.+$}}
+// FOO_OBJECT_NO_DOT-NEXT: Decl[InstanceMethod]/Super: .copy()[#FooStruct#]; name=copy()
 // FOO_OBJECT_NO_DOT-NEXT: BuiltinOperator/None:                     = {#Foo
 // FOO_OBJECT_NO_DOT-NEXT: Keyword[self]/CurrNominal: .self[#FooStruct#]; name=self
 // FOO_OBJECT_NO_DOT-NEXT: End completions
@@ -456,6 +458,7 @@ var fooObject: FooStruct
 // FOO_STRUCT_DOT-NEXT: Decl[Class]/CurrNominal:          ExtNestedClass[#FooStruct.ExtNestedClass#]{{; name=.+$}}
 // FOO_STRUCT_DOT-NEXT: Decl[Enum]/CurrNominal:           ExtNestedEnum[#FooStruct.ExtNestedEnum#]{{; name=.+$}}
 // FOO_STRUCT_DOT-NEXT: Decl[TypeAlias]/CurrNominal:      ExtNestedTypealias[#Int#]{{; name=.+$}}
+// FOO_STRUCT_DOT-NEXT: Decl[InstanceMethod]/Super: copy({#(self): FooStruct#})[#() -> FooStruct#]; name=copy(self: FooStruct)
 // FOO_STRUCT_DOT-NEXT: End completions
 
 // FOO_STRUCT_NO_DOT: Begin completions
@@ -505,6 +508,7 @@ var fooObject: FooStruct
 // FOO_STRUCT_NO_DOT-NEXT: Decl[Class]/CurrNominal:          .ExtNestedClass[#FooStruct.ExtNestedClass#]{{; name=.+$}}
 // FOO_STRUCT_NO_DOT-NEXT: Decl[Enum]/CurrNominal:           .ExtNestedEnum[#FooStruct.ExtNestedEnum#]{{; name=.+$}}
 // FOO_STRUCT_NO_DOT-NEXT: Decl[TypeAlias]/CurrNominal:      .ExtNestedTypealias[#Int#]{{; name=.+$}}
+// FOO_STRUCT_NO_DOT-NEXT: Decl[InstanceMethod]/Super: .copy({#(self): FooStruct#})[#() -> FooStruct#]; name=copy(self: FooStruct)
 // FOO_STRUCT_NO_DOT-NEXT: Keyword[self]/CurrNominal:        .self[#FooStruct.Type#]; name=self
 // FOO_STRUCT_NO_DOT-NEXT: Keyword/CurrNominal:              .Type[#FooStruct.Type#]; name=Type
 // FOO_STRUCT_NO_DOT-NEXT: End completions
@@ -1138,6 +1142,7 @@ func testFuncParenPattern1(_ fpp: FuncParenPattern) {
 // FUNC_PAREN_PATTERN_1: Begin completions
 // FUNC_PAREN_PATTERN_1-NEXT: Decl[InstanceMethod]/CurrNominal: .instanceFunc({#Int#})[#Void#]{{; name=.+$}}
 // FUNC_PAREN_PATTERN_1-NEXT: Decl[Subscript]/CurrNominal: [{#Int#}][#Int#]{{; name=.+$}}
+// FUNC_PAREN_PATTERN_1-NEXT: Decl[InstanceMethod]/Super: .copy()[#FuncParenPattern#]; name=copy()
 // FUNC_PAREN_PATTERN_1-NEXT: Keyword[self]/CurrNominal: .self[#FuncParenPattern#]; name=self
 // FUNC_PAREN_PATTERN_1-NEXT: End completions
 }
@@ -1148,6 +1153,7 @@ func testFuncParenPattern2(_ fpp: FuncParenPattern) {
 // FUNC_PAREN_PATTERN_2-NEXT: Decl[Constructor]/CurrNominal: ({#Int#})[#FuncParenPattern#]{{; name=.+$}}
 // FUNC_PAREN_PATTERN_2-NEXT: Decl[Constructor]/CurrNominal: ({#(Int, Int)#})[#FuncParenPattern#]{{; name=.+$}}
 // FUNC_PAREN_PATTERN_2-NEXT: Decl[InstanceMethod]/CurrNominal: .instanceFunc({#(self): &FuncParenPattern#})[#(Int) -> Void#]{{; name=.+$}}
+// FUNC_PAREN_PATTERN_2-NEXT: Decl[InstanceMethod]/Super: .copy({#(self): FuncParenPattern#})[#() -> FuncParenPattern#]; name=copy(self: FuncParenPattern)
 // FUNC_PAREN_PATTERN_2-NEXT: Keyword[self]/CurrNominal: .self[#FuncParenPattern.Type#]; name=self
 // FUNC_PAREN_PATTERN_2-NEXT: Keyword/CurrNominal: .Type[#FuncParenPattern.Type#]; name=Type
 // FUNC_PAREN_PATTERN_2-NEXT: End completions
@@ -1902,7 +1908,7 @@ func testDeDuped(_ x: dedupS) {
   x#^PROTOCOL_EXT_DEDUP_1^#
 // FIXME: Should produce 3 items (?)
 
-// PROTOCOL_EXT_DEDUP_1: Begin completions, 5 items
+// PROTOCOL_EXT_DEDUP_1: Begin completions, 6 items
 // PROTOCOL_EXT_DEDUP_1: Decl[InstanceMethod]/CurrNominal:   .foo()[#Int#]; name=foo()
 // PROTOCOL_EXT_DEDUP_1: Decl[InstanceVar]/CurrNominal:      .bar[#Int#]; name=bar
 // PROTOCOL_EXT_DEDUP_1: Decl[Subscript]/CurrNominal:        [{#(x): Int#}][#Int#]; name=[x: Int]
