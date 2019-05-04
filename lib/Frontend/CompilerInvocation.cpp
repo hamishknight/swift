@@ -304,6 +304,9 @@ static bool ParseLangArgs(LangOptions &Opts, ArgList &Args,
     }
   }
 
+  Opts.DisableCopyableSynthesis |=
+      Args.hasArg(OPT_disable_copyable_synthesis);
+
   Opts.CodeCompleteInitsInPostfixExpr |=
       Args.hasArg(OPT_code_complete_inits_in_postfix_expr);
 

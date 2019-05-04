@@ -1332,6 +1332,11 @@ void NominalTypeDecl::prepareConformanceTable() const {
       addSynthesized(KnownProtocolKind::RawRepresentable);
     }
   }
+
+  if (isCompilerCopyable()) {
+    addSynthesized(KnownProtocolKind::Copyable);
+    addSynthesized(KnownProtocolKind::CompilerCopyable);
+  }
 }
 
 bool NominalTypeDecl::lookupConformance(

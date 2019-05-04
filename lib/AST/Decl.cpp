@@ -2532,6 +2532,13 @@ void ValueDecl::setIsDynamic(bool value) {
   LazySemanticInfo.isDynamic = value;
 }
 
+bool NominalTypeDecl::isCompilerCopyable() const {
+  auto &ctx = getASTContext();
+  return evaluateOrDefault(
+      ctx.evaluator,
+      IsCompilerCopyableRequest{const_cast<NominalTypeDecl *>(this)}, false);
+}
+
 bool ValueDecl::canBeAccessedByDynamicLookup() const {
   if (!hasName())
     return false;
@@ -4975,8 +4982,8 @@ void VarDecl::markInvalid() {
 /// Returns whether the var is settable in the specified context: this
 /// is either because it is a stored var, because it has a custom setter, or
 /// is a let member in an initializer.
-bool VarDecl::isSettable(const DeclContext *UseDC,
-                         const DeclRefExpr *base) const {
+bool VarDecl::isSettable(const DeclContext *UseDC, const DeclRefExpr *base,
+                         bool isDesignatedInit) const {
   // If this is a 'var' decl, then we're settable if we have storage or a
   // setter.
   if (!isImmutable())
@@ -5016,8 +5023,8 @@ bool VarDecl::isSettable(const DeclContext *UseDC,
     // If this is a convenience initializer (i.e. one that calls
     // self.init), then let properties are never mutable in it.  They are
     // only mutable in designated initializers.
-    if (CD->getDelegatingOrChainedInitKind(nullptr) ==
-        ConstructorDecl::BodyInitKind::Delegating)
+    if (!isDesignatedInit && CD->getDelegatingOrChainedInitKind(nullptr) ==
+                                 ConstructorDecl::BodyInitKind::Delegating)
       return false;
 
     return true;

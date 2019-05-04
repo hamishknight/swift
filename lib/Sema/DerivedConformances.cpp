@@ -124,6 +124,9 @@ bool DerivedConformance::derivesProtocolConformance(DeclContext *DC,
       return true;
     }
 
+    if (*knownProtocol == KnownProtocolKind::CompilerCopyable)
+      return true;
+
     // Structs can explicitly derive Equatable conformance.
     if (isa<StructDecl>(Nominal)) {
       switch (*knownProtocol) {
@@ -233,6 +236,9 @@ ValueDecl *DerivedConformance::getDerivableRequirement(TypeChecker &tc,
       // Decodable.init(from: Decoder)
       if (argumentNames[0] == ctx.Id_from)
         return getRequirement(KnownProtocolKind::Decodable);
+
+      if (argumentNames[0] == ctx.Id_copying)
+        return getRequirement(KnownProtocolKind::CompilerCopyable);
     }
 
     return nullptr;

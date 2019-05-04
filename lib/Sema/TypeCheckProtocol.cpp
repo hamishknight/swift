@@ -5463,6 +5463,9 @@ ValueDecl *TypeChecker::deriveProtocolRequirement(DeclContext *DC,
   case KnownProtocolKind::Decodable:
     return derived.deriveDecodable(Requirement);
 
+  case KnownProtocolKind::CompilerCopyable:
+    return derived.deriveCopyable(Requirement);
+
   default:
     return nullptr;
   }

@@ -93,6 +93,8 @@ namespace swift {
     /// Should access control be respected?
     bool EnableAccessControl = true;
 
+    bool DisableCopyableSynthesis = false;
+
     /// Enable 'availability' restrictions for App Extensions.
     bool EnableAppExtensionRestrictions = false;
 

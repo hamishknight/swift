@@ -241,6 +241,9 @@ def disable_access_control : Flag<["-"], "disable-access-control">,
 def enable_access_control : Flag<["-"], "enable-access-control">,
   HelpText<"Respect access control restrictions">;
 
+def disable_copyable_synthesis : Flag<["-"], "disable-copyable-synthesis">,
+  HelpText<"Disable compiler synthesis of Copyable">;
+
 def code_complete_inits_in_postfix_expr : Flag<["-"], "code-complete-inits-in-postfix-expr">,
   HelpText<"Include initializers when completing a postfix expression">;
 def code_complete_call_pattern_heuristics : Flag<["-"], "code-complete-call-pattern-heuristics">,

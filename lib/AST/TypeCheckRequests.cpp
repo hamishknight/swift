@@ -285,6 +285,31 @@ void IsDynamicRequest::cacheResult(bool value) const {
 }
 
 //----------------------------------------------------------------------------//
+// isCompilerCopyable computation.
+//----------------------------------------------------------------------------//
+
+void IsCompilerCopyableRequest::diagnoseCycle(DiagnosticEngine &diags) const {}
+
+void IsCompilerCopyableRequest::noteCycleStep(DiagnosticEngine &diags) const {}
+
+Optional<bool> IsCompilerCopyableRequest::getCachedResult() const {
+  auto *decl = std::get<0>(getStorage());
+  if (decl->LazySemanticInfo.IsCompilerCopyableComputed)
+    return decl->LazySemanticInfo.IsCompilerCopyable;
+
+  return None;
+}
+
+void IsCompilerCopyableRequest::cacheResult(bool value) const {
+  auto decl = std::get<0>(getStorage());
+  if (decl->LazySemanticInfo.IsCompilerCopyableComputed)
+    assert(getCachedResult() == value);
+
+  decl->LazySemanticInfo.IsCompilerCopyableComputed = true;
+  decl->LazySemanticInfo.IsCompilerCopyable = value;
+}
+
+//----------------------------------------------------------------------------//
 // Requirement computation.
 //----------------------------------------------------------------------------//
 

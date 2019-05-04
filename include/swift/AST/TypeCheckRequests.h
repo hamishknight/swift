@@ -243,6 +243,31 @@ public:
   void cacheResult(bool value) const;
 };
 
+class IsCompilerCopyableRequest
+    : public SimpleRequest<IsCompilerCopyableRequest,
+                           CacheKind::SeparatelyCached, bool,
+                           NominalTypeDecl *> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  // Evaluation.
+  llvm::Expected<bool> evaluate(Evaluator &evaluator,
+                                NominalTypeDecl *decl) const;
+
+public:
+  // Cycle handling
+  void diagnoseCycle(DiagnosticEngine &diags) const;
+  void noteCycleStep(DiagnosticEngine &diags) const;
+
+  // Separate caching.
+  bool isCached() const { return true; }
+  Optional<bool> getCachedResult() const;
+  void cacheResult(bool value) const;
+};
+
 /// Describes the owner of a where clause, from which we can extract
 /// requirements.
 struct WhereClauseOwner {

@@ -2653,6 +2653,10 @@ public:
       }
     }
 
+    if (ctor->getParameters()->size() == 1 &&
+        ctor->getParameters()->get(0)->getArgumentName() == ctx.Id_copying)
+      ctor->setUserAccessible(false);
+
     ctor->computeType();
 
     return ctor;

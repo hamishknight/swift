@@ -2367,12 +2367,18 @@ class ValueDecl : public Decl {
     /// Whether this declaration is 'final'. A final class can't be subclassed,
     /// a final class member can't be overriden.
     unsigned isFinal : 1;
+
+    /// Whether the synthesized _CompilerCopyable conformance has been evaluated
+    /// yet.
+    unsigned IsCompilerCopyableComputed : 1;
+    unsigned IsCompilerCopyable : 1;
   } LazySemanticInfo = { };
 
   friend class OverriddenDeclsRequest;
   friend class IsObjCRequest;
   friend class IsFinalRequest;
   friend class IsDynamicRequest;
+  friend class IsCompilerCopyableRequest;
 
 protected:
   ValueDecl(DeclKind K,
@@ -3286,6 +3292,8 @@ public:
   /// Do we need to use resilient access patterns when accessing this
   /// type from the given module?
   bool isResilient(ModuleDecl *M, ResilienceExpansion expansion) const;
+
+  bool isCompilerCopyable() const;
 
   /// Determine whether we have already attempted to add any
   /// implicitly-defined initializers to this declaration.
@@ -4835,8 +4843,8 @@ public:
   /// is a let member in an initializer.
   ///
   /// Pass a null context and null base to check if it's always settable.
-  bool isSettable(const DeclContext *UseDC,
-                  const DeclRefExpr *base = nullptr) const;
+  bool isSettable(const DeclContext *UseDC, const DeclRefExpr *base = nullptr,
+                  bool isDesignatedInit = false) const;
 
   /// Return the parent pattern binding that may provide an initializer for this
   /// VarDecl.  This returns null if there is none associated with the VarDecl.

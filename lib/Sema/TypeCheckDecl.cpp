@@ -1384,6 +1384,77 @@ IsDynamicRequest::evaluate(Evaluator &evaluator, ValueDecl *decl) const {
   return false;
 }
 
+llvm::Expected<bool>
+IsCompilerCopyableRequest::evaluate(Evaluator &evaluator,
+                                    NominalTypeDecl *decl) const {
+  auto &ctx = decl->getASTContext();
+
+  // If Copyable synthesis is disabled, nothing is compiler copyable.
+  if (ctx.LangOpts.DisableCopyableSynthesis)
+    return false;
+
+  if (!isa<StructDecl>(decl) && !isa<ClassDecl>(decl))
+    return false;
+
+  // Actors already conform to Copyable through _ActorProtocol.
+  if (decl->getAttrs().hasAttribute<ActorAttr>())
+    return false;
+
+  // Don't try to synthesise Copyable for an unavailable decl.
+  if (decl->getAttrs().isUnavailable(ctx))
+    return false;
+
+  // Currently only synthesize _CompilerCopyable for final classes.
+  if (auto *classDecl = dyn_cast<ClassDecl>(decl))
+    if (classDecl->hasSuperclass() || !classDecl->isFinal())
+      return false;
+
+  // We can synthesize compiler copyable if all stored properties are copyable.
+  auto *copyableProto = ctx.getProtocol(KnownProtocolKind::Copyable);
+
+  // If we're not in a context where the Copyable protocol exists, there's
+  // nothing we can do (this can occur with custom stdlib modules used in
+  // tests).
+  if (!copyableProto)
+    return false;
+
+  auto &TC = TypeChecker::createForContext(ctx);
+  for (auto *prop : decl->getStoredProperties()) {
+    if (prop->getAttrs().isUnavailable(ctx))
+      return false;
+
+    // If the property doesn't have a type, it might not have been validated
+    // yet.
+    if (!prop->hasType()) {
+      TC.validateDecl(prop);
+
+      // If we still don't have a type, there's nothing we can do.
+      if (!prop->hasType())
+        return false;
+    }
+    auto propTy = prop->getType();
+
+    // The property can either be an actor safe function...
+    if (auto *fnTy = propTy->getAs<FunctionType>())
+      if (fnTy->isActorSafe())
+        continue;
+
+    // ... or a (_Compiler)Copyable conforming type.
+    auto *nominal = propTy->getAnyNominal();
+    if (!nominal)
+      return false;
+
+    // Check for Copyable conformance first as _CompilerCopyable requires
+    // evaluating each of the stored properties.
+    SmallVector<ProtocolConformance *, 1> conformances;
+    if (!TC.conformsToProtocol(propTy, copyableProto, prop->getDeclContext(),
+                               ConformanceCheckOptions()) &&
+        !nominal->isCompilerCopyable())
+      return false;
+  }
+  return true;
+}
+
 namespace {
   /// How to generate the raw value for each element of an enum that doesn't
   /// have one explicitly specified.
