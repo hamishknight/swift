@@ -7619,6 +7619,64 @@ bool ConstraintSystem::applySolutionFixes(Expr *E, const Solution &solution) {
   return diagnosedError;
 }
 
+static void synthesizeCopyInCaptureLists(ConstraintSystem &cs, Expr *&expr) {
+  class CopySynthesisWalker : public ASTWalker {
+    ConstraintSystem &CS;
+
+  public:
+    CopySynthesisWalker(ConstraintSystem &cs) : CS(cs) {}
+
+    std::pair<bool, Expr *> walkToExprPre(Expr *E) override {
+      if (!E || isa<ErrorExpr>(E) || !E->getType())
+        return {false, E};
+
+      if (auto *ce = dyn_cast<ClosureExpr>(E))
+        if (!ce->hasSingleExpressionBody())
+          return {false, E};
+
+      auto *cle = dyn_cast<CaptureListExpr>(E);
+      if (!cle || AnyFunctionRef(cle->getClosureBody()).isKnownNoEscape() ||
+          !cle->getType()->castTo<FunctionType>()->isActorSafe())
+        return {true, E};
+
+      // For an @actorSafe closure we need to synthesize .copy() calls on
+      // each of the captures.
+      auto &ctx = CS.TC.Context;
+      for (auto &entry : cle->getCaptureList()) {
+        auto *dc = entry.Init->getDeclContext();
+        auto varTy = entry.Var->getType();
+
+        // If it's not copyable, diagnose.
+        if (!CS.TC.conformsToProtocol(
+                varTy, ctx.getProtocol(KnownProtocolKind::Copyable), dc,
+                ConformanceCheckOptions())) {
+          CS.TC.diagnose(entry.Var, diag::actor_safe_capture_must_be_copyable,
+                         entry.Var->getFullName());
+          continue;
+        }
+
+        assert(entry.Init->getNumPatternEntries() == 1);
+        auto *init = entry.Init->getInit(0);
+
+        auto *copyFuncExpr = new (ctx)
+            UnresolvedDotExpr(init, SourceLoc(), DeclName(ctx.Id_copy),
+                              DeclNameLoc(), /*Implicit*/ true,
+                              /*OuterAlts*/ {}, /*MustBeActorSafe*/ true);
+        Expr *newInitExpr = CallExpr::createImplicit(ctx, copyFuncExpr, {}, {});
+
+        CS.TC.typeCheckExpression(newInitExpr, dc, TypeLoc::withoutLoc(varTy),
+                                  CTP_CannotFail);
+        CS.cacheExprTypes(newInitExpr);
+        entry.Init->setInit(0, newInitExpr);
+      }
+      return {true, E};
+    }
+  };
+
+  CopySynthesisWalker walker(cs);
+  expr->walk(walker);
+}
+
 /// Apply a given solution to the expression, producing a fully
 /// type-checked expression.
 Expr *ConstraintSystem::applySolution(Solution &solution, Expr *expr,
@@ -7681,8 +7739,11 @@ Expr *ConstraintSystem::applySolution(Solution &solution, Expr *expr,
                                    getConstraintLocator(expr));
   }
 
-  if (result)
+  if (result) {
     rewriter.finalize(result);
+    synthesizeCopyInCaptureLists(*this, result);
+  }
+
   // If we're re-typechecking an expression for diagnostics, don't
   // visit closures that have non-single expression bodies.
   if (!skipClosures) {
