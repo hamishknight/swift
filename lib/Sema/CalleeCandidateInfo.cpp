@@ -606,25 +606,30 @@ void CalleeCandidateInfo::collectCalleeCandidates(Expr *fn,
   
   if (auto declRefExpr = dyn_cast<DeclRefExpr>(fn)) {
     auto decl = declRefExpr->getDecl();
-    candidates.push_back({ decl, skipCurriedSelf(decl) });
-    declName = decl->getBaseName().userFacingName();
-    return;
+    if (decl->isUserAccessible()) {
+      candidates.push_back({decl, skipCurriedSelf(decl)});
+      declName = decl->getBaseName().userFacingName();
+      return;
+    }
   }
   
   if (auto declRefExpr = dyn_cast<OtherConstructorDeclRefExpr>(fn)) {
     auto decl = declRefExpr->getDecl();
-    candidates.push_back({ decl, skipCurriedSelf(decl) });
-    
-    if (auto selfTy = decl->getDeclContext()->getSelfInterfaceType())
-      declName = selfTy.getString() + ".init";
-    else
-      declName = "init";
-    return;
+    if (decl->isUserAccessible()) {
+      candidates.push_back({decl, skipCurriedSelf(decl)});
+
+      if (auto selfTy = decl->getDeclContext()->getSelfInterfaceType())
+        declName = selfTy.getString() + ".init";
+      else
+        declName = "init";
+      return;
+    }
   }
   
   if (auto overloadedDRE = dyn_cast<OverloadedDeclRefExpr>(fn)) {
     for (auto cand : overloadedDRE->getDecls()) {
-      candidates.push_back({ cand, skipCurriedSelf(cand) });
+      if (cand->isUserAccessible())
+        candidates.push_back({cand, skipCurriedSelf(cand)});
     }
     
     if (!candidates.empty())
@@ -643,7 +648,8 @@ void CalleeCandidateInfo::collectCalleeCandidates(Expr *fn,
       for (auto ctor : ctors) {
         if (!ctor.getValueDecl()->hasInterfaceType())
           CS.getTypeChecker().validateDeclForNameLookup(ctor.getValueDecl());
-        if (ctor.getValueDecl()->hasInterfaceType())
+        if (ctor.getValueDecl()->hasInterfaceType() &&
+            ctor.getValueDecl()->isUserAccessible())
           candidates.push_back({ ctor.getValueDecl(), 1 });
       }
     }
@@ -770,7 +776,7 @@ void CalleeCandidateInfo::collectCalleeCandidates(Expr *fn,
       if (bindOverload->getKind() != ConstraintKind::BindOverload)
         continue;
       auto c = bindOverload->getOverloadChoice();
-      if (c.isDecl())
+      if (c.isDecl() && c.getDecl()->isUserAccessible())
         candidates.push_back({ c.getDecl(), hasCurriedSelf });
     }
     

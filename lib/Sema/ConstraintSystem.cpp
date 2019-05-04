@@ -1867,6 +1867,13 @@ void ConstraintSystem::resolveOverload(ConstraintLocator *locator,
       increaseScore(SK_Unavailable);
     }
 
+    // HACK: Penalise use of init(_copying:).
+    if (auto *cd = dyn_cast<ConstructorDecl>(choice.getDecl()))
+      if (cd->getParameters()->size() == 1 &&
+          cd->getParameters()->get(0)->getArgumentName() ==
+              getASTContext().Id_copying)
+        increaseScore(SK_CopyingInit);
+
     if (kind == OverloadChoiceKind::DynamicMemberLookup) {
       // DynamicMemberLookup results are always a (dynamicMember:T1)->T2
       // subscript.
