@@ -1211,6 +1211,7 @@ public protocol FloatingPoint : SignedNumeric, Strideable, Hashable
 
 /// The sign of a floating-point value.
 @_frozen // FIXME(sil-serialize-all)
+@actorSafe(unchecked)
 public enum FloatingPointSign: Int {
   /// The sign for a positive value.
   case plus
@@ -1256,6 +1257,8 @@ public enum FloatingPointSign: Int {
   public func _rawHashValue(seed: Int) -> Int {
     return rawValue._rawHashValue(seed: seed)
   }
+
+  public func copy() -> FloatingPointSign { return self }
 }
 
 /// The IEEE 754 floating-point classes.

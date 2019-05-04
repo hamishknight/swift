@@ -33,7 +33,12 @@
         {
           key.kind: source.lang.swift.decl.function.constructor,
           key.usr: "s:11test_module5EmptyCACycfc",
-          key.is_implicit: 1
+          key.is_implicit: 1,
+          key.attributes: [
+            {
+              key.attribute: source.decl.attribute.actorSafe
+            }
+          ]
         }
       ]
     },
@@ -114,7 +119,12 @@
         {
           key.kind: source.lang.swift.decl.function.constructor,
           key.usr: "s:11test_module16ComputedPropertyCACycfc",
-          key.is_implicit: 1
+          key.is_implicit: 1,
+          key.attributes: [
+            {
+              key.attribute: source.decl.attribute.actorSafe
+            }
+          ]
         }
       ]
     },
@@ -148,7 +158,12 @@
         {
           key.kind: source.lang.swift.decl.function.constructor,
           key.usr: "s:11test_module2C2CACycfc",
-          key.is_implicit: 1
+          key.is_implicit: 1,
+          key.attributes: [
+            {
+              key.attribute: source.decl.attribute.actorSafe
+            }
+          ]
         }
       ]
     },

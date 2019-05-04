@@ -59,6 +59,7 @@ else:
 
 ${SelfDocComment}
 @_fixed_layout
+@actorSafe(unchecked)
 public struct ${Self} {
   public // @testable
   var _value: Builtin.FPIEEE${bits}

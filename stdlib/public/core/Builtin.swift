@@ -79,6 +79,7 @@ func _canBeClass<T>(_: T.Type) -> Int8 {
 /// - Returns: A new instance of type `U`, cast from `x`.
 @inlinable // unsafe-performance
 @_transparent
+@actorSafe(unchecked)
 public func unsafeBitCast<T, U>(_ x: T, to type: U.Type) -> U {
   _precondition(MemoryLayout<T>.size == MemoryLayout<U>.size,
     "Can't unsafeBitCast between types of different sizes")
@@ -137,6 +138,7 @@ internal func != (lhs: Builtin.RawPointer, rhs: Builtin.RawPointer) -> Bool {
 /// - Returns: `true` if both `t0` and `t1` are `nil` or if they represent the
 ///   same type; otherwise, `false`.
 @inlinable
+@actorSafe(unchecked)
 public func == (t0: Any.Type?, t1: Any.Type?) -> Bool {
   switch (t0, t1) {
   case (.none, .none): return true
@@ -154,6 +156,7 @@ public func == (t0: Any.Type?, t1: Any.Type?) -> Bool {
 /// - Returns: `true` if one, but not both, of `t0` and `t1` are `nil`, or if
 ///   they represent different types; otherwise, `false`.
 @inlinable
+@actorSafe(unchecked)
 public func != (t0: Any.Type?, t1: Any.Type?) -> Bool {
   return !(t0 == t1)
 }
@@ -231,6 +234,7 @@ public func _unsafeReferenceCast<T, U>(_ x: T, to: U.Type) -> U {
 ///   - type: The type `T` to which `x` is cast.
 /// - Returns: The instance `x`, cast to type `T`.
 @_transparent
+@actorSafe(unchecked)
 public func unsafeDowncast<T : AnyObject>(_ x: AnyObject, to type: T.Type) -> T {
   _debugPrecondition(x is T, "invalid unsafeDowncast")
   return Builtin.castReference(x)
@@ -845,6 +849,7 @@ func _trueAfterDiagnostics() -> Builtin.Int1 {
 /// - Returns: The dynamic type, which is a metatype instance.
 @_transparent
 @_semantics("typechecker.type(of:)")
+@actorSafe(unchecked)
 public func type<T, Metatype>(of value: T) -> Metatype {
   // This implementation is never used, since calls to `Swift.type(of:)` are
   // resolved as a special case by the type checker.

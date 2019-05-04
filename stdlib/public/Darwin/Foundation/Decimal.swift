@@ -15,6 +15,7 @@ import _SwiftCoreFoundationOverlayShims
 
 // The methods in this extension exist to match the protocol requirements of FloatinPoint, even if we can't conform directly.
 // If it becomes clear that conformance is truly impossible, we can deprecate some of the methods (e.g. isEqual(to:)) in favor of operators.
+@actorSafe(unchecked)
 extension Decimal {
     public typealias RoundingMode = NSDecimalNumber.RoundingMode
     public typealias CalculationError = NSDecimalNumber.CalculationError
@@ -198,18 +199,21 @@ extension Decimal : Hashable, Comparable {
     }
 }
 
+@actorSafe(unchecked)
 extension Decimal : ExpressibleByFloatLiteral {
     public init(floatLiteral value: Double) {
         self.init(value)
     }
 }
 
+@actorSafe(unchecked)
 extension Decimal : ExpressibleByIntegerLiteral {
     public init(integerLiteral value: Int) {
         self.init(value)
     }
 }
 
+@actorSafe(unchecked)
 extension Decimal : SignedNumeric {
   public var magnitude: Decimal {
       return Decimal(
@@ -288,6 +292,7 @@ extension Decimal : Strideable {
     }
 }
 
+@actorSafe(unchecked)
 extension Decimal {
     public init(_ value: UInt8) {
         self.init(UInt64(value))

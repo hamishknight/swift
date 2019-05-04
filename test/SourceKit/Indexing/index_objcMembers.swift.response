@@ -70,6 +70,9 @@
           key.is_implicit: 1,
           key.attributes: [
             {
+              key.attribute: source.decl.attribute.actorSafe
+            },
+            {
               key.attribute: source.decl.attribute.objc
             }
           ]

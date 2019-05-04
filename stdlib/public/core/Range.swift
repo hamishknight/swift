@@ -126,6 +126,7 @@ extension RangeExpression {
 /// you need to iterate over consecutive floating-point values, see the
 /// `stride(from:to:by:)` function.
 @_fixed_layout
+@actorSafe(unchecked)
 public struct Range<Bound : Comparable> {
   /// The range's lower bound.
   ///
@@ -689,6 +690,7 @@ extension PartialRangeFrom: Encodable where Bound: Encodable {
   }
 }
 
+@actorSafe(unchecked)
 extension Comparable {
   /// Returns a half-open range that contains its lower bound but not its upper
   /// bound.

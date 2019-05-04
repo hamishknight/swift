@@ -93,6 +93,7 @@ extension String {
 ///   substrings may, therefore, prolong the lifetime of string data that is
 ///   no longer otherwise accessible, which can appear to be memory leakage.
 @_fixed_layout
+@actorSafe(unchecked)
 public struct Substring {
   @usableFromInline
   internal var _slice: Slice<String>
@@ -122,6 +123,8 @@ extension Substring {
 
   @inlinable @inline(__always)
   internal var _wholeGuts: _StringGuts { return base._guts }
+
+  public func copy() -> Substring { return self }
 
   @inlinable
   internal var _offsetRange: Range<Int> {

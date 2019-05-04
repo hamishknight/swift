@@ -297,6 +297,7 @@
 ///   instances of those types always have a contiguous block of memory as
 ///   their storage.
 @_fixed_layout
+@actorSafe(unchecked)
 public struct Array<Element>: _DestructorSafeContainer {
   #if _runtime(_ObjC)
   @usableFromInline
@@ -783,6 +784,7 @@ extension Array: ExpressibleByArrayLiteral {
   ///
   /// - Parameter elements: A variadic list of elements of the new array.
   @inlinable
+  @actorSafe(unchecked)
   public init(arrayLiteral elements: Element...) {
     self = elements
   }

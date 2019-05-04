@@ -34,6 +34,7 @@
 /// For more information about using arrays, see `Array` and `ArraySlice`, with
 /// which `ContiguousArray` shares most properties and methods.
 @_fixed_layout
+@actorSafe(unchecked)
 public struct ContiguousArray<Element>: _DestructorSafeContainer {
   @usableFromInline
   internal typealias _Buffer = _ContiguousArrayBuffer<Element>
@@ -459,6 +460,7 @@ extension ContiguousArray: ExpressibleByArrayLiteral {
   ///
   /// - Parameter elements: A variadic list of elements of the new array.
   @inlinable
+  @actorSafe(unchecked)
   public init(arrayLiteral elements: Element...) {
     self.init(_buffer: ContiguousArray(elements)._buffer)
   }

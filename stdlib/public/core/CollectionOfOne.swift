@@ -22,6 +22,7 @@
 ///     let b = a + CollectionOfOne(toAdd)
 ///     // b == [1, 2, 3, 4, 100]
 @_fixed_layout // trivial-implementation
+@actorSafe(unchecked)
 public struct CollectionOfOne<Element> {
   @usableFromInline // trivial-implementation
   internal var _element: Element

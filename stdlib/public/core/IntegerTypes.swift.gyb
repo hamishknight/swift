@@ -1086,6 +1086,7 @@ def unsafeOperationComment(operator):
 /// type.
 %   end
 @_fixed_layout
+@actorSafe(unchecked)
 public struct ${Self}
   : FixedWidthInteger, ${Unsigned}Integer,
     _ExpressibleByBuiltinIntegerLiteral {

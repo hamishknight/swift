@@ -306,6 +306,7 @@ extension BidirectionalCollection where SubSequence == Self {
   ///
   /// - Complexity: O(1)
   @inlinable // protocol-only
+  @actorSafe(unchecked)
   public mutating func popLast() -> Element? {
     guard !isEmpty else { return nil }
     let element = last!

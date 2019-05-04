@@ -363,6 +363,7 @@ fileprivate final class __CharacterSetStorage : Hashable {
  
  This type provides "copy-on-write" behavior, and is also bridged to the Objective-C `NSCharacterSet` class.
 */
+@actorSafe(unchecked)
 public struct CharacterSet : ReferenceConvertible, Equatable, Hashable, SetAlgebra {
     public typealias ReferenceType = NSCharacterSet
     
@@ -654,6 +655,8 @@ public struct CharacterSet : ReferenceConvertible, Equatable, Hashable, SetAlgeb
         }
         _storage.invert()
     }
+
+    public func copy() -> CharacterSet { return self }
     
     // -----
     // MARK: -

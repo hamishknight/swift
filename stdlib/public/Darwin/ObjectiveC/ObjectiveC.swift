@@ -24,6 +24,7 @@ import _SwiftObjectiveCOverlayShims
 /// bool. Elsewhere, it is "signed char". The Clang importer imports it as
 /// ObjCBool.
 @_fixed_layout
+@actorSafe(unchecked)
 public struct ObjCBool : ExpressibleByBooleanLiteral {
 #if os(macOS) || (os(iOS) && (arch(i386) || arch(arm)))
   // On OS X and 32-bit iOS, Objective-C's BOOL type is a "signed char".
@@ -102,6 +103,7 @@ func _convertObjCBoolToBool(_ x: ObjCBool) -> Bool {
 ///
 /// The compiler has special knowledge of this type.
 @_fixed_layout
+@actorSafe(unchecked)
 public struct Selector : ExpressibleByStringLiteral {
   var ptr: OpaquePointer
 
@@ -116,6 +118,8 @@ public struct Selector : ExpressibleByStringLiteral {
   public init(stringLiteral value: String) {
     self = sel_registerName(value)
   }
+
+  public func copy() -> Selector { return self }
 }
 
 extension Selector: Equatable, Hashable {

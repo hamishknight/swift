@@ -23,6 +23,7 @@ internal class _DispatchSpecificValue<T> {
 	internal init(value: T) { self.value = value }
 }
 
+@actorSafe(unchecked)
 extension DispatchQueue {
 	public struct Attributes : OptionSet {
 		public let rawValue: UInt64

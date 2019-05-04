@@ -60,6 +60,7 @@ open class JSONEncoder {
     // MARK: Options
 
     /// The formatting of the output JSON data.
+    @actorSafe(unchecked)
     public struct OutputFormatting : OptionSet {
         /// The format's default value.
         public let rawValue: UInt
@@ -75,9 +76,11 @@ open class JSONEncoder {
         /// Produce JSON with dictionary keys sorted in lexicographic order.
         @available(macOS 10.13, iOS 11.0, watchOS 4.0, tvOS 11.0, *)
         public static let sortedKeys    = OutputFormatting(rawValue: 1 << 1)
+        public func copy() -> OutputFormatting { return self }
     }
 
     /// The strategy to use for encoding `Date` values.
+    @actorSafe(unchecked)
     public enum DateEncodingStrategy {
         /// Defer to `Date` for choosing an encoding. This is the default strategy.
         case deferredToDate
@@ -99,6 +102,7 @@ open class JSONEncoder {
         ///
         /// If the closure fails to encode a value into the given encoder, the encoder will encode an empty automatic container in its place.
         case custom((Date, Encoder) throws -> Void)
+        public func copy() -> DateEncodingStrategy { return self }
     }
 
     /// The strategy to use for encoding `Data` values.

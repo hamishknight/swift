@@ -98,6 +98,7 @@ extension DispatchSourceProtocol {
 	}
 }
 
+@actorSafe(unchecked)
 extension DispatchSource {
 	public struct MachSendEvent : OptionSet, RawRepresentable {
 		public let rawValue: UInt

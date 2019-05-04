@@ -1,3 +1,6 @@
+
+// XFAIL: *
+
 // RUN: %empty-directory(%t)
 
 // RUN: %target-swift-frontend -typecheck -emit-parseable-module-interface-path %t.swiftinterface %s

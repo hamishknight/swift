@@ -637,6 +637,7 @@ extension CGFloat : _ObjectiveCBridgeable {
 }
 
 // Literal support for NSNumber
+@actorSafe(unchecked)
 extension NSNumber : ExpressibleByFloatLiteral, ExpressibleByIntegerLiteral, ExpressibleByBooleanLiteral {
     /// Create an instance initialized to `value`.
     @nonobjc

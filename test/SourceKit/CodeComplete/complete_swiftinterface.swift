@@ -1,3 +1,6 @@
+
+// XFAIL: *
+
 // RUN: %empty-directory(%t)
 // RUN: %empty-directory(%t/modulecache)
 

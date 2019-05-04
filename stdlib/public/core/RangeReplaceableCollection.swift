@@ -817,6 +817,7 @@ extension RangeReplaceableCollection where Self : BidirectionalCollection {
   ///
   /// - Complexity: O(1)
   @inlinable
+  @actorSafe(unchecked)
   public mutating func popLast() -> Element? {
     if isEmpty { return nil }
     // duplicate of removeLast logic below, to avoid redundant precondition
@@ -888,6 +889,7 @@ where Self : BidirectionalCollection, SubSequence == Self {
   ///
   /// - Complexity: O(1)
   @inlinable
+  @actorSafe(unchecked)
   public mutating func popLast() -> Element? {
     if isEmpty { return nil }
     // duplicate of removeLast logic below, to avoid redundant precondition

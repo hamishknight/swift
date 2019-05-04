@@ -787,6 +787,7 @@ extension ExpressibleByStringInterpolation
   ///                   \(number) cookies cost \(price * number) dollars.
   ///                   """
   ///     // message == "If one cookie costs 2 dollars, 3 cookies cost 6 dollars."
+  @actorSafe(unchecked)
   public init(stringInterpolation: DefaultStringInterpolation) {
     self.init(stringLiteral: stringInterpolation.make())
   }

@@ -147,6 +147,7 @@
 /// same copy-on-write optimization that is used when two instances of `Set`
 /// share buffer.
 @_fixed_layout
+@actorSafe(unchecked)
 public struct Set<Element: Hashable> {
   @usableFromInline
   internal var _variant: _Variant
@@ -215,6 +216,7 @@ extension Set: ExpressibleByArrayLiteral {
   ///
   /// - Parameter elements: A variadic list of elements of the new set.
   @inlinable
+  @actorSafe(unchecked)
   public init(arrayLiteral elements: Element...) {
     if elements.isEmpty {
       self.init()

@@ -1183,6 +1183,7 @@ extension Unicode {
   ///     let overlayClass = Unicode.CanonicalCombiningClass(rawValue: 1)
   ///     let overlayClassIsOverlay = overlayClass == .overlay
   ///     // overlayClassIsOverlay == true
+  @actorSafe(unchecked)
   public struct CanonicalCombiningClass:
     Comparable, Hashable, RawRepresentable
   {

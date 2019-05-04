@@ -114,6 +114,7 @@
 ///   always use the `startIndex` and `endIndex` properties instead of
 ///   specific values.
 @_fixed_layout
+@actorSafe(unchecked)
 public struct ArraySlice<Element>: _DestructorSafeContainer {
   @usableFromInline
   internal typealias _Buffer = _SliceBuffer<Element>
@@ -606,6 +607,7 @@ extension ArraySlice: ExpressibleByArrayLiteral {
   ///
   /// - Parameter elements: A variadic list of elements of the new array.
   @inlinable
+  @actorSafe(unchecked)
   public init(arrayLiteral elements: Element...) {
     self.init(_buffer: ContiguousArray(elements)._buffer)
   }

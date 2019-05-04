@@ -61,6 +61,7 @@
 /// you need to iterate over consecutive floating-point values, see the
 /// `stride(from:through:by:)` function.
 @_fixed_layout
+@actorSafe(unchecked)
 public struct ClosedRange<Bound: Comparable> {
   /// The range's lower bound.
   public let lowerBound: Bound

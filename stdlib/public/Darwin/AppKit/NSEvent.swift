@@ -13,6 +13,7 @@
 @_exported import AppKit
 
 extension NSEvent {
+    @actorSafe(unchecked)
     public struct SpecialKey : RawRepresentable, Equatable, Hashable {
         public init(rawValue: Int) {
             self.rawValue = rawValue

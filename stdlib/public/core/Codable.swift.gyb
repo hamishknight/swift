@@ -1036,6 +1036,7 @@ public protocol SingleValueDecodingContainer {
 //===----------------------------------------------------------------------===//
 
 /// A user-defined key for providing context during encoding and decoding.
+@actorSafe(unchecked)
 public struct CodingUserInfoKey : RawRepresentable, Equatable, Hashable {
   public typealias RawValue = String
 

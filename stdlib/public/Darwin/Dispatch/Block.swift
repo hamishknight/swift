@@ -12,6 +12,7 @@
 
 import _SwiftDispatchOverlayShims
 
+@actorSafe(unchecked)
 public struct DispatchWorkItemFlags : OptionSet, RawRepresentable {
 	public let rawValue: UInt
 	public init(rawValue: UInt) { self.rawValue = rawValue }

@@ -386,6 +386,7 @@
 /// optimization that is used when two instances of `Dictionary` share
 /// buffer.
 @_fixed_layout
+@actorSafe(unchecked)
 public struct Dictionary<Key: Hashable, Value> {
   /// The element type of a dictionary: a tuple containing an individual
   /// key-value pair.
@@ -819,6 +820,7 @@ extension Dictionary: ExpressibleByDictionaryLiteral {
   @inlinable
   @_effects(readonly)
   @_semantics("optimize.sil.specialize.generic.size.never")
+  @actorSafe(unchecked)
   public init(dictionaryLiteral elements: (Key, Value)...) {
     let native = _NativeDictionary<Key, Value>(capacity: elements.count)
     for (key, value) in elements {

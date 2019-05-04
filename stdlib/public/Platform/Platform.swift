@@ -29,6 +29,7 @@ public var noErr: OSStatus { return 0 }
 ///
 /// The C type is a typedef for `unsigned char`.
 @_fixed_layout
+@actorSafe(unchecked)
 public struct DarwinBoolean : ExpressibleByBooleanLiteral {
   @usableFromInline var _value: UInt8
 

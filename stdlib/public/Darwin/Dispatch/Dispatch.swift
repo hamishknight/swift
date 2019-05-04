@@ -45,6 +45,7 @@ public func dispatchPrecondition(condition: @autoclosure () -> DispatchPredicate
 
 /// qos_class_t
 
+@actorSafe(unchecked)
 public struct DispatchQoS : Equatable {
 	public let qosClass: QoSClass
 	public let relativePriority: Int
@@ -118,6 +119,8 @@ public struct DispatchQoS : Equatable {
 	public static func ==(a: DispatchQoS, b: DispatchQoS) -> Bool {
 		return a.qosClass == b.qosClass && a.relativePriority == b.relativePriority
 	}
+
+  public func copy() -> DispatchQoS { return self }
 }
 
 /// 
@@ -129,6 +132,7 @@ public enum DispatchTimeoutResult {
 
 /// dispatch_group
 
+@actorSafe(unchecked)
 extension DispatchGroup {
 	public func notify(qos: DispatchQoS = .unspecified, flags: DispatchWorkItemFlags = [], queue: DispatchQueue, execute work: @escaping @convention(block) () -> Void) {
 		if #available(macOS 10.10, iOS 8.0, *), qos != .unspecified || !flags.isEmpty {
@@ -159,6 +163,7 @@ extension DispatchGroup {
 
 /// dispatch_semaphore
 
+@actorSafe(unchecked)
 extension DispatchSemaphore {
 	@discardableResult
 	public func signal() -> Int {

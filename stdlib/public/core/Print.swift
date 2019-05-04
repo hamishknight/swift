@@ -49,6 +49,7 @@
 ///     space (`" "`).
 ///   - terminator: The string to print after all items have been printed. The
 ///     default is a newline (`"\n"`).
+@actorSafe(unchecked)
 public func print(
   _ items: Any...,
   separator: String = " ",
@@ -105,6 +106,7 @@ public func print(
 ///     space (`" "`).
 ///   - terminator: The string to print after all items have been printed. The
 ///     default is a newline (`"\n"`).
+@actorSafe(unchecked)
 public func debugPrint(
   _ items: Any...,
   separator: String = " ",
@@ -158,6 +160,7 @@ public func debugPrint(
 ///     default is a newline (`"\n"`).
 ///   - output: An output stream to receive the text representation of each
 ///     item.
+@actorSafe(unchecked)
 public func print<Target : TextOutputStream>(
   _ items: Any...,
   separator: String = " ",
@@ -205,6 +208,7 @@ public func print<Target : TextOutputStream>(
 ///     default is a newline (`"\n"`).
 ///   - output: An output stream to receive the text representation of each
 ///     item.
+@actorSafe(unchecked)
 public func debugPrint<Target : TextOutputStream>(
   _ items: Any...,
   separator: String = " ",

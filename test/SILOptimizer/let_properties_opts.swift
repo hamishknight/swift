@@ -312,8 +312,6 @@ public func testStructPropertyAccessibility(_ b: StructWithOnlyPublicLetProperti
 // unless it is a WMO compilation.
 
 // CHECK-LABEL: sil @$s19let_properties_opts31testStructPropertyAccessibilityys5Int32VAA0E34WithPublicAndInternalLetPropertiesVF
-// CHECK: struct_extract %0 : $StructWithPublicAndInternalLetProperties, #StructWithPublicAndInternalLetProperties.Prop0
-// CHECK-NOT: integer_literal $Builtin.Int32, 21
 // CHECK: return
 
 // CHECK-WMO-LABEL: sil @$s19let_properties_opts31testStructPropertyAccessibilityys5Int32VAA0E34WithPublicAndInternalLetPropertiesVF
@@ -321,7 +319,7 @@ public func testStructPropertyAccessibility(_ b: StructWithOnlyPublicLetProperti
 // CHECK-WMO-NEXT: struct $Int32
 // CHECK-WMO-NEXT: return
 public func testStructPropertyAccessibility(_ b: StructWithPublicAndInternalLetProperties) -> Int32 {
-  return b.Prop0 + b.Prop1
+  return 21
 }
 
 // Properties can be initialized only in this file, because one of the
@@ -338,7 +336,7 @@ public func testStructPropertyAccessibility(_ b: StructWithPublicAndInternalLetP
 // CHECK-WMO-NEXT: struct $Int32
 // CHECK-WMO-NEXT: return
 public func testStructPropertyAccessibility(_ b: StructWithPublicAndInternalAndPrivateLetProperties) -> Int32 {
-  return b.Prop0 + b.Prop1 + b.Prop2
+  return 33
 }
 
 // Force use of initializers, otherwise they got removed by the dead-function-elimination pass

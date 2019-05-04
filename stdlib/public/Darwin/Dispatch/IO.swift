@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@actorSafe(unchecked)
 extension DispatchIO {
 
 	public enum StreamType : UInt  {

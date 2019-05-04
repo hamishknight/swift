@@ -114,6 +114,7 @@ public let normalizationTests: [NormalizationTest] = {
 }()
 #endif
 
+@actorSafe(unchecked)
 public struct UTFTest {
   public struct Flags : OptionSet {
     public let rawValue: Int

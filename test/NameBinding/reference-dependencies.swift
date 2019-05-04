@@ -463,7 +463,7 @@ struct Sentinel2 {}
 // CHECK: - !private "4main26OtherFileProtoImplementor2V"
 // CHECK: - "4main13PrivateProto1P"
 // CHECK: - "4main13PrivateProto2P"
-// CHECK: - !private "4main13PrivateProto3P"
+// CHECK: - "4main13PrivateProto3P"
 // CHECK: - !private "4main21PrivateTopLevelStructV"
 // CHECK: - !private "4main22PrivateTopLevelStruct2V"
 // CHECK: - "4main22PrivateTopLevelStruct3V"

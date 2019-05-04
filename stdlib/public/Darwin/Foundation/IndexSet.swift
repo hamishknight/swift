@@ -44,6 +44,7 @@ extension IndexSet.RangeView {
 /// Manages a `Set` of integer values, which are commonly used as an index type in Cocoa API.
 ///
 /// The range of valid integer values is 0..<INT_MAX-1. Anything outside this range is an error.
+@actorSafe(unchecked)
 public struct IndexSet : ReferenceConvertible, Equatable, BidirectionalCollection, SetAlgebra {
     
     /// An view of the contents of an IndexSet, organized by range.
@@ -343,6 +344,8 @@ public struct IndexSet : ReferenceConvertible, Equatable, BidirectionalCollectio
     public func intersects<R: RangeExpression>(integersIn range: R) -> Bool where R.Bound == Element { 
       return self.intersects(integersIn: range.relative(to: 0..<Int.max))
     }
+
+    public func copy() -> IndexSet { return self }
 
     // MARK: -
     // Collection

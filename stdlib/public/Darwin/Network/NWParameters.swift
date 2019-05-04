@@ -22,6 +22,7 @@
 // mangled name for Network._NWParameters.
 @_objcRuntimeName(_TtC7Network13_NWParameters)
 @available(macOS 10.14, iOS 12.0, watchOS 5.0, tvOS 12.0, *)
+@actorSafe(unchecked)
 public final class NWParameters : CustomDebugStringConvertible {
 	public var debugDescription: String {
 		return String("\(self.nw)")

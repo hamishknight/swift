@@ -71,6 +71,7 @@ public protocol SIMDScalar {
 }
 
 /// A SIMD vector of a fixed number of elements.
+@actorSafe(unchecked)
 public protocol SIMD: SIMDStorage,
                       Codable,
                       Hashable,
@@ -608,6 +609,7 @@ where Scalar: BinaryFloatingPoint, Scalar.RawSignificand: FixedWidthInteger {
 }
 
 @_fixed_layout
+@actorSafe(unchecked)
 public struct SIMDMask<Storage>: SIMD
                   where Storage: SIMD,
                  Storage.Scalar: FixedWidthInteger & SignedInteger {

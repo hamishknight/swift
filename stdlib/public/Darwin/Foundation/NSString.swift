@@ -18,6 +18,7 @@
 
 extension NSString : ExpressibleByStringLiteral {
   /// Create an instance initialized to `value`.
+  @actorSafe(unchecked)
   public required convenience init(stringLiteral value: StaticString) {
     var immutableResult: NSString
     if value.hasPointerRepresentation {

@@ -18,6 +18,7 @@ import _SwiftFoundationOverlayShims
 //===----------------------------------------------------------------------===//
 
 extension NSDictionary : ExpressibleByDictionaryLiteral {
+  @actorSafe(unchecked)
   public required convenience init(
     dictionaryLiteral elements: (Any, Any)...
   ) {

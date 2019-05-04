@@ -588,6 +588,7 @@ extension Sequence {
   ///
   /// - Complexity: O(*n*), where *n* is the length of the sequence.
   @inlinable
+  @actorSafe(unchecked)
   public func map<T>(
     _ transform: (Element) throws -> T
   ) rethrows -> [T] {

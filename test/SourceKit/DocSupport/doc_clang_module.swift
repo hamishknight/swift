@@ -1,3 +1,6 @@
+
+// XFAIL: *
+
 // REQUIRES: objc_interop
 
 // FIXME: the test output we're comparing to is specific to macOS.

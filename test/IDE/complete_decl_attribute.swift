@@ -50,6 +50,7 @@ func method(){}
 // KEYWORD2-NEXT:             Keyword/None:                       warn_unqualified_access[#Func Attribute#]; name=warn_unqualified_access{{$}}
 // KEYWORD2-NEXT:             Keyword/None:                       usableFromInline[#Func Attribute#]; name=usableFromInline
 // KEYWORD2-NEXT:             Keyword/None:                       discardableResult[#Func Attribute#]; name=discardableResult
+// KEYWORD2-NEXT:             Keyword/None:                       actorSafe[#Func Attribute#]; name=actorSafe
 // KEYWORD2-NEXT:             End completions
 
 @#^KEYWORD3^#
@@ -67,6 +68,7 @@ class C {}
 // KEYWORD3-NEXT:             Keyword/None:                       NSApplicationMain[#Class Attribute#]; name=NSApplicationMain{{$}}
 // KEYWORD3-NEXT:             Keyword/None:                       usableFromInline[#Class Attribute#]; name=usableFromInline
 // KEYWORD3-NEXT:             Keyword/None:                       _propertyDelegate[#Class Attribute#]; name=_propertyDelegate
+// KEYWORD3-NEXT:             Keyword/None:                       actorSafe[#Class Attribute#]; name=actorSafe
 // KEYWORD3-NEXT:             End completions
 
 @#^KEYWORD3_2^#IB
@@ -82,6 +84,7 @@ enum E {}
 // KEYWORD4-NEXT:             Keyword/None:                       dynamicMemberLookup[#Enum Attribute#]; name=dynamicMemberLookup
 // KEYWORD4-NEXT:             Keyword/None:                       usableFromInline[#Enum Attribute#]; name=usableFromInline
 // KEYWORD4-NEXT:             Keyword/None:                       _propertyDelegate[#Enum Attribute#]; name=_propertyDelegate
+// KEYWORD4-NEXT:             Keyword/None:                       actorSafe[#Enum Attribute#]; name=actorSafe
 // KEYWORD4-NEXT:             End completions
 
 
@@ -93,6 +96,7 @@ struct S{}
 // KEYWORD5-NEXT:             Keyword/None:                       dynamicMemberLookup[#Struct Attribute#]; name=dynamicMemberLookup
 // KEYWORD5-NEXT:             Keyword/None:                       usableFromInline[#Struct Attribute#]; name=usableFromInline
 // KEYWORD5-NEXT:             Keyword/None:                       _propertyDelegate[#Struct Attribute#]; name=_propertyDelegate
+// KEYWORD5-NEXT:             Keyword/None:                       actorSafe[#Struct Attribute#]; name=actorSafe
 // KEYWORD5-NEXT:             End completions
 
 
@@ -121,4 +125,5 @@ struct S{}
 // KEYWORD_LAST-NEXT:             Keyword/None:                       discardableResult[#Declaration Attribute#]; name=discardableResult
 // KEYWORD_LAST-NEXT:             Keyword/None:                       GKInspectable[#Declaration Attribute#]; name=GKInspectable{{$}}
 // KEYWORD_LAST-NEXT:             Keyword/None:                       _propertyDelegate[#Declaration Attribute#]; name=_propertyDelegate
+// KEYWORD_LAST-NEXT:             Keyword/None:                       actorSafe[#Declaration Attribute#]; name=actorSafe
 // KEYWORD_LAST-NEXT:             End completions

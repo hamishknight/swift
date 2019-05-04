@@ -7,16 +7,17 @@ struct MyStruct {
 
 public func use<T>(_ t : T){}
 
+// CHECK-LABEL: sil @$s23predictable_memopt_locs4mainyyF
 public func main() {
-	var a = MyStruct() // line 11
+	var a = MyStruct() // line 12
   // Verify that the inserted struct_extract has the same location as the store.
   // CHECK:  %[[A:.*]] = apply {{.*}} -> MyStruct,
-  // CHECK-SAME: loc {{.*}}:11:10, scope [[S:[0-9]+]]
+  // CHECK-SAME: loc {{.*}}:12:10, scope [[S:[0-9]+]]
   // CHECK-NEXT:  %[[I:.*]] = struct_extract %[[A]]
-  // CHECK-SAME:  loc {{.*}}:11:10, scope [[S]]
+  // CHECK-SAME:  loc {{.*}}:12:10, scope [[S]]
   // CHECK-NEXT:  struct_extract %[[I]]
-  // CHECK-SAME:  loc {{.*}}:11:10, scope [[S]]
+  // CHECK-SAME:  loc {{.*}}:12:10, scope [[S]]
   // CHECK:  store %[[A]] to %0 : $*MyStruct,
-  // CHECK-SAME:  loc {{.*}}:11:10, scope [[S]]
+  // CHECK-SAME:  loc {{.*}}:12:10, scope [[S]]
 	use(a.a)
 }

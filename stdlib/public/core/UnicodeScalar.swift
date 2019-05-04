@@ -33,6 +33,7 @@ extension Unicode {
   ///     print(airplane)
   ///     // Prints "✈︎"
   @_fixed_layout
+  @actorSafe(unchecked)
   public struct Scalar {
     @inlinable
     internal init(_value: UInt32) {

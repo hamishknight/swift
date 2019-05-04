@@ -128,6 +128,7 @@ extension NSSet : _HasCustomAnyHashableRepresentation {
 
 extension NSOrderedSet {
   // - (instancetype)initWithObjects:(id)firstObj, ...
+  @actorSafe(unchecked)
   public convenience init(objects elements: Any...) {
     self.init(array: elements)
   }
@@ -135,18 +136,21 @@ extension NSOrderedSet {
 
 extension NSSet {
   // - (instancetype)initWithObjects:(id)firstObj, ...
+  @actorSafe(unchecked)
   public convenience init(objects elements: Any...) {
     self.init(array: elements)
   }
 }
 
 extension NSSet : ExpressibleByArrayLiteral {
+  @actorSafe(unchecked)
   public required convenience init(arrayLiteral elements: Any...) {
     self.init(array: elements)
   }
 }
 
 extension NSOrderedSet : ExpressibleByArrayLiteral {
+  @actorSafe(unchecked)
   public required convenience init(arrayLiteral elements: Any...) {
     self.init(array: elements)
   }

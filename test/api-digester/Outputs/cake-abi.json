@@ -150,6 +150,7 @@
           "moduleName": "cake",
           "implicit": true,
           "declAttributes": [
+            "ActorSafety"
           ]
         }
       ],
@@ -541,7 +542,8 @@
           "moduleName": "cake",
           "implicit": true,
           "declAttributes": [
-            "Inlinable"
+            "Inlinable",
+            "ActorSafety"
           ]
         },
         {
@@ -579,7 +581,10 @@
           "declKind": "Var",
           "usr": "s:4cake6NumberO8rawValueSivp",
           "moduleName": "cake",
-          "implicit": true
+          "implicit": true,
+          "declAttributes": [
+            "ActorSafety"
+          ]
         }
       ],
       "declKind": "Enum",
@@ -1317,6 +1322,7 @@
       "usr": "s:Si",
       "moduleName": "Swift",
       "declAttributes": [
+        "ActorSafety",
         "FixedLayout"
       ],
       "conformances": [

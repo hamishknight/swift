@@ -18,12 +18,15 @@ import _SwiftFoundationOverlayShims
  
  Each index in an index path represents the index into an array of children from one node in the tree to another, deeper, node.
  */
+@actorSafe(unchecked)
 public struct IndexPath : ReferenceConvertible, Equatable, Hashable, MutableCollection, RandomAccessCollection, Comparable, ExpressibleByArrayLiteral {
     public typealias ReferenceType = NSIndexPath
     public typealias Element = Int
     public typealias Index = Array<Int>.Index
     public typealias Indices = DefaultIndices<IndexPath>
-    
+
+    public func copy() -> IndexPath { return self }
+
     fileprivate enum Storage : ExpressibleByArrayLiteral {
         typealias Element = Int
         case empty

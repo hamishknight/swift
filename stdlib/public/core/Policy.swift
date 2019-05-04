@@ -318,6 +318,7 @@ public typealias AnyClass = AnyObject.Type
 ///   - lhs: A value to compare.
 ///   - rhs: Another value to compare.
 @_transparent
+@actorSafe(unchecked)
 public func ~= <T : Equatable>(a: T, b: T) -> Bool {
   return a == b
 }
@@ -492,15 +493,16 @@ infix operator   |= : AssignmentPrecedence, BinaryInteger
 // from users.
 infix operator ~>
 
-public protocol Copyable {
+@actorSafe public protocol Copyable {
   func copy() -> Self
 }
 
-public protocol _CompilerCopyable : Copyable {
+@actorSafe public protocol _CompilerCopyable : Copyable {
   init(_copying other: Self)
 }
 
 extension _CompilerCopyable {
+  @actorSafe(unchecked)
   public func copy() -> Self {
     return type(of: self).init(_copying: self)
   }

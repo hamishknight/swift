@@ -61,6 +61,7 @@
 /// that functions, methods, and properties imported from C and Objective-C
 /// have a consistent type interface.
 @_fixed_layout
+@actorSafe(unchecked)
 public struct Bool {
   @usableFromInline
   internal var _value: Builtin.Int1
@@ -138,6 +139,8 @@ public struct Bool {
     var g = SystemRandomNumberGenerator()
     return Bool.random(using: &g)
   }
+
+  public func copy() -> Bool { return self }
 }
 
 extension Bool : _ExpressibleByBuiltinBooleanLiteral, ExpressibleByBooleanLiteral {

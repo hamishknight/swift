@@ -72,6 +72,11 @@
               key.usr: "s:s8CopyableP4copyxyF"
             }
           ],
+          key.attributes: [
+            {
+              key.attribute: source.decl.attribute.actorSafe
+            }
+          ]
         },
         {
           key.kind: source.lang.swift.ref.protocol,
@@ -115,7 +120,12 @@
           key.usr: "s:7sr_38151SVACycfc",
           key.line: 9,
           key.column: 8,
-          key.is_implicit: 1
+          key.is_implicit: 1,
+          key.attributes: [
+            {
+              key.attribute: source.decl.attribute.actorSafe
+            }
+          ]
         }
       ]
     }

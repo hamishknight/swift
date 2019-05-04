@@ -26,6 +26,7 @@ ordinalPositions = ['first', 'second', 'third', 'fourth']
 % storageN = 4 if n == 3 else n
 /// A vector of ${spelledNumbers[n]} scalar values.
 @_fixed_layout
+@actorSafe(unchecked)
 public struct SIMD${n}<Scalar>: SIMD where Scalar: SIMDScalar {
 
   public var _storage: Scalar.SIMD${storageN}Storage
@@ -54,6 +55,10 @@ public struct SIMD${n}<Scalar>: SIMD where Scalar: SIMDScalar {
       _precondition(indices.contains(index))
       _storage[index] = newValue
     }
+  }
+
+  public func copy() -> SIMD${n}<Scalar> {
+    return self
   }
 
   /// Creates a new vector from the given elements.

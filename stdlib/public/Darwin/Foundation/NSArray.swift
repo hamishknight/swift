@@ -18,6 +18,7 @@
 
 extension NSArray : ExpressibleByArrayLiteral {
   /// Create an instance initialized with `elements`.
+  @actorSafe(unchecked)
   public required convenience init(arrayLiteral elements: Any...) {
     // Let bridging take care of it.
     self.init(array: elements)

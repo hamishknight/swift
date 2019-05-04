@@ -127,6 +127,7 @@ public protocol OptionSet : SetAlgebra, RawRepresentable {
 /// - Note: A type conforming to `OptionSet` can implement any of
 ///  these initializers or methods, and those implementations will be
 ///  used in lieu of these defaults.
+@actorSafe(unchecked)
 extension OptionSet {
   /// Returns a new option set of the elements contained in this set, in the
   /// given set, or in both.
@@ -196,6 +197,7 @@ extension OptionSet {
 /// - Note: A type conforming to `OptionSet` can implement any of
 ///   these initializers or methods, and those implementations will be
 ///   used in lieu of these defaults.
+@actorSafe(unchecked)
 extension OptionSet where Element == Self {
   /// Returns a Boolean value that indicates whether a given element is a
   /// member of the option set.
@@ -326,6 +328,7 @@ extension OptionSet where Element == Self {
 /// - Note: A type conforming to `OptionSet` can implement any of
 ///   these initializers or methods, and those implementations will be
 ///   used in lieu of these defaults.
+@actorSafe(unchecked)
 extension OptionSet where RawValue : FixedWidthInteger {
   /// Creates an empty option set.
   ///

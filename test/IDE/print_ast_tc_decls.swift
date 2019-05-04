@@ -194,12 +194,13 @@ struct d0100_FooStruct {
 
   struct NestedStruct {}
 // PASS_COMMON-NEXT: {{^}}  struct NestedStruct {{{$}}
-// PASS_COMMON-NEXT: {{^}}    init(){{$}}
+// PASS_COMMON-NEXT: {{^}}    @actorSafe(unchecked) init(){{$}}
+// PASS_COMMON-NEXT: {{^}}    @actorSafe(unchecked) init(_copying: d0100_FooStruct.NestedStruct){{$}}
 // PASS_COMMON-NEXT: {{^}}  }{{$}}
 
   class NestedClass {}
 // PASS_COMMON-NEXT: {{^}}  class NestedClass {{{$}}
-// PASS_COMMON-NEXT: {{^}}    init(){{$}}
+// PASS_COMMON-NEXT: {{^}}    @actorSafe(unchecked) init(){{$}}
 // PASS_COMMON-NEXT: {{^}}    @objc deinit{{$}}
 // PASS_COMMON-NEXT: {{^}}  }{{$}}
 
@@ -241,8 +242,9 @@ struct d0100_FooStruct {
   static func overloadedStaticFunc2(x: Double) -> Int { return 0 }
 // PASS_COMMON-NEXT: {{^}}  static func overloadedStaticFunc2(x: Double) -> Int{{$}}
 }
-// PASS_COMMON-NEXT: {{^}}  init(instanceVar1: Int = 0){{$}}
-// PASS_COMMON-NEXT: {{^}}  init(){{$}}
+// PASS_COMMON-NEXT: {{^}}  @actorSafe(unchecked) init(instanceVar1: Int = 0){{$}}
+// PASS_COMMON-NEXT: {{^}}  @actorSafe(unchecked) init(){{$}}
+// PASS_COMMON-NEXT: {{^}}  @actorSafe(unchecked) init(_copying: d0100_FooStruct){{$}}
 // PASS_COMMON-NEXT: {{^}}}{{$}}
 
 extension d0100_FooStruct {
@@ -270,12 +272,13 @@ extension d0100_FooStruct {
 
   struct ExtNestedStruct {}
 // PASS_COMMON-NEXT: {{^}}  struct ExtNestedStruct {{{$}}
-// PASS_COMMON-NEXT: {{^}}    init(){{$}}
+// PASS_COMMON-NEXT: {{^}}    @actorSafe(unchecked) init(){{$}}
+// PASS_COMMON-NEXT: {{^}}    @actorSafe(unchecked) init(_copying: d0100_FooStruct.ExtNestedStruct){{$}}
 // PASS_COMMON-NEXT: {{^}}  }{{$}}
 
   class ExtNestedClass {}
 // PASS_COMMON-NEXT: {{^}}  class ExtNestedClass {{{$}}
-// PASS_COMMON-NEXT: {{^}}    init(){{$}}
+// PASS_COMMON-NEXT: {{^}}    @actorSafe(unchecked) init(){{$}}
 // PASS_COMMON-NEXT: {{^}}    @objc deinit{{$}}
 // PASS_COMMON-NEXT: {{^}}  }{{$}}
 
@@ -295,7 +298,8 @@ extension d0100_FooStruct.NestedStruct {
 // PASS_COMMON-LABEL: {{^}}extension d0100_FooStruct.NestedStruct {{{$}}
   struct ExtNestedStruct2 {}
 // PASS_COMMON-NEXT: {{^}}  struct ExtNestedStruct2 {{{$}}
-// PASS_COMMON-NEXT: {{^}}    init(){{$}}
+// PASS_COMMON-NEXT: {{^}}    @actorSafe(unchecked) init(){{$}}
+// PASS_COMMON-NEXT: {{^}}    @actorSafe(unchecked) init(_copying: d0100_FooStruct.NestedStruct.ExtNestedStruct2){{$}}
 // PASS_COMMON-NEXT: {{^}}  }{{$}}
 }
 
@@ -303,7 +307,8 @@ extension d0100_FooStruct.ExtNestedStruct {
 // PASS_COMMON-LABEL: {{^}}extension d0100_FooStruct.ExtNestedStruct {{{$}}
   struct ExtNestedStruct3 {}
 // PASS_COMMON-NEXT: {{^}}  struct ExtNestedStruct3 {{{$}}
-// PASS_COMMON-NEXT: {{^}}    init(){{$}}
+// PASS_COMMON-NEXT: {{^}}    @actorSafe(unchecked) init(){{$}}
+// PASS_COMMON-NEXT: {{^}}    @actorSafe(unchecked) init(_copying: d0100_FooStruct.ExtNestedStruct.ExtNestedStruct3){{$}}
 // PASS_COMMON-NEXT: {{^}}  }{{$}}
 }
 
@@ -379,9 +384,11 @@ struct d0110_ReadWriteProperties {
 // PASS_RW_PROP_GET_SET-NEXT:    {{^}}  subscript(i: Float) -> Int { get nonmutating set }{{$}}
 // PASS_RW_PROP_NO_GET_SET-NEXT: {{^}}  subscript(i: Float) -> Int { get nonmutating set }{{$}}
 }
-// PASS_RW_PROP_GET_SET-NEXT:    {{^}}  init(){{$}}
+// PASS_RW_PROP_GET_SET-NEXT:    {{^}}  @actorSafe(unchecked) init(){{$}}
+// PASS_RW_PROP_GET_SET-NEXT:    init(_copying: d0110_ReadWriteProperties)
 // PASS_RW_PROP_GET_SET-NEXT:    {{^}}}{{$}}
-// PASS_RW_PROP_NO_GET_SET-NEXT: {{^}}  init(){{$}}
+// PASS_RW_PROP_NO_GET_SET-NEXT: {{^}}  @actorSafe(unchecked) init(){{$}}
+// PASS_RW_PROP_NO_GET_SET-NEXT: init(_copying: d0110_ReadWriteProperties)
 // PASS_RW_PROP_NO_GET_SET-NEXT: {{^}}}{{$}}
 
 extension d0110_ReadWriteProperties {
@@ -584,7 +591,8 @@ struct d0200_EscapedIdentifiers {
 
   struct `struct` {}
 // PASS_COMMON-NEXT: {{^}}  struct `struct` {{{$}}
-// PASS_COMMON-NEXT: {{^}}    init(){{$}}
+// PASS_COMMON-NEXT: {{^}}    @actorSafe(unchecked) init(){{$}}
+// PASS_COMMON-NEXT: {{^}}    @actorSafe(unchecked) init(_copying: d0200_EscapedIdentifiers.`struct`){{$}}
 // PASS_COMMON-NEXT: {{^}}  }{{$}}
 
   enum `enum` {
@@ -599,7 +607,7 @@ struct d0200_EscapedIdentifiers {
 
   class `class` {}
 // PASS_COMMON-NEXT: {{^}}  class `class` {{{$}}
-// PASS_COMMON-NEXT: {{^}}    init(){{$}}
+// PASS_COMMON-NEXT: {{^}}    @actorSafe(unchecked) init(){{$}}
 // PASS_COMMON-NEXT: {{^}}    @objc deinit{{$}}
 // PASS_COMMON-NEXT: {{^}}  }{{$}}
 
@@ -633,7 +641,7 @@ struct d0200_EscapedIdentifiers {
   static func `static`(protocol: Int) {}
 // PASS_COMMON-NEXT: {{^}}  static func `static`(protocol: Int){{$}}
 
-// PASS_COMMON-NEXT: {{^}}  init(var: {{(d0200_EscapedIdentifiers.)?}}`struct` = {{(d0200_EscapedIdentifiers.)?}}`struct`(), tupleType: (var: Int, let: {{(d0200_EscapedIdentifiers.)?}}`struct`)){{$}}
+// PASS_COMMON-NEXT: {{^}}  @actorSafe(unchecked) init(var: {{(d0200_EscapedIdentifiers.)?}}`struct` = {{(d0200_EscapedIdentifiers.)?}}`struct`(), tupleType: (var: Int, let: {{(d0200_EscapedIdentifiers.)?}}`struct`)){{$}}
 // PASS_COMMON-NEXT: {{^}}}{{$}}
 }
 
@@ -1080,8 +1088,8 @@ enum d2300_EnumDeclWithValues1 : Int {
 // PASS_COMMON-NEXT: {{^}}  case EDV2_First{{$}}
 // PASS_COMMON-NEXT: {{^}}  case EDV2_Second{{$}}
 // PASS_COMMON-DAG: {{^}}  typealias RawValue = Int
-// PASS_COMMON-DAG: {{^}}  init?(rawValue: Int){{$}}
-// PASS_COMMON-DAG: {{^}}  var rawValue: Int { get }{{$}}
+// PASS_COMMON-DAG: {{^}}  @actorSafe(unchecked) init?(rawValue: Int){{$}}
+// PASS_COMMON-DAG: {{^}}  @actorSafe(unchecked) var rawValue: Int { get }{{$}}
 // PASS_COMMON: {{^}}}{{$}}
 
 enum d2400_EnumDeclWithValues2 : Double {
@@ -1092,8 +1100,8 @@ enum d2400_EnumDeclWithValues2 : Double {
 // PASS_COMMON-NEXT: {{^}}  case EDV3_First{{$}}
 // PASS_COMMON-NEXT: {{^}}  case EDV3_Second{{$}}
 // PASS_COMMON-DAG: {{^}}  typealias RawValue = Double
-// PASS_COMMON-DAG: {{^}}  init?(rawValue: Double){{$}}
-// PASS_COMMON-DAG: {{^}}  var rawValue: Double { get }{{$}}
+// PASS_COMMON-DAG: {{^}}  @actorSafe(unchecked) init?(rawValue: Double){{$}}
+// PASS_COMMON-DAG: {{^}}  @actorSafe(unchecked) var rawValue: Double { get }{{$}}
 // PASS_COMMON: {{^}}}{{$}}
 
 //===---
@@ -1176,7 +1184,8 @@ struct d2800_ProtocolWithAssociatedType1Impl : d2700_ProtocolWithAssociatedType1
 
 // PASS_COMMON: {{^}}struct d2800_ProtocolWithAssociatedType1Impl : d2700_ProtocolWithAssociatedType1 {{{$}}
 // PASS_COMMON-NEXT: {{^}}  func returnsTA1() -> Int{{$}}
-// PASS_COMMON-NEXT: {{^}}  init(){{$}}
+// PASS_COMMON-NEXT: {{^}}  @actorSafe(unchecked) init(){{$}}
+// PASS_COMMON-NEXT: {{^}}  @actorSafe(unchecked) init(_copying: d2800_ProtocolWithAssociatedType1Impl){{$}}
 // PASS_COMMON-NEXT: {{^}}  typealias TA1 = Int
 // PASS_COMMON-NEXT: {{^}}}{{$}}
 
@@ -1277,7 +1286,8 @@ struct d2900_TypeSugar1 {
 // PASS_COMMON-NEXT: {{^}}  func f8(x: Dictionary<String, Int>...){{$}}
 // SYNTHESIZE_SUGAR_ON_TYPES-NEXT: {{^}}  func f8(x: [String : Int]...){{$}}
 }
-// PASS_COMMON-NEXT: {{^}}  init(){{$}}
+// PASS_COMMON-NEXT: {{^}}  @actorSafe(unchecked) init(){{$}}
+// PASS_COMMON-NEXT: {{^}}  @actorSafe(unchecked) init(_copying: d2900_TypeSugar1){{$}}
 // PASS_COMMON-NEXT: {{^}}}{{$}}
 
 // @discardableResult attribute

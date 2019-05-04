@@ -25,6 +25,7 @@
 /// pointer to an ASCII code unit sequence, as a pointer to a UTF-8 code unit
 /// sequence, or as a single Unicode scalar value.
 @_fixed_layout
+@actorSafe(unchecked)
 public struct StaticString
   : _ExpressibleByBuiltinUnicodeScalarLiteral,
     _ExpressibleByBuiltinExtendedGraphemeClusterLiteral,
@@ -259,6 +260,10 @@ public struct StaticString
   /// A textual representation of the static string, suitable for debugging.
   public var debugDescription: String {
     return self.description.debugDescription
+  }
+
+  public func copy() -> StaticString {
+    return self
   }
 }
 
