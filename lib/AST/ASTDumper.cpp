@@ -2412,8 +2412,9 @@ public:
     // Printing a function type doesn't indicate whether it's escaping because it doesn't 
     // matter in 99% of contexts. AbstractClosureExpr nodes are one of the only exceptions.
     if (auto Ty = GetTypeOfExpr(E))
-      if (!Ty->getAs<AnyFunctionType>()->getExtInfo().isNoEscape())
-        PrintWithColorRAII(OS, ClosureModifierColor) << " escaping";
+      if (auto FnTy = Ty->getAs<AnyFunctionType>())
+        if (!FnTy->getExtInfo().isNoEscape())
+          PrintWithColorRAII(OS, ClosureModifierColor) << " escaping";
 
     return OS;
   }

@@ -951,6 +951,11 @@ namespace {
       = { nullptr, nullptr };
     unsigned currentEditorPlaceholderVariable = 0;
 
+  public:
+    llvm::SmallDenseMap<ClosureExpr *, Type> ClosureReturnTypes;
+
+
+  private:
     /// Add constraints for a reference to a named member of the given
     /// base type, and return the type of such a reference.
     Type addMemberRefConstraints(Expr *expr, Expr *base, DeclName name,
@@ -2444,7 +2449,25 @@ namespace {
       if (closureCanThrow(expr))
         extInfo = extInfo.withThrows();
 
-      return FunctionType::get(paramTy, resultTy, extInfo);
+      ClosureReturnTypes[expr] = resultTy;
+
+      auto *loc = CS.getConstraintLocator(expr);
+      auto *tv = CS.createTypeVariable(loc, TVO_CanBindToNoEscape);
+
+      auto *actorSafeBind = Constraint::create(
+          CS, ConstraintKind::Bind, tv,
+          FunctionType::get(paramTy, resultTy, extInfo.withActorSafe()), loc);
+      auto *nonActorSafeBind = Constraint::create(
+          CS, ConstraintKind::Bind, tv,
+          FunctionType::get(paramTy, resultTy, extInfo), loc);
+      nonActorSafeBind->setFavored();
+
+      CS.addDisjunctionConstraint({nonActorSafeBind, actorSafeBind}, loc);
+
+      //      CS.addConstraint(ConstraintKind::Subtype, tv,
+      //      FunctionType::get(paramTy, resultTy, extInfo.withNoEscape()),
+      //      loc);
+      return tv;
     }
 
     Type visitAutoClosureExpr(AutoClosureExpr *expr) {
@@ -3565,7 +3588,7 @@ namespace {
           CG.enterClosure(closure);
 
           // Visit the closure itself, which produces a function type.
-          auto funcTy = CG.visit(expr)->castTo<FunctionType>();
+          auto funcTy = CG.visit(expr);
           CS.setType(expr, funcTy);
         }
 
@@ -3641,16 +3664,13 @@ namespace {
 
           // Visit the body. It's type needs to be convertible to the function's
           // return type.
-          auto resultTy = closureTy->castTo<FunctionType>()->getResult();
+          auto resultTy = CG.ClosureReturnTypes[closure];
+          assert(resultTy);
           Type bodyTy = CS.getType(closure->getSingleExpressionBody());
-          CG.getConstraintSystem().setFavoredType(expr, bodyTy.getPointer());
-          CG.getConstraintSystem()
-            .addConstraint(ConstraintKind::Conversion, bodyTy,
-                           resultTy,
-                           CG.getConstraintSystem()
-                             .getConstraintLocator(
-                               expr,
-                               ConstraintLocator::ClosureResult));
+          CS.setFavoredType(expr, bodyTy.getPointer());
+          CS.addConstraint(
+              ConstraintKind::Conversion, bodyTy, resultTy,
+              CS.getConstraintLocator(expr, ConstraintLocator::ClosureResult));
           return expr;
         }
       }
