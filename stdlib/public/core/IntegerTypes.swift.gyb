@@ -1697,6 +1697,12 @@ ${operatorComment(x.operator, True)}
   }
 }
 
+extension ${Self} : Copyable {
+  public func copy() -> ${Self} {
+    return self
+  }
+}
+
 
 % if signed:
 // TODO: Consider removing the underscore.

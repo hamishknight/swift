@@ -855,6 +855,12 @@ extension String {
   }
 }
 
+extension String : Copyable {
+  public func copy() -> String {
+    return self
+  }
+}
+
 extension _StringGutsSlice {
   internal func _withNFCCodeUnits(_ f: (UInt8) throws -> Void) rethrows {
     var output = _FixedArray16<UInt8>(allZeros: ())

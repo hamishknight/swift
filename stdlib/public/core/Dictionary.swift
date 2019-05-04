@@ -1618,6 +1618,17 @@ where Value: Hashable {
   }
 }
 
+extension Dictionary: Copyable where Key: Copyable, Value: Copyable {
+  public func copy() -> Dictionary {
+    var copied = Dictionary(minimumCapacity: capacity)
+    for (key, value) in self {
+      let oldValue = copied.updateValue(value.copy(), forKey: key.copy())
+      precondition(oldValue == nil, "Invalid copy() implementation!")
+    }
+    return copied
+  }
+}
+
 internal struct _DictionaryAnyHashableBox<Key: Hashable, Value: Hashable>
   : _AnyHashableBox {
   internal let _value: Dictionary<Key, Value>

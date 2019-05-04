@@ -1700,6 +1700,12 @@ extension Array: Hashable where Element: Hashable {
   }
 }
 
+extension Array: Copyable where Element: Copyable {
+  public func copy() -> Array {
+    return map { $0.copy() }
+  }
+}
+
 extension Array {
   /// Calls the given closure with a pointer to the underlying bytes of the
   /// array's mutable contiguous storage.

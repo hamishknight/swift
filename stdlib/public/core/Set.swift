@@ -506,6 +506,17 @@ internal struct _SetAnyHashableBox<Element: Hashable>: _AnyHashableBox {
   }
 }
 
+extension Set: Copyable where Element: Copyable {
+  public func copy() -> Set {
+    var copied = Set(minimumCapacity: capacity)
+    for element in self {
+      let (inserted, _) = copied.insert(element.copy())
+      precondition(inserted, "Invalid copy() implementation!")
+    }
+    return copied
+  }
+}
+
 extension Set: SetAlgebra {
 
   /// Inserts the given element in the set if it is not already present.

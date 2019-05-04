@@ -388,6 +388,12 @@ extension Optional: Hashable where Wrapped: Hashable {
   }
 }
 
+extension Optional: Copyable where Wrapped: Copyable {
+  public func copy() -> Optional {
+    return self
+  }
+}
+
 // Enable pattern matching against the nil literal, even if the element type
 // isn't equatable.
 @_fixed_layout

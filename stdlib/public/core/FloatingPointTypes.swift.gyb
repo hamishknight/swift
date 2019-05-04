@@ -1581,6 +1581,12 @@ extension ${Self} : Hashable {
   }
 }
 
+extension ${Self} : Copyable {
+  public func copy() -> ${Self} {
+    return self
+  }
+}
+
 extension ${Self}: _HasCustomAnyHashableRepresentation {
   // Not @inlinable
   public func _toCustomAnyHashable() -> AnyHashable? {

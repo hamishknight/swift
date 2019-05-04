@@ -170,3 +170,9 @@ extension CollectionOfOne : CustomReflectable {
     return Mirror(self, children: ["element": _element])
   }
 }
+
+extension CollectionOfOne: Copyable where Element: Copyable {
+  public func copy() -> CollectionOfOne {
+    return CollectionOfOne(_element.copy())
+  }
+}
