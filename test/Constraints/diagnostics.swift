@@ -424,7 +424,7 @@ enum Color {
 }
 
 // FIXME: This used to be better: "'map' produces '[T]', not the expected contextual result type '(Int, Color)'"
-let _: (Int, Color) = [1,2].map({ ($0, .Unknown("")) }) // expected-error {{expression type '((Int) throws -> _) throws -> [_]' is ambiguous without more context}}
+let _: (Int, Color) = [1,2].map({ ($0, .Unknown("")) }) // expected-error {{expression type '@actorSafe ((Int) throws -> _) throws -> [_]' is ambiguous without more context}}
 
 let _: [(Int, Color)] = [1,2].map({ ($0, .Unknown("")) })// expected-error {{missing argument label 'description:' in call}}
 

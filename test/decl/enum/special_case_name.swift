@@ -11,7 +11,7 @@ enum DayOfTheWeek : Int {
 }
 
 let _: DayOfTheWeek = DayOfTheWeek.init
-// expected-error@-1 {{cannot convert value of type '(Int) -> DayOfTheWeek?' to specified type 'DayOfTheWeek'}}
+// expected-error@-1 {{cannot convert value of type '@actorSafe (Int) -> DayOfTheWeek?' to specified type 'DayOfTheWeek'}}
 
 let _: DayOfTheWeek = DayOfTheWeek.`init`
 

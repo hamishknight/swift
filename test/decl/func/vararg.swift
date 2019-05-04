@@ -25,6 +25,7 @@ func inoutVariadic(_ i: inout Int...) {  // expected-error {{'inout' must not be
 // rdar://19722429
 func invalidVariadic(_ e: NonExistentType) { // expected-error {{use of undeclared type 'NonExistentType'}}
   { (e: ExtraCrispy...) in }() // expected-error {{use of undeclared type 'ExtraCrispy'}}
+  // expected-error@-1 {{unable to infer closure type in the current context}}
 }
 
 func twoVariadics(_ a: Int..., b: Int...) { } // expected-error{{only a single variadic parameter '...' is permitted}} {{38-41=}}

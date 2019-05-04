@@ -320,6 +320,7 @@ class r22344208 {
 }
 
 var f = { (s: Undeclared) -> Int in 0 } // expected-error {{use of undeclared type 'Undeclared'}}
+// expected-error@-1 {{unable to infer closure type in the current context}}
 
 // <rdar://problem/21375863> Swift compiler crashes when using closure, declared to return illegal type.
 func r21375863() {

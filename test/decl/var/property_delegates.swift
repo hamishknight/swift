@@ -546,7 +546,7 @@ struct MemberwiseInits<T> {
 }
 
 func testMemberwiseInits() {
-  // expected-error@+1{{type '(Wrapper<Bool>, Double) -> MemberwiseInits<Double>'}}
+  // expected-error@+1{{type '@actorSafe (Wrapper<Bool>, Double) -> MemberwiseInits<Double>'}}
   let _: Int = MemberwiseInits<Double>.init
 
   _ = MemberwiseInits(x: Wrapper(value: true), y: 17)

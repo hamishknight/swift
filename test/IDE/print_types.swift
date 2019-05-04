@@ -127,11 +127,11 @@ func testInGenericFunc1<A, B : FooProtocol, C : FooProtocol & BarProtocol>(_ a: 
   _ = gs1; gs1 = GenericStruct<A, B>()
 // CHECK: VarDecl '''gs1''' GenericStruct<A, B>{{$}}
 // CHECK:    CallExpr:[[@LINE-2]] '''GenericStruct<A, B>()''' GenericStruct<A, B>{{$}}
-// CHECK:          ConstructorRefCallExpr:[[@LINE-3]] '''GenericStruct<A, B>''' () -> GenericStruct<A, B>
+// CHECK:          ConstructorRefCallExpr:[[@LINE-3]] '''GenericStruct<A, B>''' @actorSafe () -> GenericStruct<A, B>
 
 // FULL:  VarDecl '''gs1''' swift_ide_test.GenericStruct<A, B>{{$}}
 // FULL:    CallExpr:[[@LINE-6]] '''GenericStruct<A, B>()''' swift_ide_test.GenericStruct<A, B>{{$}}
-// FULL:          ConstructorRefCallExpr:[[@LINE-7]] '''GenericStruct<A, B>''' () -> swift_ide_test.GenericStruct<A, B>
+// FULL:          ConstructorRefCallExpr:[[@LINE-7]] '''GenericStruct<A, B>''' @actorSafe () -> swift_ide_test.GenericStruct<A, B>
 }
 
 func testInGenericFunc2<T : QuxProtocol, U : QuxProtocol>(_: T, _: U) where T.Qux == U.Qux {}

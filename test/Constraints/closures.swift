@@ -187,7 +187,7 @@ func testMap() {
 }
 
 // <rdar://problem/22414757> "UnresolvedDot" "in wrong phase" assertion from verifier
-[].reduce { $0 + $1 }  // expected-error {{cannot invoke 'reduce' with an argument list of type '(@escaping (_, _) -> _)'}}
+[].reduce { $0 + $1 }  // expected-error {{cannot invoke 'reduce' with an argument list of type '(_)'}}
 
 
 
@@ -314,7 +314,7 @@ struct Thing {
   init?() {}
 }
 // This throws a compiler error
-let things = Thing().map { thing in  // expected-error {{unable to infer complex closure return type; add explicit type to disambiguate}} {{34-34=-> Thing }}
+let things = Thing().map { thing in  // expected-error {{invalid conversion from throwing function of type '(_) throws -> _' to non-throwing function type '(_) -> _'}}
   // Commenting out this makes it compile
   _ = thing
   return thing
@@ -862,8 +862,8 @@ func rdar45771997() {
 struct rdar30347997 {
   func withUnsafeMutableBufferPointer(body : (inout Int) -> ()) {}
   func foo() {
-    withUnsafeMutableBufferPointer {
-      (b : Int) in // expected-error {{'Int' is not convertible to 'inout Int'}}
+    withUnsafeMutableBufferPointer { // expected-error {{'(inout Int) -> ()' is not convertible to '(Int) -> ()'}}
+      (b : Int) in
     }
   }
 }
