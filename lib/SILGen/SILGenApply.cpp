@@ -1108,7 +1108,7 @@ public:
       .asForeign(!isConstructorWithGeneratedAllocatorThunk(e->getDecl())
                  && requiresForeignEntryPoint(e->getDecl()));
 
-    auto captureInfo = SGF.SGM.Types.getLoweredLocalCaptures(afd);
+    auto captureInfo = SGF.SGM.Types.getLoweredLocalCaptures(SILDeclRef(afd));
     if (afd->getDeclContext()->isLocalContext() &&
         !captureInfo.hasGenericParamCaptures())
       subs = SubstitutionMap();
@@ -1137,8 +1137,8 @@ public:
     // If the decl ref requires captures, emit the capture params.
     if (!captureInfo.getCaptures().empty()) {
       SmallVector<ManagedValue, 4> captures;
-      SGF.emitCaptures(e, afd, CaptureEmission::ImmediateApplication,
-                       captures);
+      SGF.emitCaptures(e, SILDeclRef(afd),
+                       CaptureEmission::ImmediateApplication, captures);
       applyCallee->setCaptures(std::move(captures));
     }
   }
@@ -1165,10 +1165,10 @@ public:
     setCallee(Callee::forDirect(SGF, constant, subs, e));
     
     // If the closure requires captures, emit them.
-    bool hasCaptures = SGF.SGM.M.Types.hasLoweredLocalCaptures(e);
+    bool hasCaptures = SGF.SGM.M.Types.hasLoweredLocalCaptures(SILDeclRef(e));
     if (hasCaptures) {
       SmallVector<ManagedValue, 4> captures;
-      SGF.emitCaptures(e, e, CaptureEmission::ImmediateApplication,
+      SGF.emitCaptures(e, SILDeclRef(e), CaptureEmission::ImmediateApplication,
                        captures);
       applyCallee->setCaptures(std::move(captures));
     }
@@ -5131,7 +5131,7 @@ static Callee getBaseAccessorFunctionRef(SILGenFunction &SGF,
   // The accessor might be a local function that does not capture any
   // generic parameters, in which case we don't want to pass in any
   // substitutions.
-  auto captureInfo = SGF.SGM.Types.getLoweredLocalCaptures(decl);
+  auto captureInfo = SGF.SGM.Types.getLoweredLocalCaptures(SILDeclRef(decl));
   if (decl->getDeclContext()->isLocalContext() &&
       !captureInfo.hasGenericParamCaptures()) {
     subs = SubstitutionMap();
@@ -5194,11 +5194,11 @@ emitSpecializedAccessorFunctionRef(SILGenFunction &SGF,
   
   // Collect captures if the accessor has them.
   auto accessorFn = cast<AbstractFunctionDecl>(constant.getDecl());
-  if (SGF.SGM.M.Types.hasLoweredLocalCaptures(accessorFn)) {
+  if (SGF.SGM.M.Types.hasLoweredLocalCaptures(SILDeclRef(accessorFn))) {
     assert(!selfValue && "local property has self param?!");
     SmallVector<ManagedValue, 4> captures;
-    SGF.emitCaptures(loc, accessorFn, CaptureEmission::ImmediateApplication,
-                     captures);
+    SGF.emitCaptures(loc, SILDeclRef(accessorFn),
+                     CaptureEmission::ImmediateApplication, captures);
     callee.setCaptures(std::move(captures));
   }
 
@@ -5932,4 +5932,104 @@ ManagedValue ArgumentScope::popPreservingValue(ManagedValue mv) {
 RValue ArgumentScope::popPreservingValue(RValue &&rv) {
   formalEvalScope.pop();
   return normalScope.popPreservingValue(std::move(rv));
+}
+
+void SILGenFunction::emitActorImplFunction(FuncDecl *fd, SILDeclRef constant) {
+  MagicFunctionName = SILGenModule::getMagicFunctionName(fd);
+
+  emitProlog(constant, fd->getParameters(), fd->getImplicitSelfDecl(),
+             fd->getResultInterfaceType(), fd->hasThrows());
+
+  Type resultTy = fd->mapTypeIntoContext(fd->getResultInterfaceType());
+  prepareEpilog(resultTy, fd->hasThrows(), CleanupLocation(fd));
+
+  emitProfilerIncrement(fd->getBody());
+  emitStmt(fd->getBody());
+
+  emitEpilog(fd);
+
+  mergeCleanupBlocks();
+}
+
+void SILGenFunction::emitActorDispatchFunction(FuncDecl *fd) {
+  MagicFunctionName = SILGenModule::getMagicFunctionName(fd);
+
+  emitProlog(SILDeclRef(fd), fd->getParameters(), fd->getImplicitSelfDecl(),
+             fd->getResultInterfaceType(), fd->hasThrows());
+
+  auto resultTy =
+      fd->mapTypeIntoContext(fd->getResultInterfaceType())->getCanonicalType();
+  prepareEpilog(resultTy, fd->hasThrows(), CleanupLocation(fd));
+
+  emitProfilerIncrement(fd->getBody());
+
+  // let arg1 = arg1.copy()
+  // ...
+  // let impl = actorFuncImpl
+  // fn = @partialApply impl arg1 ...
+  // _actorCall(x, fn)
+  //
+
+  auto &ctx = getASTContext();
+  auto loc = SILLocation(fd);
+
+  RValue result;
+  {
+    LexicalScope BraceScope(*this, CleanupLocation(fd));
+    for (auto i : indices(*fd->getParameters()))
+      if (auto *pbd = fd->getActorCopyBindings()[i])
+        emitPatternBinding(pbd, 0);
+
+    auto actorImplFn = SILDeclRef::getActorFuncImpl(fd);
+
+    // Expected type is (Actor) -> Void
+    auto actorTy = fd->getImplicitSelfDecl()->getType();
+    auto closureTy = FunctionType::get({FunctionType::Param(actorTy)}, resultTy)
+                         ->getCanonicalType();
+
+    // Substitution map must map type into context.
+    auto closureValue = emitClosureValue(loc, actorImplFn, closureTy,
+                                         getForwardingSubstitutionMap());
+
+    {
+      FormalEvaluationScope writebacks(*this);
+
+      auto *actorCallDecl = ctx.getActorCallDecl();
+      auto *sig = actorCallDecl->getGenericSignature();
+
+      // Substitute Actor for T.
+      auto subst = SubstitutionMap::get(
+          sig, [&](SubstitutableType *type) -> Type { return actorTy; },
+          LookUpConformanceInSignature(*sig));
+
+      auto callee =
+          Callee::forDirect(*this, SILDeclRef(actorCallDecl), subst, loc);
+      CallEmission emittor(*this, std::move(callee), std::move(writebacks));
+
+      // Params are (Actor, Closure)
+      SmallVector<AnyFunctionType::Param, 2> params;
+      params.push_back(AnyFunctionType::Param(actorTy));
+      params.push_back(AnyFunctionType::Param(closureTy));
+
+      PreparedArguments args(params);
+
+      auto selfArg =
+          emitRValueForDecl(loc, ConcreteDeclRef(fd->getImplicitSelfDecl()),
+                            actorTy, AccessSemantics::Ordinary);
+      args.add(loc, std::move(selfArg));
+      args.add(loc, RValue(*this, loc, closureTy, closureValue));
+
+      CallSite callSite(loc, std::move(args), resultTy,
+                        actorCallDecl->hasThrows());
+      emittor.addCallSite(std::move(callSite));
+
+      result = emittor.apply();
+    }
+  }
+
+  //  B.createReturn(loc, std::move(result).getScalarValue());
+
+  emitEpilog(fd, /*UsesCustomEpilog*/ false);
+
+  mergeCleanupBlocks();
 }

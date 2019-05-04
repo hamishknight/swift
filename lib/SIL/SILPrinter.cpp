@@ -333,6 +333,9 @@ void SILDeclRef::print(raw_ostream &OS) const {
   case SILDeclRef::Kind::StoredPropertyInitializer:
     OS << "!propertyinit";
     break;
+  case SILDeclRef::Kind::ActorMethodImpl:
+    OS << "!actorimpl";
+    break;
   }
 
   auto uncurryLevel = getParameterListCount() - 1;

@@ -811,6 +811,29 @@ void SILGenModule::emitAbstractFuncDecl(AbstractFunctionDecl *AFD) {
   }
 }
 
+void SILGenModule::emitActorFunction(FuncDecl *fd) {
+  // First emit the body into a seperate function.
+  auto implRef = SILDeclRef::getActorFuncImpl(fd);
+
+  emitOrDelayFunction(*this, implRef, [this, implRef, fd](SILFunction *f) {
+    preEmitFunction(implRef, fd, f, fd);
+    PrettyStackTraceSILFunction X("silgen emitActorImplFunction", f);
+    SILGenFunction(*this, *f, fd).emitActorImplFunction(fd, implRef);
+    postEmitFunction(implRef, f);
+  });
+
+  // Then emit the dispatch thunk.
+  SILDeclRef dispatchRef(fd);
+
+  emitOrDelayFunction(
+      *this, dispatchRef, [this, dispatchRef, fd](SILFunction *f) {
+        preEmitFunction(dispatchRef, fd, f, fd);
+        PrettyStackTraceSILFunction X("silgen emitActorDispatchFunc", f);
+        SILGenFunction(*this, *f, fd).emitActorDispatchFunction(fd);
+        postEmitFunction(dispatchRef, f);
+      });
+}
+
 void SILGenModule::emitFunction(FuncDecl *fd) {
   SILDeclRef::Loc decl = fd;
 
@@ -819,6 +842,12 @@ void SILGenModule::emitFunction(FuncDecl *fd) {
   if (hasSILBody(fd)) {
     FrontendStatsTracer Tracer(getASTContext().Stats, "SILGen-funcdecl", fd);
     PrettyStackTraceDecl stackTrace("emitting SIL for", fd);
+
+    // Actors get emitted differently.
+    if (fd->getAttrs().hasAttribute<ActorAttr>()) {
+      emitActorFunction(fd);
+      return;
+    }
 
     SILDeclRef constant(decl);
 

@@ -684,7 +684,7 @@ class TypeConverter {
   
   llvm::DenseMap<OverrideKey, SILConstantInfo *> ConstantOverrideTypes;
 
-  llvm::DenseMap<AnyFunctionRef, CaptureInfo> LoweredCaptures;
+  llvm::DenseMap<SILDeclRef, CaptureInfo> LoweredCaptures;
 
   /// Cache of loadable SILType to number of (estimated) fields
   ///
@@ -976,8 +976,8 @@ public:
 
   /// Get the capture list from a closure, with transitive function captures
   /// flattened.
-  CaptureInfo getLoweredLocalCaptures(AnyFunctionRef fn);
-  bool hasLoweredLocalCaptures(AnyFunctionRef fn);
+  CaptureInfo getLoweredLocalCaptures(SILDeclRef constant);
+  bool hasLoweredLocalCaptures(SILDeclRef constant);
 
   enum class ABIDifference : uint8_t {
     // No ABI differences, function can be trivially bitcast to result type.

@@ -712,7 +712,8 @@ static std::pair<AbstractionPattern, CanType> updateResultTypeForForeignError(
 /// If we ever add that ability, it will be a different capture list
 /// from the function to which the argument is attached.
 static void
-lowerCaptureContextParameters(SILModule &M, AnyFunctionRef function,
+lowerCaptureContextParameters(SILModule &M, SILDeclRef constant,
+                              AnyFunctionRef function,
                               CanGenericSignature genericSig,
                               ResilienceExpansion expansion,
                               SmallVectorImpl<SILParameterInfo> &inputs) {
@@ -725,7 +726,7 @@ lowerCaptureContextParameters(SILModule &M, AnyFunctionRef function,
   auto origGenericSig = function.getGenericSignature();
 
   auto &Types = M.Types;
-  auto loweredCaptures = Types.getLoweredLocalCaptures(function);
+  auto loweredCaptures = Types.getLoweredLocalCaptures(constant);
 
   for (auto capture : loweredCaptures.getCaptures()) {
     if (capture.isDynamicSelfMetadata()) {
@@ -1008,8 +1009,8 @@ static CanSILFunctionType getSILFunctionType(
       auto expansion = ResilienceExpansion::Maximal;
       if (constant->isSerialized())
         expansion = ResilienceExpansion::Minimal;
-      lowerCaptureContextParameters(M, *function, genericSig, expansion,
-                                    inputs);
+      lowerCaptureContextParameters(M, *constant, *function, genericSig,
+                                    expansion, inputs);
     }
   }
   
@@ -1294,6 +1295,7 @@ static CanSILFunctionType getNativeSILFunctionType(
     case SILDeclRef::Kind::Destroyer:
     case SILDeclRef::Kind::GlobalAccessor:
     case SILDeclRef::Kind::DefaultArgGenerator:
+    case SILDeclRef::Kind::ActorMethodImpl:
     case SILDeclRef::Kind::StoredPropertyInitializer:
     case SILDeclRef::Kind::IVarInitializer:
     case SILDeclRef::Kind::IVarDestroyer: {
@@ -1789,6 +1791,7 @@ static ObjCSelectorFamily getObjCSelectorFamily(SILDeclRef c) {
   case SILDeclRef::Kind::EnumElement:
   case SILDeclRef::Kind::GlobalAccessor:
   case SILDeclRef::Kind::DefaultArgGenerator:
+  case SILDeclRef::Kind::ActorMethodImpl:
   case SILDeclRef::Kind::StoredPropertyInitializer:
     llvm_unreachable("Unexpected Kind of foreign SILDeclRef");
   }
@@ -2019,6 +2022,7 @@ TypeConverter::getDeclRefRepresentation(SILDeclRef c) {
   switch (c.kind) {
     case SILDeclRef::Kind::GlobalAccessor:
     case SILDeclRef::Kind::DefaultArgGenerator:
+    case SILDeclRef::Kind::ActorMethodImpl:
     case SILDeclRef::Kind::StoredPropertyInitializer:
       return SILFunctionTypeRepresentation::Thin;
 
@@ -2559,6 +2563,7 @@ static AbstractFunctionDecl *getBridgedFunction(SILDeclRef declRef) {
   case SILDeclRef::Kind::Deallocator:
   case SILDeclRef::Kind::GlobalAccessor:
   case SILDeclRef::Kind::DefaultArgGenerator:
+  case SILDeclRef::Kind::ActorMethodImpl:
   case SILDeclRef::Kind::StoredPropertyInitializer:
   case SILDeclRef::Kind::IVarInitializer:
   case SILDeclRef::Kind::IVarDestroyer:

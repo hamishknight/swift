@@ -334,6 +334,7 @@ private:
     case Node::Kind::Deallocator:
     case Node::Kind::DeclContext:
     case Node::Kind::DefaultArgumentInitializer:
+    case Node::Kind::ActorMethodImpl:
     case Node::Kind::DefaultAssociatedTypeMetadataAccessor:
     case Node::Kind::DefaultAssociatedConformanceAccessor:
     case Node::Kind::DependentAssociatedTypeRef:
@@ -1119,6 +1120,9 @@ NodePointer NodePrinter::print(NodePointer Node, bool asPrefixContext) {
     return printEntity(Node, asPrefixContext, TypePrinting::NoType,
                        /*hasName*/false, "default argument ",
                        (int)Node->getChild(1)->getIndex());
+  case Node::Kind::ActorMethodImpl:
+    return printEntity(Node, asPrefixContext, TypePrinting::NoType,
+                       /*hasName*/ false, "actor method impl");
   case Node::Kind::DeclContext:
     print(Node->getChild(0));
     return nullptr;
@@ -2420,7 +2424,8 @@ printEntity(NodePointer Entity, bool asPrefixContext, TypePrinting TypePr,
   if (!asPrefixContext && PostfixContext) {
     // Print any left over context which couldn't be printed in prefix form.
     if (Entity->getKind() == Node::Kind::DefaultArgumentInitializer ||
-        Entity->getKind() == Node::Kind::Initializer) {
+        Entity->getKind() == Node::Kind::Initializer ||
+        Entity->getKind() == Node::Kind::ActorMethodImpl) {
       Printer << " of ";
     } else {
       Printer << " in ";

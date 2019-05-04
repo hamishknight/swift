@@ -153,6 +153,14 @@ std::string ASTMangler::mangleInitializerEntity(const VarDecl *var,
   return finalize();
 }
 
+std::string ASTMangler::mangleActorMethodImplEntity(const FuncDecl *func,
+                                                    SymbolKind SKind) {
+  beginMangling();
+  appendActorMethodImplEntity(func);
+  appendSymbolKind(SKind);
+  return finalize();
+}
+
 std::string ASTMangler::mangleNominalType(const NominalTypeDecl *decl) {
   beginMangling();
   appendAnyGenericType(decl);
@@ -2282,6 +2290,11 @@ void ASTMangler::appendDefaultArgumentEntity(const DeclContext *func,
                                              unsigned index) {
   appendContext(func);
   appendOperator("fA", Index(index));
+}
+
+void ASTMangler::appendActorMethodImplEntity(const DeclContext *func) {
+  appendContext(func);
+  appendOperator("fa");
 }
 
 void ASTMangler::appendInitializerEntity(const VarDecl *var) {

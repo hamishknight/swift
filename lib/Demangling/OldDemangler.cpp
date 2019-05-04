@@ -1287,6 +1287,8 @@ private:
       // entity-name ::= 'i'
       } else if (Mangled.nextIf('i')) {
         entityKind = Node::Kind::Initializer;
+      } else if (Mangled.nextIf('a')) {
+        entityKind = Node::Kind::ActorMethodImpl;
       } else {
         return nullptr;
       }

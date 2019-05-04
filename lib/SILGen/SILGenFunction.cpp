@@ -21,6 +21,7 @@
 #include "Scope.h"
 #include "swift/AST/Initializer.h"
 #include "swift/AST/PropertyDelegates.h"
+#include "swift/AST/ParameterList.h"
 #include "swift/SIL/SILArgument.h"
 #include "swift/SIL/SILProfiler.h"
 #include "swift/SIL/SILUndef.h"
@@ -132,6 +133,8 @@ DeclName SILGenModule::getMagicFunctionName(SILDeclRef ref) {
   case SILDeclRef::Kind::EnumElement:
     return getMagicFunctionName(cast<EnumElementDecl>(ref.getDecl())
                                   ->getDeclContext());
+  case SILDeclRef::Kind::ActorMethodImpl:
+    return getMagicFunctionName(cast<FuncDecl>(ref.getDecl()));
   }
 
   llvm_unreachable("Unhandled SILDeclRefKind in switch.");
@@ -165,8 +168,7 @@ SILGenFunction::emitSiblingMethodRef(SILLocation loc,
                          methodTy);
 }
 
-void SILGenFunction::emitCaptures(SILLocation loc,
-                                  AnyFunctionRef closure,
+void SILGenFunction::emitCaptures(SILLocation loc, SILDeclRef closure,
                                   CaptureEmission purpose,
                                   SmallVectorImpl<ManagedValue> &capturedArgs) {
   auto captureInfo = SGM.Types.getLoweredLocalCaptures(closure);
@@ -325,8 +327,8 @@ SILGenFunction::emitClosureValue(SILLocation loc, SILDeclRef constant,
                                  SubstitutionMap subs) {
   auto closure = *constant.getAnyFunctionRef();
   auto captureInfo = closure.getCaptureInfo();
-  auto loweredCaptureInfo = SGM.Types.getLoweredLocalCaptures(closure);
-  auto hasCaptures = SGM.Types.hasLoweredLocalCaptures(closure);
+  auto loweredCaptureInfo = SGM.Types.getLoweredLocalCaptures(constant);
+  auto hasCaptures = SGM.Types.hasLoweredLocalCaptures(constant);
 
   auto constantInfo = getConstantInfo(constant);
   SILValue functionRef = emitGlobalFunctionRef(loc, constant, constantInfo);
@@ -371,7 +373,7 @@ SILGenFunction::emitClosureValue(SILLocation loc, SILDeclRef constant,
   }
 
   SmallVector<ManagedValue, 4> capturedArgs;
-  emitCaptures(loc, closure, CaptureEmission::PartialApplication,
+  emitCaptures(loc, constant, CaptureEmission::PartialApplication,
                capturedArgs);
 
   // The partial application takes ownership of the context parameters.
@@ -403,7 +405,7 @@ SILGenFunction::emitClosureValue(SILLocation loc, SILDeclRef constant,
 void SILGenFunction::emitFunction(FuncDecl *fd) {
   MagicFunctionName = SILGenModule::getMagicFunctionName(fd);
 
-  emitProlog(fd, fd->getParameters(), fd->getImplicitSelfDecl(),
+  emitProlog(SILDeclRef(fd), fd->getParameters(), fd->getImplicitSelfDecl(),
              fd->getResultInterfaceType(), fd->hasThrows());
   Type resultTy = fd->mapTypeIntoContext(fd->getResultInterfaceType());
   prepareEpilog(resultTy, fd->hasThrows(), CleanupLocation(fd));
@@ -420,7 +422,7 @@ void SILGenFunction::emitClosure(AbstractClosureExpr *ace) {
   MagicFunctionName = SILGenModule::getMagicFunctionName(ace);
 
   auto resultIfaceTy = ace->getResultType()->mapTypeOutOfContext();
-  emitProlog(ace, ace->getParameters(), /*selfParam=*/nullptr,
+  emitProlog(SILDeclRef(ace), ace->getParameters(), /*selfParam=*/nullptr,
              resultIfaceTy, ace->isBodyThrowing());
   prepareEpilog(ace->getResultType(), ace->isBodyThrowing(),
                 CleanupLocation(ace));

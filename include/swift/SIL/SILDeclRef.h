@@ -19,10 +19,11 @@
 #ifndef SWIFT_SIL_SILDeclRef_H
 #define SWIFT_SIL_SILDeclRef_H
 
+#include "swift/AST/AnyFunctionRef.h"
 #include "swift/AST/ClangNode.h"
 #include "swift/AST/TypeAlignments.h"
-#include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/PointerUnion.h"
 #include "llvm/Support/PrettyStackTrace.h"
 
@@ -133,6 +134,8 @@ struct SILDeclRef {
     /// routines have an ivar destroyer, which is emitted as
     /// .cxx_destruct.
     IVarDestroyer,
+
+    ActorMethodImpl,
   };
   
   /// The ValueDecl or AbstractClosureExpr represented by this SILDeclRef.
@@ -181,6 +184,16 @@ struct SILDeclRef {
 
   /// Produce a SIL constant for a default argument generator.
   static SILDeclRef getDefaultArgGenerator(Loc loc, unsigned defaultArgIndex);
+
+  static SILDeclRef getActorFuncImpl(Loc loc);
+
+  static SILDeclRef getAnyFunctionRef(AnyFunctionRef fn) {
+    if (auto *ace = fn.getAbstractClosureExpr()) {
+      return SILDeclRef(ace);
+    } else {
+      return SILDeclRef(fn.getAbstractFunctionDecl());
+    }
+  }
 
   bool isNull() const { return loc.isNull(); }
   explicit operator bool() const { return !isNull(); }

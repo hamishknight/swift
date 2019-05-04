@@ -215,6 +215,10 @@ void TBDGenVisitor::visitAbstractFunctionDecl(AbstractFunctionDecl *AFD) {
     addSymbol(SILDeclRef(AFD).asForeign());
   }
 
+  if (AFD->getAttrs().hasAttribute<ActorAttr>()) {
+    addSymbol(SILDeclRef::getActorFuncImpl(AFD));
+  }
+
   auto publicDefaultArgGenerators = SwiftModule->isTestingEnabled() ||
                                     SwiftModule->arePrivateImportsEnabled();
   if (!publicDefaultArgGenerators)

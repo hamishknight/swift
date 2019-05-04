@@ -567,6 +567,12 @@ public:
   void emitFunction(FuncDecl *fd);
   /// Emits code for a ClosureExpr.
   void emitClosure(AbstractClosureExpr *ce);
+
+  /// Generates code for a actor function impl.
+  void emitActorImplFunction(FuncDecl *fd, SILDeclRef constant);
+
+  void emitActorDispatchFunction(FuncDecl *fd);
+
   /// Generates code for a class destroying destructor. This
   /// emits the body code from the DestructorDecl, calls the base class 
   /// destructor, then implicitly releases the elements of the class.
@@ -761,9 +767,8 @@ public:
 
   /// emitProlog - Generates prolog code to allocate and clean up mutable
   /// storage for closure captures and local arguments.
-  void emitProlog(AnyFunctionRef TheClosure,
-                  ParameterList *paramList, ParamDecl *selfParam,
-                  Type resultType, bool throws);
+  void emitProlog(SILDeclRef constant, ParameterList *paramList,
+                  ParamDecl *selfParam, Type resultType, bool throws);
   /// returns the number of variables in paramPatterns.
   uint16_t emitProlog(ParameterList *paramList, ParamDecl *selfParam,
                       Type resultType, DeclContext *DeclCtx, bool throws);
@@ -1201,8 +1206,7 @@ public:
                                   SGFContext C,
                                   bool isBaseGuaranteed = false);
 
-  void emitCaptures(SILLocation loc,
-                    AnyFunctionRef TheClosure,
+  void emitCaptures(SILLocation loc, SILDeclRef TheClosure,
                     CaptureEmission purpose,
                     SmallVectorImpl<ManagedValue> &captures);
 

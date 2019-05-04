@@ -11,8 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "libsil"
-#include "swift/AST/AnyFunctionRef.h"
+#include "swift/SIL/TypeLowering.h"
 #include "swift/AST/ASTContext.h"
+#include "swift/AST/AnyFunctionRef.h"
 #include "swift/AST/CanTypeVisitor.h"
 #include "swift/AST/Decl.h"
 #include "swift/AST/DiagnosticEngine.h"
@@ -21,6 +22,7 @@
 #include "swift/AST/GenericEnvironment.h"
 #include "swift/AST/Module.h"
 #include "swift/AST/NameLookup.h"
+#include "swift/AST/ParameterList.h"
 #include "swift/AST/Pattern.h"
 #include "swift/AST/PropertyDelegates.h"
 #include "swift/AST/Types.h"
@@ -28,7 +30,6 @@
 #include "swift/SIL/SILArgument.h"
 #include "swift/SIL/SILBuilder.h"
 #include "swift/SIL/SILModule.h"
-#include "swift/SIL/TypeLowering.h"
 #include "clang/AST/Type.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
@@ -1766,6 +1767,24 @@ static CanAnyFunctionType getDefaultArgGeneratorInterfaceType(
   return CanAnyFunctionType::get(sig, {}, canResultTy);
 }
 
+// Get the type of an actor function impl, (Self) -> T.
+static CanAnyFunctionType getActorMethodImplInterfaceType(TypeConverter &TC,
+                                                          FuncDecl *FD,
+                                                          DeclContext *DC) {
+  auto **selfParam = FD->getImplicitSelfDeclStorage();
+  assert(selfParam);
+  CanType selfTy = (*selfParam)
+                       ->getInterfaceType()
+                       ->getCanonicalType(DC->getGenericSignatureOfContext());
+  CanType retTy = FD->getResultInterfaceType()->getCanonicalType(
+      DC->getGenericSignatureOfContext());
+
+  auto funcInfo = TC.getConstantInfo(SILDeclRef(FD));
+  FunctionType::Param args[] = {FunctionType::Param(selfTy)};
+  return CanAnyFunctionType::get(funcInfo.FormalType.getOptGenericSignature(),
+                                 llvm::makeArrayRef(args), retTy);
+}
+
 /// Get the type of a stored property initializer, () -> T.
 static CanAnyFunctionType getStoredPropertyInitializerInterfaceType(
                                                      TypeConverter &TC,
@@ -1884,7 +1903,8 @@ TypeConverter::getFunctionInterfaceTypeWithCaptures(CanAnyFunctionType funcType,
                                                     AnyFunctionRef theClosure) {
   // Get transitive closure of value captured by this function, and any
   // captured functions.
-  auto captureInfo = getLoweredLocalCaptures(theClosure);
+  auto captureInfo =
+      getLoweredLocalCaptures(SILDeclRef::getAnyFunctionRef(theClosure));
 
   // Capture generic parameters from the enclosing context if necessary.
   CanGenericSignature genericSig = getEffectiveGenericSignature(theClosure,
@@ -1969,6 +1989,9 @@ CanAnyFunctionType TypeConverter::makeConstantInterfaceType(SILDeclRef c) {
     return getIVarInitDestroyerInterfaceType(*this,
                                              cast<ClassDecl>(vd),
                                              c.isForeign, true);
+  case SILDeclRef::Kind::ActorMethodImpl:
+    return getActorMethodImplInterfaceType(*this, cast<FuncDecl>(vd),
+                                           vd->getDeclContext());
   }
 
   llvm_unreachable("Unhandled SILDeclRefKind in switch.");
@@ -1983,12 +2006,12 @@ TypeConverter::getConstantGenericEnvironment(SILDeclRef c) {
   switch (c.kind) {
   case SILDeclRef::Kind::Func: {
     if (auto *ACE = c.getAbstractClosureExpr()) {
-      auto captureInfo = getLoweredLocalCaptures(ACE);
+      auto captureInfo = getLoweredLocalCaptures(SILDeclRef(ACE));
 
       return getEffectiveGenericEnvironment(ACE, captureInfo);
     }
     FuncDecl *func = cast<FuncDecl>(vd);
-    auto captureInfo = getLoweredLocalCaptures(func);
+    auto captureInfo = getLoweredLocalCaptures(SILDeclRef(func));
 
     return getEffectiveGenericEnvironment(func, captureInfo);
   }
@@ -2001,7 +2024,7 @@ TypeConverter::getConstantGenericEnvironment(SILDeclRef c) {
   case SILDeclRef::Kind::Destroyer:
   case SILDeclRef::Kind::Deallocator: {
     auto *afd = cast<AbstractFunctionDecl>(vd);
-    auto captureInfo = getLoweredLocalCaptures(afd);
+    auto captureInfo = getLoweredLocalCaptures(SILDeclRef(afd));
     return getEffectiveGenericEnvironment(afd, captureInfo);
   }
   case SILDeclRef::Kind::GlobalAccessor:
@@ -2018,6 +2041,9 @@ TypeConverter::getConstantGenericEnvironment(SILDeclRef c) {
   case SILDeclRef::Kind::StoredPropertyInitializer:
     // Use the generic environment of the containing type.
     return c.getDecl()->getDeclContext()->getGenericEnvironmentOfContext();
+  case SILDeclRef::Kind::ActorMethodImpl:
+    // Use the generic environment of the original function.
+    return getConstantGenericEnvironment(SILDeclRef(c.getDecl()));
   }
 
   llvm_unreachable("Unhandled SILDeclRefKind in switch.");
@@ -2111,17 +2137,18 @@ getAnyFunctionRefFromCapture(CapturedValue capture) {
   return None;
 }
 
-bool
-TypeConverter::hasLoweredLocalCaptures(AnyFunctionRef fn) {
-  return !getLoweredLocalCaptures(fn).getCaptures().empty();
+bool TypeConverter::hasLoweredLocalCaptures(SILDeclRef constant) {
+  return !getLoweredLocalCaptures(constant).getCaptures().empty();
 }
 
-CaptureInfo
-TypeConverter::getLoweredLocalCaptures(AnyFunctionRef fn) {
+CaptureInfo TypeConverter::getLoweredLocalCaptures(SILDeclRef constant) {
+  auto fn = *constant.getAnyFunctionRef();
+
   // First, bail out if there are no local captures at all.
   if (!fn.getCaptureInfo().hasLocalCaptures() &&
       !fn.getCaptureInfo().hasOpaqueValueCapture() &&
-      !fn.getCaptureInfo().hasDynamicSelfCapture()) {
+      !fn.getCaptureInfo().hasDynamicSelfCapture() &&
+      constant.kind != SILDeclRef::Kind::ActorMethodImpl) {
     CaptureInfo info;
     info.setGenericParamCaptures(
         fn.getCaptureInfo().hasGenericParamCaptures());
@@ -2129,7 +2156,7 @@ TypeConverter::getLoweredLocalCaptures(AnyFunctionRef fn) {
   };
 
   // See if we've cached the lowered capture list for this function.
-  auto found = LoweredCaptures.find(fn);
+  auto found = LoweredCaptures.find(constant);
   if (found != LoweredCaptures.end())
     return found->second;
   
@@ -2271,8 +2298,24 @@ TypeConverter::getLoweredLocalCaptures(AnyFunctionRef fn) {
   }
 
   // If we captured an opaque value, add it.
-  if (capturesOpaqueValue) {
+  if (capturesOpaqueValue)
     resultingCaptures.push_back(CapturedValue(capturesOpaqueValue, 0));
+
+  // If we have an actor func, then the params are captures.
+  if (constant.kind == SILDeclRef::Kind::ActorMethodImpl) {
+    auto *funcDecl = dyn_cast<FuncDecl>(fn.getAbstractFunctionDecl());
+    assert(funcDecl && "no decl?");
+    for (auto i : indices(*funcDecl->getParameters())) {
+      auto &param = (*funcDecl->getParameters())[i];
+      auto &pbd = funcDecl->getActorCopyBindings()[i];
+      if (pbd) {
+        CapturedValue capture(pbd->getSingleVar(), 0);
+        resultingCaptures.push_back(capture);
+      } else {
+        CapturedValue capture(param, 0);
+        resultingCaptures.push_back(capture);
+      }
+    }
   }
 
   // If we captured the dynamic 'Self' type and we have a 'self' value also,
@@ -2286,7 +2329,7 @@ TypeConverter::getLoweredLocalCaptures(AnyFunctionRef fn) {
   }
 
   // Cache the uniqued set of transitive captures.
-  auto inserted = LoweredCaptures.insert({fn, CaptureInfo()});
+  auto inserted = LoweredCaptures.insert({constant, CaptureInfo()});
   assert(inserted.second && "already in map?!");
   auto &cachedCaptures = inserted.first->second;
   cachedCaptures.setGenericParamCaptures(capturesGenericParams);

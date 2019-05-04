@@ -1576,6 +1576,7 @@ bool Demangle::nodeConsumesGenericArgs(Node *node) {
     case Node::Kind::ImplicitClosure:
     case Node::Kind::ExplicitClosure:
     case Node::Kind::DefaultArgumentInitializer:
+    case Node::Kind::ActorMethodImpl:
     case Node::Kind::Initializer:
       return false;
     default:
@@ -2908,6 +2909,7 @@ NodePointer Demangler::demangleFunctionEntity() {
     case 'U': Args = TypeAndIndex; Kind = Node::Kind::ExplicitClosure; break;
     case 'u': Args = TypeAndIndex; Kind = Node::Kind::ImplicitClosure; break;
     case 'A': Args = Index; Kind = Node::Kind::DefaultArgumentInitializer; break;
+    case 'a': Args = None; Kind = Node::Kind::ActorMethodImpl; break;
     case 'p': return demangleEntity(Node::Kind::GenericTypeParamDecl);
     default: return nullptr;
   }

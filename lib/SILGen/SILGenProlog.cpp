@@ -423,13 +423,19 @@ static void emitCaptureArguments(SILGenFunction &SGF,
   }
 }
 
-void SILGenFunction::emitProlog(AnyFunctionRef TheClosure,
-                                ParameterList *paramList,
-                                ParamDecl *selfParam,
-                                Type resultType, bool throws) {
-  uint16_t ArgNo = emitProlog(paramList, selfParam, resultType,
-                              TheClosure.getAsDeclContext(), throws);
-  
+void SILGenFunction::emitProlog(SILDeclRef constant, ParameterList *paramList,
+                                ParamDecl *selfParam, Type resultType,
+                                bool throws) {
+  auto TheClosure = *constant.getAnyFunctionRef();
+  auto isActorImpl = constant.kind == SILDeclRef::Kind::ActorMethodImpl;
+
+  // Emit the parameters. If we're emitting the implementation for an actor,
+  // only emit the self parameter – the other parameters are lowered as
+  // captures.
+  uint16_t ArgNo =
+      emitProlog(isActorImpl ? nullptr : paramList, selfParam, resultType,
+                 TheClosure.getAsDeclContext(), throws);
+
   // Emit an unreachable instruction if a parameter type is
   // uninhabited
   if (paramList) {
@@ -445,7 +451,7 @@ void SILGenFunction::emitProlog(AnyFunctionRef TheClosure,
 
   // Emit the capture argument variables. These are placed last because they
   // become the first curry level of the SIL function.
-  auto captureInfo = SGM.Types.getLoweredLocalCaptures(TheClosure);
+  auto captureInfo = SGM.Types.getLoweredLocalCaptures(constant);
   for (auto capture : captureInfo.getCaptures()) {
     if (capture.isDynamicSelfMetadata()) {
       auto selfMetatype = MetatypeType::get(

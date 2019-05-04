@@ -125,6 +125,9 @@ public:
 
   std::string mangleInitializerEntity(const VarDecl *var, SymbolKind SKind);
 
+  std::string mangleActorMethodImplEntity(const FuncDecl *func,
+                                          SymbolKind SKind);
+
   std::string mangleNominalType(const NominalTypeDecl *decl);
 
   std::string mangleVTableThunk(const FuncDecl *Base,
@@ -309,6 +312,8 @@ protected:
                                const DeclContext *parentContext);
 
   void appendDefaultArgumentEntity(const DeclContext *ctx, unsigned index);
+
+  void appendActorMethodImplEntity(const DeclContext *ctx);
 
   void appendInitializerEntity(const VarDecl *var);
 

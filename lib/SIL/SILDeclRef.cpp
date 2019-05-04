@@ -397,6 +397,13 @@ SILDeclRef SILDeclRef::getDefaultArgGenerator(Loc loc,
   return result;
 }
 
+SILDeclRef SILDeclRef::getActorFuncImpl(Loc loc) {
+  SILDeclRef ref;
+  ref.loc = loc;
+  ref.kind = Kind::ActorMethodImpl;
+  return ref;
+}
+
 bool SILDeclRef::hasClosureExpr() const {
   return loc.is<AbstractClosureExpr *>()
     && isa<ClosureExpr>(getAbstractClosureExpr());
@@ -787,6 +794,10 @@ std::string SILDeclRef::mangle(ManglingKind MKind) const {
   case SILDeclRef::Kind::StoredPropertyInitializer:
     assert(!isCurried);
     return mangler.mangleInitializerEntity(cast<VarDecl>(getDecl()), SKind);
+
+  case SILDeclRef::Kind::ActorMethodImpl:
+    return mangler.mangleActorMethodImplEntity(cast<FuncDecl>(getDecl()),
+                                               SKind);
   }
 
   llvm_unreachable("bad entity kind!");
@@ -1010,7 +1021,8 @@ SubclassScope SILDeclRef::getSubclassScope() const {
 }
 
 unsigned SILDeclRef::getParameterListCount() const {
-  if (isCurried || !hasDecl() || kind == Kind::DefaultArgGenerator)
+  if (isCurried || !hasDecl() || kind == Kind::DefaultArgGenerator ||
+      kind == Kind::ActorMethodImpl)
     return 1;
 
   auto *vd = getDecl();

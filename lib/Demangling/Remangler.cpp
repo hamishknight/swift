@@ -512,6 +512,7 @@ void Remangler::mangleGenericArgs(Node *node, char &Separator,
     case Node::Kind::ExplicitClosure:
     case Node::Kind::ImplicitClosure:
     case Node::Kind::DefaultArgumentInitializer:
+    case Node::Kind::ActorMethodImpl:
     case Node::Kind::Initializer:
       if (!fullSubstitutionMap)
         break;
@@ -797,6 +798,11 @@ void Remangler::mangleDefaultArgumentInitializer(Node *node) {
   mangleChildNode(node, 0);
   Buffer << "fA";
   mangleChildNode(node, 1);
+}
+
+void Remangler::mangleActorMethodImpl(Node *node) {
+  mangleChildNode(node, 0);
+  Buffer << "fa";
 }
 
 void Remangler::mangleDependentAssociatedTypeRef(Node *node) {
@@ -2445,6 +2451,7 @@ bool Demangle::isSpecialized(Node *node) {
     case Node::Kind::ImplicitClosure:
     case Node::Kind::Initializer:
     case Node::Kind::DefaultArgumentInitializer:
+    case Node::Kind::ActorMethodImpl:
     case Node::Kind::Getter:
     case Node::Kind::Setter:
     case Node::Kind::WillSet:
@@ -2484,6 +2491,7 @@ NodePointer Demangle::getUnspecialized(Node *node, NodeFactory &Factory) {
     case Node::Kind::ImplicitClosure:
     case Node::Kind::Initializer:
     case Node::Kind::DefaultArgumentInitializer:
+    case Node::Kind::ActorMethodImpl:
       NumToCopy = node->getNumChildren();
       LLVM_FALLTHROUGH;
     case Node::Kind::Structure:
