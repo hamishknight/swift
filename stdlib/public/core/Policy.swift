@@ -491,3 +491,18 @@ infix operator   |= : AssignmentPrecedence, BinaryInteger
 // example of how this operator is used, and how its use can be hidden
 // from users.
 infix operator ~>
+
+public protocol Copyable {
+  func copy() -> Self
+}
+
+public protocol _CompilerCopyable : Copyable {
+  init(_copying other: Self)
+}
+
+extension _CompilerCopyable {
+  public func copy() -> Self {
+    return type(of: self).init(_copying: self)
+  }
+}
+
