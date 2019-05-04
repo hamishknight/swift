@@ -37,6 +37,7 @@ class SourceManager;
 
 namespace constraints {
 
+enum class PartialApplicationRefKind : unsigned;
 class OverloadChoice;
 class ConstraintSystem;
 class ConstraintLocator;
@@ -123,6 +124,7 @@ enum class FixKind : uint8_t {
   /// referenced constructor must be required.
   AllowInvalidInitRef,
 
+  AllowInvalidActorMember,
   /// If there are fewer arguments than parameters, let's fix that up
   /// by adding new arguments to the list represented as type variables.
   AddMissingArguments,
@@ -599,10 +601,13 @@ public:
 };
 
 class AllowInvalidPartialApplication final : public ConstraintFix {
-  AllowInvalidPartialApplication(bool isWarning, ConstraintSystem &cs,
+  PartialApplicationRefKind Kind;
+
+  AllowInvalidPartialApplication(PartialApplicationRefKind kind,
+                                 bool isWarning, ConstraintSystem &cs,
                                  ConstraintLocator *locator)
       : ConstraintFix(cs, FixKind::AllowInvalidPartialApplication, locator,
-                      isWarning) {}
+                      isWarning), Kind(kind) {}
 
 public:
   std::string getName() const override {
@@ -611,7 +616,8 @@ public:
 
   bool diagnose(Expr *root, bool asNote = false) const override;
 
-  static AllowInvalidPartialApplication *create(bool isWarning,
+  static AllowInvalidPartialApplication *create(PartialApplicationRefKind kind,
+                                                bool isWarning,
                                                 ConstraintSystem &cs,
                                                 ConstraintLocator *locator);
 };
@@ -683,6 +689,21 @@ public:
   static AllowClosureParamDestructuring *create(ConstraintSystem &cs,
                                                 FunctionType *contextualType,
                                                 ConstraintLocator *locator);
+};
+
+class AllowInvalidActorMember final : public ConstraintFix {
+public:
+  AllowInvalidActorMember(ConstraintSystem &cs, ConstraintLocator *locator)
+      : ConstraintFix(cs, FixKind::AllowInvalidActorMember, locator, false) {}
+
+  std::string getName() const override {
+    return "allow invalid 'actor' member ref";
+  }
+
+  bool diagnose(Expr *root, bool asNote = false) const override;
+
+  static AllowInvalidActorMember *create(ConstraintSystem &cs,
+                                         ConstraintLocator *locator);
 };
 
 class AddMissingArguments final

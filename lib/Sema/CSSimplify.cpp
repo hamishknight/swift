@@ -6519,6 +6519,7 @@ ConstraintSystem::SolutionKind ConstraintSystem::simplifyFixConstraint(
   case FixKind::AllowInvalidPartialApplication:
   case FixKind::AllowInvalidInitRef:
   case FixKind::AllowClosureParameterDestructuring:
+  case FixKind::AllowInvalidActorMember:
   case FixKind::MoveOutOfOrderArgument:
   case FixKind::AllowInaccessibleMember:
   case FixKind::AllowAnyObjectKeyPathRoot:

@@ -277,16 +277,17 @@ AllowTypeOrInstanceMember *AllowTypeOrInstanceMember::create(ConstraintSystem &c
   return new (cs.getAllocator()) AllowTypeOrInstanceMember(cs, baseType, member, locator);
 }
 bool AllowInvalidPartialApplication::diagnose(Expr *root, bool asNote) const {
-  auto failure = PartialApplicationFailure(root, isWarning(),
+  auto failure = PartialApplicationFailure(root, Kind, isWarning(),
                                            getConstraintSystem(), getLocator());
   return failure.diagnose(asNote);
 }
 
 AllowInvalidPartialApplication *
-AllowInvalidPartialApplication::create(bool isWarning, ConstraintSystem &cs,
+AllowInvalidPartialApplication::create(PartialApplicationRefKind kind,
+                                       bool isWarning, ConstraintSystem &cs,
                                        ConstraintLocator *locator) {
   return new (cs.getAllocator())
-      AllowInvalidPartialApplication(isWarning, cs, locator);
+      AllowInvalidPartialApplication(kind, isWarning, cs, locator);
 }
 
 bool AllowInvalidInitRef::diagnose(Expr *root, bool asNote) const {
@@ -355,6 +356,18 @@ AllowClosureParamDestructuring::create(ConstraintSystem &cs,
                                        ConstraintLocator *locator) {
   return new (cs.getAllocator())
       AllowClosureParamDestructuring(cs, contextualType, locator);
+}
+
+bool AllowInvalidActorMember::diagnose(Expr *root, bool asNote) const {
+  auto failure =
+      InvalidActorMemberFailure(root, getConstraintSystem(), getLocator());
+  return failure.diagnose(asNote);
+}
+
+AllowInvalidActorMember *
+AllowInvalidActorMember::create(ConstraintSystem &cs,
+                                ConstraintLocator *locator) {
+  return new (cs.getAllocator()) AllowInvalidActorMember(cs, locator);
 }
 
 bool AddMissingArguments::diagnose(Expr *root, bool asNote) const {

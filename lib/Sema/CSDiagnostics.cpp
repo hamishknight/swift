@@ -2084,23 +2084,23 @@ bool AllowTypeOrInstanceMemberFailure::diagnoseAsError() {
   return false;
 }
 bool PartialApplicationFailure::diagnoseAsError() {
-  auto &cs = getConstraintSystem();
   auto *anchor = cast<UnresolvedDotExpr>(getRawAnchor());
-
-  RefKind kind = RefKind::MutatingMethod;
-
-  // If this is initializer delegation chain, we have a tailored message.
-  if (getOverloadChoiceIfAvailable(cs.getConstraintLocator(
-          anchor, ConstraintLocator::ConstructorMember))) {
-    kind = anchor->getBase()->isSuperExpr() ? RefKind::SuperInit
-                                            : RefKind::SelfInit;
-  }
 
   auto diagnostic = CompatibilityWarning
                         ? diag::partial_application_of_function_invalid_swift4
                         : diag::partial_application_of_function_invalid;
 
-  emitDiagnostic(anchor->getNameLoc(), diagnostic, kind);
+  emitDiagnostic(anchor->getNameLoc(), diagnostic, (unsigned)Kind);
+
+  if (Kind == PartialApplicationRefKind::ActorInternalMethod) {
+    auto overload = getOverloadChoiceIfAvailable(getLocator());
+    if (overload) {
+      auto *decl = overload->choice.getDecl();
+      emitDiagnostic(anchor->getNameLoc(),
+                     diag::non_actor_member_is_out_of_context_note,
+                     decl->getDescriptiveKind(), decl->getFullName(), 0);
+    }
+  }
   return true;
 }
 
@@ -2133,6 +2133,28 @@ bool ImplicitInitOnNonConstMetatypeFailure::diagnoseAsError() {
   auto loc = apply->getArg()->getStartLoc();
   emitDiagnostic(loc, diag::missing_init_on_metatype_initialization)
       .fixItInsert(loc, ".init");
+  return true;
+}
+
+bool InvalidActorMemberFailure::diagnoseAsError() {
+  auto *anchor = getAnchor();
+  auto overload = getOverloadChoiceIfAvailable(getLocator());
+  if (!anchor || !overload)
+    return false;
+
+  auto *decl = overload->choice.getDecl();
+
+  enum {
+    DBK_Func = 0,
+    DBK_AbstractStorage
+  } declBaseKind = DBK_Func;
+
+  if (isa<AbstractStorageDecl>(decl))
+    declBaseKind = DBK_AbstractStorage;
+
+  emitDiagnostic(anchor->getLoc(), diag::non_actor_member_is_out_of_context,
+                 decl->getDescriptiveKind(), decl->getFullName(), declBaseKind)
+    .highlight(anchor->getSourceRange());
   return true;
 }
 

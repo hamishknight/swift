@@ -1627,50 +1627,52 @@ bool isMutatingMethod(const ValueDecl *decl) {
   return cast<FuncDecl>(decl)->isMutating();
 }
 
-static bool shouldCheckForPartialApplication(ConstraintSystem &cs,
-                                             const ValueDecl *decl,
-                                             ConstraintLocator *locator) {
+static Optional<PartialApplicationRefKind>
+getPotentialPartialApplicationRefKind(ConstraintSystem &cs, const ValueDecl *decl, ConstraintLocator *locator) {
   auto *anchor = locator->getAnchor();
   if (!(anchor && isa<UnresolvedDotExpr>(anchor)))
-    return false;
+    return None;
 
   // FIXME(diagnostics): This check should be removed together with
   // expression based diagnostics.
   if (cs.TC.isExprBeingDiagnosed(anchor))
-    return false;
+    return None;
 
   // If this is a reference to instance method marked as 'mutating'
   // it should be checked for invalid partial application.
   if (isMutatingMethod(decl))
-    return true;
+    return PartialApplicationRefKind::MutatingMethod;
 
   // Another unsupported partial application is related
   // to constructor delegation via `self.init` or `super.init`.
+  if (isa<ConstructorDecl>(decl)) {
+    auto *UDE = cast<UnresolvedDotExpr>(anchor);
+    // This is `super.init`
+    if (UDE->getBase()->isSuperExpr())
+      return PartialApplicationRefKind::SuperInit;
 
-  if (!isa<ConstructorDecl>(decl))
-    return false;
-
-  auto *UDE = cast<UnresolvedDotExpr>(anchor);
-  // This is `super.init`
-  if (UDE->getBase()->isSuperExpr())
-    return true;
-
-  // Or this might be `self.init`.
-  if (auto *DRE = dyn_cast<DeclRefExpr>(UDE->getBase())) {
-    if (auto *baseDecl = DRE->getDecl())
-      return baseDecl->getBaseName() == cs.getASTContext().Id_self;
+    // Or this might be `self.init`.
+    if (auto *DRE = dyn_cast<DeclRefExpr>(UDE->getBase()))
+      if (auto *baseDecl = DRE->getDecl())
+        if (baseDecl->getBaseName() == cs.getASTContext().Id_self)
+          return PartialApplicationRefKind::SelfInit;
   }
 
-  return false;
+  // Another unsupported partial application is to an actor-internal method.
+  if (isa<FuncDecl>(decl) && decl->isActorInternalMember())
+    return PartialApplicationRefKind::ActorInternalMethod;
+
+  return None;
 }
 
 /// Try to identify and fix failures related to partial function application
 /// e.g. partial application of `init` or 'mutating' instance methods.
-static std::pair<bool, unsigned>
+static std::pair<Optional<PartialApplicationRefKind>, unsigned>
 isInvalidPartialApplication(ConstraintSystem &cs, const ValueDecl *member,
                             ConstraintLocator *locator) {
-  if (!shouldCheckForPartialApplication(cs, member, locator))
-    return {false, 0};
+  auto kind = getPotentialPartialApplicationRefKind(cs, member, locator);
+  if (!kind)
+    return {None, 0};
 
   auto anchor = cast<UnresolvedDotExpr>(locator->getAnchor());
   // If this choice is a partial application of `init` or
@@ -1687,7 +1689,42 @@ isInvalidPartialApplication(ConstraintSystem &cs, const ValueDecl *member,
     level += dyn_cast_or_null<CallExpr>(cs.getParentExpr(call)) ? 2 : 1;
   }
 
-  return {true, level};
+  return {kind, level};
+}
+
+static bool isInvalidActorMemberUse(ConstraintSystem &cs, const ValueDecl *decl,
+                                    ConstraintLocator *locator) {
+  if (!decl->isActorInternalMember())
+    return false;
+
+  // Allow access to the '__queue' member.
+  if (decl->getFullName() == DeclName(cs.getASTContext().Id_queue__))
+    return false;
+
+  auto getBaseExpr = [](Expr *expr) -> Expr * {
+    if (auto *ude = dyn_cast<UnresolvedDotExpr>(expr))
+      return ude->getBase();
+
+    if (auto *se = dyn_cast<SubscriptExpr>(expr))
+      return se->getBase();
+
+    if (auto *mre = dyn_cast<MemberRefExpr>(expr))
+      return mre->getBase();
+
+    return nullptr;
+  };
+
+  auto *base = getBaseExpr(locator->getAnchor());
+  if (!base)
+    return true;
+
+  // Check whether this is a member access on 'self'.
+  bool isAccessOnSelf = false;
+  if (auto *baseDRE = dyn_cast<DeclRefExpr>(base->getValueProvidingExpr()))
+    if (auto *baseVar = dyn_cast<VarDecl>(baseDRE->getDecl()))
+      isAccessOnSelf = baseVar->isSelfParameter();
+
+  return !isAccessOnSelf;
 }
 
 void ConstraintSystem::resolveOverload(ConstraintLocator *locator,
@@ -2111,6 +2148,11 @@ void ConstraintSystem::resolveOverload(ConstraintLocator *locator,
       }
     }
 
+    // Non-actor members within actors can only be called on `self`.
+    if (isInvalidActorMemberUse(*this, decl, locator)) {
+      (void)recordFix(AllowInvalidActorMember::create(*this, locator));
+    }
+
     // Check whether applying this overload would result in invalid
     // partial function application e.g. partial application of
     // mutating method or initializer.
@@ -2120,26 +2162,26 @@ void ConstraintSystem::resolveOverload(ConstraintLocator *locator,
     // detect that particular partial application is
     // invalid, so it has to return all of the candidates.
 
-    bool isInvalidPartialApply;
+    Optional<PartialApplicationRefKind> invalidPartialApplyKind;
     unsigned level;
 
-    std::tie(isInvalidPartialApply, level) =
+    std::tie(invalidPartialApplyKind, level) =
         isInvalidPartialApplication(*this, decl, locator);
 
-    if (isInvalidPartialApply) {
+    if (invalidPartialApplyKind) {
       // No application at all e.g. `Foo.bar`.
       if (level == 0) {
         // Swift 4 and earlier failed to diagnose a reference to a mutating
         // method without any applications at all, which would get
         // miscompiled into a function with undefined behavior. Warn for
         // source compatibility.
-        bool isWarning = !getASTContext().isSwiftVersionAtLeast(5);
+        bool isWarning = !getASTContext().isSwiftVersionAtLeast(5) && *invalidPartialApplyKind < PartialApplicationRefKind::ActorInternalMethod;
         (void)recordFix(
-            AllowInvalidPartialApplication::create(isWarning, *this, locator));
+            AllowInvalidPartialApplication::create(*invalidPartialApplyKind, isWarning, *this, locator));
       } else if (level == 1) {
         // `Self` parameter is applied, e.g. `foo.bar` or `Foo.bar(&foo)`
         (void)recordFix(AllowInvalidPartialApplication::create(
-            /*isWarning=*/false, *this, locator));
+            *invalidPartialApplyKind, /*isWarning=*/false, *this, locator));
       }
 
       // Otherwise both `Self` and arguments are applied,

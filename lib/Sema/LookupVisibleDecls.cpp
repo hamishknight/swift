@@ -127,9 +127,11 @@ static bool isDeclVisibleInLookupMode(ValueDecl *Member, LookupState LS,
     TypeResolver->resolveDeclSignature(Member);
   }
 
+  auto memberDC = Member->getDeclContext();
+
   // Check access when relevant.
-  if (!Member->getDeclContext()->isLocalContext() &&
-      !isa<GenericTypeParamDecl>(Member) && !isa<ParamDecl>(Member)) {
+  if (!memberDC->isLocalContext() && !isa<GenericTypeParamDecl>(Member) &&
+      !isa<ParamDecl>(Member)) {
     if (!Member->isAccessibleFrom(FromContext))
       return false;
   }
@@ -138,6 +140,18 @@ static bool isDeclVisibleInLookupMode(ValueDecl *Member, LookupState LS,
     // Cannot call static functions on non-metatypes.
     if (!LS.isOnMetatype() && FD->isStatic())
       return false;
+
+    // Cannot call non-actor instance method from outside an actor.
+    if (memberDC->isTypeContext()) {
+      auto nominal = memberDC->getSelfNominalTypeDecl();
+      if (nominal->getAttrs().hasAttribute<ActorAttr>() &&
+          !Member->getAttrs().hasAttribute<ActorAttr>() &&
+          !Member->isStatic() &&
+          !(FromContext == memberDC ||
+            FromContext->isChildContextOf(memberDC))) {
+        return false;
+      }
+    }
 
     // Otherwise, either call a function or curry it.
     return true;

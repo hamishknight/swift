@@ -798,19 +798,23 @@ public:
     
   bool diagnoseAsError() override;
 };
-class PartialApplicationFailure final : public FailureDiagnostic {
-  enum RefKind : unsigned {
-    MutatingMethod,
-    SuperInit,
-    SelfInit,
-  };
 
+enum class PartialApplicationRefKind : unsigned {
+  MutatingMethod = 0,
+  SuperInit,
+  SelfInit,
+  ActorInternalMethod,
+};
+
+class PartialApplicationFailure final : public FailureDiagnostic {
+  PartialApplicationRefKind Kind;
   bool CompatibilityWarning;
 
 public:
-  PartialApplicationFailure(Expr *root, bool warning, ConstraintSystem &cs,
+  PartialApplicationFailure(Expr *root, PartialApplicationRefKind kind,
+                            bool warning, ConstraintSystem &cs,
                             ConstraintLocator *locator)
-      : FailureDiagnostic(root, cs, locator), CompatibilityWarning(warning) {}
+      : FailureDiagnostic(root, cs, locator), Kind(kind), CompatibilityWarning(warning) {}
 
   bool diagnoseAsError() override;
 };
@@ -894,6 +898,15 @@ public:
                                         const ConstructorDecl *init,
                                         ConstraintLocator *locator)
       : InvalidInitRefFailure(root, cs, baseTy, init, SourceRange(), locator) {}
+
+  bool diagnoseAsError() override;
+};
+
+class InvalidActorMemberFailure final : public FailureDiagnostic {
+public:
+  InvalidActorMemberFailure(Expr *root, ConstraintSystem &cs,
+                            ConstraintLocator *locator)
+      : FailureDiagnostic(root, cs, locator) {}
 
   bool diagnoseAsError() override;
 };
