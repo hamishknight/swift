@@ -275,6 +275,8 @@ enum class CheckKind : unsigned {
 
   /// The witness itself is inaccessible.
   WitnessUnavailable,
+
+  NonActorWithinActor,
 };
 
 /// Describes an optional adjustment made to a witness.

@@ -77,6 +77,7 @@ public:
   bool visitDeclAttribute(DeclAttribute *A) = delete;
 
 #define IGNORED_ATTR(X) void visit##X##Attr(X##Attr *) {}
+  IGNORED_ATTR(Actor)
   IGNORED_ATTR(AlwaysEmitIntoClient)
   IGNORED_ATTR(Available)
   IGNORED_ATTR(HasInitialValue)
@@ -823,6 +824,7 @@ public:
   void visitDynamicMemberLookupAttr(DynamicMemberLookupAttr *attr);
   
   void visitFinalAttr(FinalAttr *attr);
+  void visitActorAttr(ActorAttr *attr);
   void visitIBActionAttr(IBActionAttr *attr);
   void visitNSCopyingAttr(NSCopyingAttr *attr);
   void visitRequiredAttr(RequiredAttr *attr);
@@ -1321,6 +1323,58 @@ void AttributeChecker::visitFinalAttr(FinalAttr *attr) {
         .fixItRemove(attr->getRange());
       return;
     }
+  }
+}
+
+void AttributeChecker::visitActorAttr(ActorAttr *attr) {
+  auto *funcDecl = dyn_cast<FuncDecl>(D);
+  if (!funcDecl) {
+    auto *cd = cast<ClassDecl>(D);
+    if (cd->hasSuperclass()) {
+      TC.diagnose(attr->getLocation(), diag::actor_cannot_inherit);
+      attr->setInvalid();
+    }
+    return;
+  }
+
+  if (!funcDecl->getDeclContext()->isTypeContext()) {
+    TC.diagnose(attr->getLocation(), diag::actor_must_be_instance_method);
+    attr->setInvalid();
+    return;
+  }
+
+  if (funcDecl->isStatic()) {
+    TC.diagnose(attr->getLocation(), diag::actor_must_be_instance_method);
+    attr->setInvalid();
+    return;
+  }
+
+  auto *nominal = funcDecl->getDeclContext()->getSelfNominalTypeDecl();
+  if (!nominal->getAttrs().hasAttribute<ActorAttr>()) {
+    TC.diagnose(attr->getLocation(), diag::actor_method_must_be_in_actor);
+    attr->setInvalid();
+    return;
+  }
+
+  assert(funcDecl->hasInterfaceType());
+
+  // Must not return anything.
+  if (!funcDecl->getResultInterfaceType()->isVoid()) {
+    TC.diagnose(funcDecl, diag::actor_method_cannot_return_value);
+    attr->setInvalid();
+  }
+
+  // Must not throw.
+  if (funcDecl->hasThrows()) {
+    TC.diagnose(funcDecl->getThrowsLoc(), diag::actor_method_cannot_throw);
+    attr->setInvalid();
+  }
+
+  // Must not be dynamic.
+  if (funcDecl->isDynamic()) {
+    TC.diagnose(attr->getLocation(), diag::actor_method_cannot_be_dynamic,
+                funcDecl->getFullName());
+    attr->setInvalid();
   }
 }
 

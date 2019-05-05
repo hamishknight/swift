@@ -164,12 +164,14 @@ public:
   /// \returns the derived member, which will also be added to the type.
   ValueDecl *deriveDecodable(ValueDecl *requirement);
 
+  ValueDecl *deriveActor(ValueDecl *requirement);
   ValueDecl *deriveCopyable(ValueDecl *requirement);
 
   /// Declare a read-only property.
   std::pair<VarDecl *, PatternBindingDecl *>
   declareDerivedProperty(Identifier name, Type propertyInterfaceType,
-                         Type propertyContextType, bool isStatic, bool isFinal);
+                         Type propertyContextType, bool isStatic, bool isFinal,
+                         Expr *initExpr = nullptr);
 
   /// Add a getter to a derived property.  The property becomes read-only.
   static AccessorDecl *

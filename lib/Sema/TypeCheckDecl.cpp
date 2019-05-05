@@ -1284,6 +1284,10 @@ IsFinalRequest::evaluate(Evaluator &evaluator, ValueDecl *decl) const {
       break;
   }
 
+  // Actors are implicitly final.
+  if (isa<ClassDecl>(decl) && decl->getAttrs().hasAttribute<ActorAttr>())
+    return true;
+
   if (decl->getAttrs().hasAttribute<FinalAttr>())
     return true;
 
@@ -3045,6 +3049,9 @@ public:
       }
     }
 
+    if (PD->getKnownProtocolKind() == KnownProtocolKind::ActorProtocol)
+      PD->setUserAccessible(false);
+
     // Check the members.
     for (auto Member : PD->getMembers())
       visit(Member);
@@ -3168,6 +3175,10 @@ public:
     }
 
     TC.checkParameterAttributes(FD->getParameters());
+
+    auto *nominal = FD->getDeclContext()->getSelfNominalTypeDecl();
+    if (nominal && nominal->getAttrs().hasAttribute<ActorAttr>())
+      TC.checkActorMember(FD);
   }
 
   void visitModuleDecl(ModuleDecl *) { }
@@ -3337,8 +3348,10 @@ public:
       }
     }
 
+    auto *nominal = CD->getDeclContext()->getSelfNominalTypeDecl();
+
     if (CD->isRequired()) {
-      if (auto nominal = CD->getDeclContext()->getSelfNominalTypeDecl()) {
+      if (nominal) {
         AccessLevel requiredAccess;
         switch (nominal->getFormalAccess()) {
         case AccessLevel::Open:
@@ -3376,6 +3389,9 @@ public:
     if (CD->getAttrs().hasAttribute<DynamicReplacementAttr>()) {
       TC.checkDynamicReplacementAttribute(CD);
     }
+
+    if (nominal && nominal->getAttrs().hasAttribute<ActorAttr>())
+      TC.checkActorMember(CD);
   }
 
   void visitDestructorDecl(DestructorDecl *DD) {
@@ -3427,6 +3443,148 @@ bool TypeChecker::isAvailabilitySafeForConformance(
   requirementInfo.constrainWith(infoForProtocolDecl);
 
   return requirementInfo.isContainedIn(witnessInfo);
+}
+
+void TypeChecker::checkActorMember(AbstractFunctionDecl *decl) {
+  if (!isa<ConstructorDecl>(decl) &&
+      !decl->getAttrs().hasAttribute<ActorAttr>())
+    return;
+
+  bool hasBeenInvalidated = false;
+
+  auto invalidActorAttr = [&]() {
+    hasBeenInvalidated = true;
+    if (auto *actorAttr = decl->getAttrs().getAttribute<ActorAttr>())
+      actorAttr->setInvalid();
+  };
+
+  // Parameters must be copyable.
+  SmallVector<Optional<ProtocolConformanceRef>, 8> conformances;
+  for (auto i : indices(*decl->getParameters())) {
+    auto &param = decl->getParameters()->get(i);
+    if (param->isInOut()) {
+      diagnose(param, diag::actor_param_cant_be_inout, i + 1);
+      invalidActorAttr();
+    }
+    auto ty = param->getType();
+
+    // Function types are okay.
+    if (ty->is<FunctionType>()) {
+      conformances.push_back(None);
+      continue;
+    }
+
+    if (auto conformance = conformsToProtocol(
+            ty, Context.getProtocol(KnownProtocolKind::Copyable),
+            decl->getDeclContext(), ConformanceCheckOptions())) {
+      conformances.push_back(conformance);
+      continue;
+    }
+
+    diagnose(param, diag::actor_param_must_be_copyable,
+             decl->getDescriptiveKind(), i + 1);
+    invalidActorAttr();
+  }
+
+  if (hasBeenInvalidated || !decl->getBody())
+    return;
+
+  // If we haven't been invalidated, synthesise the copying of the params.
+  SmallVector<PatternBindingDecl *, 8> copyBindings;
+  for (auto i : indices(*decl->getParameters())) {
+    auto &param = decl->getParameters()->get(i);
+    auto conformance = conformances[i];
+
+    if (!conformance) {
+      copyBindings.push_back(nullptr);
+      continue;
+    }
+
+    auto *argDeclRef =
+        new (Context) DeclRefExpr(param, DeclNameLoc(), /*Implicit*/ true);
+
+    auto *copyFuncExpr = new (Context)
+        UnresolvedDotExpr(argDeclRef, SourceLoc(), DeclName(Context.Id_copy),
+                          DeclNameLoc(), /*Implicit*/ true,
+                          /*OuterAlts*/ {}, /*MustBeActorSafe*/ true);
+
+    auto *initExpr = CallExpr::createImplicit(Context, copyFuncExpr, {}, {});
+
+    auto *var = new (Context) VarDecl(
+        /*IsStatic*/ false, VarDecl::Specifier::Default,
+        /*IsCaptureList*/ false, SourceLoc(), Context.getIdentifier("argCopy"),
+        decl);
+    var->setImplicit();
+    var->setUserAccessible(false);
+
+    auto *pattern = new (Context) NamedPattern(var, /*implicit*/ true);
+
+    auto *pbd = PatternBindingDecl::createImplicit(
+        Context, StaticSpellingKind::None, pattern, initExpr, decl);
+
+    typeCheckDecl(pbd);
+    copyBindings.push_back(pbd);
+  }
+
+  class ParamRewriter : public ASTWalker {
+    ASTContext &C;
+    ParameterList *Params;
+    ArrayRef<PatternBindingDecl *> CopyBindings;
+
+  public:
+    ParamRewriter(ASTContext &ctx, ParameterList *params,
+                  ArrayRef<PatternBindingDecl *> copyBindings)
+        : C(ctx), Params(params), CopyBindings(copyBindings) {}
+
+    std::pair<bool, Expr *> walkToExprPre(Expr *E) override {
+      auto *declRef = dyn_cast<DeclRefExpr>(E);
+      if (!declRef)
+        return {true, E};
+      auto *paramDecl = dyn_cast_or_null<ParamDecl>(declRef->getDecl());
+      if (!paramDecl)
+        return {true, E};
+
+      for (auto i : indices(*Params)) {
+        auto &param = Params->get(i);
+        if (paramDecl != param)
+          continue;
+        auto &binding = CopyBindings[i];
+        if (!binding)
+          continue;
+
+        auto *var = binding->getSingleVar();
+
+        auto *newDeclRef = new (C)
+            DeclRefExpr(ConcreteDeclRef(var), declRef->getNameLoc(),
+                        /*implicit*/ true, declRef->getAccessSemantics(),
+                        declRef->getType());
+        return {true, newDeclRef};
+      }
+      return {true, E};
+    }
+  };
+  ParamRewriter rewriter(Context, decl->getParameters(), copyBindings);
+  auto *newBraceStmt = cast<BraceStmt>(decl->getBody()->walk(rewriter));
+
+  // If we're dealing with a non-actor member (e.g a constructor, inject the
+  // copy bindings straight into the body). Otherwise make a note of them for
+  // SILGen to deal with.
+  if (decl->getAttrs().hasAttribute<ActorAttr>()) {
+    decl->setActorCopyBindings(copyBindings);
+  } else {
+    SmallVector<ASTNode, 32> nodes;
+    for (auto &binding : copyBindings) {
+      if (!binding)
+        continue;
+      nodes.push_back(binding);
+    }
+    nodes.append(newBraceStmt->getElements().begin(),
+                 newBraceStmt->getElements().end());
+    newBraceStmt = BraceStmt::create(Context, newBraceStmt->getLBraceLoc(),
+                                     nodes, newBraceStmt->getRBraceLoc(),
+                                     /*Implicit*/ newBraceStmt->isImplicit());
+  }
+  decl->setBody(newBraceStmt);
 }
 
 void TypeChecker::typeCheckDecl(Decl *D) {
@@ -3616,6 +3774,30 @@ bool swift::isMemberOperator(FuncDecl *decl, Type type) {
   }
 
   return false;
+}
+
+void swift::diagnoseAttrsRequiringDispatch(SourceFile &SF) {
+  auto &Ctx = SF.getASTContext();
+
+  bool ImportsDispatchModule = false;
+
+  if (SF.Kind == SourceFileKind::SIL)
+    return;
+
+  SF.forAllVisibleModules([&](ModuleDecl::ImportedModule import) {
+    if (import.second->getName() == Ctx.Id_Dispatch)
+      ImportsDispatchModule = true;
+  });
+
+  if (ImportsDispatchModule)
+    return;
+
+  for (auto Attr : SF.AttrsRequiringDispatch) {
+    Ctx.Diags.diagnose(Attr->getLocation(),
+                       diag::attr_used_without_required_module,
+                       Attr, Ctx.Id_Dispatch)
+      .highlight(Attr->getRangeWithAt());
+  }
 }
 
 bool checkDynamicSelfReturn(FuncDecl *func,

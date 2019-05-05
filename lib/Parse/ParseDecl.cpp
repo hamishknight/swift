@@ -3006,6 +3006,8 @@ Parser::parseDecl(ParseDeclOptions Flags,
             (!Context.LangOpts.isSwiftVersionAtLeast(5) &&
              isa<DynamicAttr>(Attr)))
           SF->AttrsRequiringFoundation.insert(Attr);
+        if (isa<ActorAttr>(Attr))
+          SF->AttrsRequiringDispatch.insert(Attr);
       }
     }
   }

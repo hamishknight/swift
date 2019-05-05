@@ -744,6 +744,8 @@ static bool validateParameterType(ParamDecl *decl, TypeResolution resolution,
   if (auto ty = decl->getTypeLoc().getType())
     return ty->hasError();
 
+  bool isActorMethod = options.contains(TypeResolutionFlags::IsActorMethod);
+  bool isActorExternal = options.contains(TypeResolutionFlags::IsActorExternal);
   auto origContext = options.getContext();
   options.setContext(None);
 
@@ -754,6 +756,10 @@ static bool validateParameterType(ParamDecl *decl, TypeResolution resolution,
                        TypeResolverContext::VariadicFunctionInput :
                        TypeResolverContext::FunctionInput);
   options |= TypeResolutionFlags::Direct;
+  if (isActorMethod)
+    options |= TypeResolutionFlags::IsActorMethod;
+  if (isActorExternal)
+    options |= TypeResolutionFlags::IsActorExternal;
 
   bool hadError = false;
 

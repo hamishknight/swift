@@ -1386,6 +1386,10 @@ RequirementCheck WitnessChecker::checkWitness(ValueDecl *requirement,
     return CheckKind::WitnessUnavailable;
   }
 
+  // If we found an actor-internal member, it's not viable.
+  if (match.Witness->isActorInternalMember())
+    return CheckKind::NonActorWithinActor;
+
   return CheckKind::Success;
 }
 
@@ -3250,6 +3254,24 @@ ConformanceChecker::resolveWitnessViaLookup(ValueDecl *requirement) {
                          requirement->getFullName());
         });
       break;
+    case CheckKind::NonActorWithinActor:
+      diagnoseOrDefer(
+          requirement, /*isError*/ true,
+          [witness, requirement](NormalProtocolConformance *conformance) {
+            auto &diags = witness->getASTContext().Diags;
+            auto diagLoc = getLocForDiagnosingWitness(conformance, witness);
+
+            diags.diagnose(diagLoc, diag::non_actor_witness_not_viable,
+                           witness->getDescriptiveKind(),
+                           witness->getFullName(),
+                           conformance->getProtocol()->getFullName());
+            emitDeclaredHereIfNeeded(diags, diagLoc, witness);
+            diags.diagnose(requirement, diag::kind_declname_declared_here,
+                           DescriptiveDeclKind::Requirement,
+                           requirement->getFullName());
+          });
+      break;
+
     }
 
     if (auto *classDecl = Adoptee->getClassOrBoundGenericClass()) {
@@ -5465,6 +5487,9 @@ ValueDecl *TypeChecker::deriveProtocolRequirement(DeclContext *DC,
 
   case KnownProtocolKind::CompilerCopyable:
     return derived.deriveCopyable(Requirement);
+
+  case KnownProtocolKind::ActorProtocol:
+    return derived.deriveActor(Requirement);
 
   default:
     return nullptr;

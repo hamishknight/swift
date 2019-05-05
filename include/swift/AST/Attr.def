@@ -402,6 +402,10 @@ DECL_ATTR(_custom, Custom,
 SIMPLE_DECL_ATTR(_propertyDelegate, PropertyDelegate,
   OnStruct | OnClass | OnEnum,
   86)
+CONTEXTUAL_SIMPLE_DECL_ATTR(actor, Actor,
+  OnClass | OnFunc |
+  DeclModifier,
+  87)
 
 #undef TYPE_ATTR
 #undef DECL_ATTR_ALIAS

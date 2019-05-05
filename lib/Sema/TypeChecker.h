@@ -827,6 +827,8 @@ public:
   /// list.
   void checkUnsupportedProtocolType(GenericParamList *genericParams);
 
+  void checkActorMember(AbstractFunctionDecl *decl);
+
   /// Expose TypeChecker's handling of GenericParamList to SIL parsing.
   GenericEnvironment *handleSILGenericParams(GenericParamList *genericParams,
                                              DeclContext *DC);
@@ -2192,6 +2194,9 @@ bool isMemberOperator(FuncDecl *decl, Type type);
 
 /// Complain if @objc or dynamic is used without importing Foundation.
 void diagnoseAttrsRequiringFoundation(SourceFile &SF);
+
+/// Compain if actor is used without importing Dispatch.
+void diagnoseAttrsRequiringDispatch(SourceFile &SF);
 
 /// Diagnose any Objective-C method overrides that aren't reflected
 /// as overrides in Swift.

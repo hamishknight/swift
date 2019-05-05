@@ -362,10 +362,16 @@ class Traversal : public ASTVisitor<Traversal, Expr*, Stmt*,
       visit(PD);
     visit(AFD->getParameters());
 
-    if (auto *FD = dyn_cast<FuncDecl>(AFD))
+    if (auto *FD = dyn_cast<FuncDecl>(AFD)) {
       if (!isa<AccessorDecl>(FD))
         if (doIt(FD->getBodyResultTypeLoc()))
           return true;
+      for (auto &pbd : FD->getActorCopyBindings()) {
+        if (pbd)
+          if (doIt(pbd))
+            return true;
+      }
+    }
 
     if (WalkGenerics) {
       // Visit trailing requirments

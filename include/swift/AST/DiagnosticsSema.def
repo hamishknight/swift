@@ -1565,6 +1565,35 @@ ERROR(cannot_use_nil_with_this_type,none,
 ERROR(use_of_equal_instead_of_equality,none,
       "use of '=' in a boolean context, did you mean '=='?", ())
 
+// Actor
+ERROR(actor_cannot_inherit,none,
+      "'actor' class cannot inherit from a class", ())
+ERROR(non_actor_member_is_out_of_context,none,
+      "actor-internal %0 %1 can only be %select{called|accessed}2 "
+      "directly by its own actor", (DescriptiveDeclKind, DeclName, unsigned))
+NOTE(non_actor_member_is_out_of_context_note,none,
+      "actor-internal %0 %1 can only be %select{called|accessed}2 "
+      "directly by its own actor", (DescriptiveDeclKind, DeclName, unsigned))
+ERROR(actor_must_be_instance_method,none,
+      "'actor' attribute can only be applied to instance methods", ())
+ERROR(actor_method_cannot_return_value,none,
+      "'actor' method cannot return a value", ())
+ERROR(actor_method_cannot_throw,none,
+      "'actor' method cannot throw", ())
+ERROR(actor_param_must_be_copyable,none,
+      "'actor' %0 parameter #%1 does not conform to Copyable",
+      (DescriptiveDeclKind, unsigned))
+ERROR(actor_param_cant_be_inout,none,
+      "'actor' method parameter #%0 cannot be inout", (unsigned))
+ERROR(actor_method_must_be_in_actor,none,
+      "'actor' method can only be defined within an 'actor' type", ())
+ERROR(non_actor_witness_not_viable,none,
+      "actor-internal %0 %1 cannot be used to satisfy a requirement of protocol %2",
+      (DescriptiveDeclKind, DeclName, DeclName))
+ERROR(non_actor_method_cannot_be_objc,none,
+      "actor-internal method cannot be @objc", ())
+ERROR(actor_method_cannot_be_dynamic,none,
+      "actor method %0 cannot be 'dynamic'", (DeclName))
 
 ERROR(protocol_does_not_conform_objc,none,
       "protocol type %0 cannot conform to %1 because only concrete "

@@ -147,6 +147,8 @@ struct ASTContext::Implementation {
   DECL_CLASS *NAME##Decl = nullptr;
 #include "swift/AST/KnownStdlibTypes.def"
 
+  FuncDecl *ActorCallDecl = nullptr;
+
   /// The declaration of '+' function for two RangeReplaceableCollection.
   FuncDecl *PlusFunctionOnRangeReplaceableCollection = nullptr;
 
@@ -696,6 +698,24 @@ FuncDecl *ASTContext::getPlusFunctionOnString() const {
   }
 #include "swift/AST/KnownStdlibTypes.def"
 
+FuncDecl *ASTContext::getActorCallDecl() const {
+  if (!getImpl().ActorCallDecl) {
+    SmallVector<ValueDecl *, 1> results;
+    auto *Context = const_cast<ASTContext *>(this);
+    if (auto *M = Context->getModuleByName(Id_Dispatch.str())) {
+      M->lookupValue({}, getIdentifier("_actorCall"), NLKind::UnqualifiedLookup,
+                     results);
+      for (auto &result : results) {
+        if (auto *func = dyn_cast<FuncDecl>(result)) {
+          getImpl().ActorCallDecl = func;
+          break;
+        }
+      }
+    }
+  }
+  return getImpl().ActorCallDecl;
+}
+
 CanType ASTContext::getExceptionType() const {
   if (auto exn = getErrorDecl()) {
     return exn->getDeclaredType()->getCanonicalType();
@@ -858,6 +878,10 @@ ProtocolDecl *ASTContext::getProtocol(KnownProtocolKind kind) const {
     break;
   case KnownProtocolKind::CFObject:
     M = getLoadedModule(Id_CoreFoundation);
+    break;
+  case KnownProtocolKind::ActorProtocol:
+    M = const_cast<ASTContext *>(this)->getModuleByName(Id_Dispatch.str());
+    assert(M && "module not loaded?");
     break;
   default:
     M = getStdlibModule();

@@ -499,6 +499,7 @@ void TypeChecker::validateGenericFuncOrSubscriptSignature(
                 ValueDecl *decl, GenericContext *genCtx) {
   auto func = funcOrSubscript.dyn_cast<AbstractFunctionDecl *>();
   auto subscr = funcOrSubscript.dyn_cast<SubscriptDecl *>();
+  auto *vd = func ? (ValueDecl*)func : (ValueDecl*)subscr;
 
   auto gpList = genCtx->getGenericParams();
   if (gpList) {
@@ -547,6 +548,20 @@ void TypeChecker::validateGenericFuncOrSubscriptSignature(
     return emptyLoc;
   }();
 
+  auto checkParamList = [&](TypeResolution resolution) {
+    TypeResolutionOptions options = func
+      ? TypeResolverContext::AbstractFunctionDecl
+      : TypeResolverContext::SubscriptDecl;
+
+    if (vd->isActorExternalMember())
+      options |= TypeResolutionFlags::IsActorExternal;
+
+    if (vd->getAttrs().hasAttribute<ActorAttr>())
+      options |= TypeResolutionFlags::IsActorMethod;
+
+    typeCheckParameterList(params, resolution, options);
+  };
+
   if (gpList) {
     // Create the generic signature builder.
     GenericSignatureBuilder builder(Context);
@@ -561,9 +576,7 @@ void TypeChecker::validateGenericFuncOrSubscriptSignature(
                           resolution);
 
     // Check parameter patterns.
-    typeCheckParameterList(params, resolution, func
-                             ? TypeResolverContext::AbstractFunctionDecl
-                             : TypeResolverContext::SubscriptDecl);
+    checkParamList(resolution);
 
     // Infer requirements from the pattern.
     builder.inferRequirements(*genCtx->getParentModule(), params);
@@ -614,9 +627,7 @@ void TypeChecker::validateGenericFuncOrSubscriptSignature(
 
   auto resolution = TypeResolution::forInterface(genCtx, sig);
   // Check parameter patterns.
-  typeCheckParameterList(params, resolution, func
-                           ? TypeResolverContext::AbstractFunctionDecl
-                           : TypeResolverContext::SubscriptDecl);
+  checkParamList(resolution);
 
   if (!resultTyLoc.isNull()) {
     // Check the result type. It is allowed to be opaque.

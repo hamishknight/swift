@@ -1333,6 +1333,9 @@ void NominalTypeDecl::prepareConformanceTable() const {
     }
   }
 
+  if (mutableThis->getAttrs().hasAttribute<ActorAttr>())
+    addSynthesized(KnownProtocolKind::ActorProtocol);
+
   if (isCompilerCopyable()) {
     addSynthesized(KnownProtocolKind::Copyable);
     addSynthesized(KnownProtocolKind::CompilerCopyable);

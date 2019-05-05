@@ -127,6 +127,9 @@ bool DerivedConformance::derivesProtocolConformance(DeclContext *DC,
     if (*knownProtocol == KnownProtocolKind::CompilerCopyable)
       return true;
 
+    if (*knownProtocol == KnownProtocolKind::ActorProtocol)
+      return true;
+
     // Structs can explicitly derive Equatable conformance.
     if (isa<StructDecl>(Nominal)) {
       switch (*knownProtocol) {
@@ -194,6 +197,10 @@ ValueDecl *DerivedConformance::getDerivableRequirement(TypeChecker &tc,
     // CodingKey.intValue
     if (name.isSimpleName(ctx.Id_intValue))
       return getRequirement(KnownProtocolKind::CodingKey);
+
+    // _ActorProtocol.__queue
+    if (name.isSimpleName(ctx.Id_queue__))
+      return getRequirement(KnownProtocolKind::ActorProtocol);
 
     return nullptr;
   }
@@ -320,7 +327,8 @@ std::pair<VarDecl *, PatternBindingDecl *>
 DerivedConformance::declareDerivedProperty(Identifier name,
                                            Type propertyInterfaceType,
                                            Type propertyContextType,
-                                           bool isStatic, bool isFinal) {
+                                           bool isStatic, bool isFinal,
+                                           Expr *initExpr) {
   auto &C = TC.Context;
   auto parentDC = getConformanceContext();
 
@@ -339,7 +347,7 @@ DerivedConformance::declareDerivedProperty(Identifier name,
   propPat->setType(propertyContextType);
 
   auto *pbDecl = PatternBindingDecl::createImplicit(
-      C, StaticSpellingKind::None, propPat, /*InitExpr*/ nullptr, parentDC);
+      C, StaticSpellingKind::None, propPat, initExpr, parentDC);
   return {propDecl, pbDecl};
 }
 

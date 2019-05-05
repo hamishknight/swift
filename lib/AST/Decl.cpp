@@ -2131,6 +2131,28 @@ bool ValueDecl::overriddenDeclsComputed() const {
   return LazySemanticInfo.hasOverriddenComputed;
 }
 
+bool ValueDecl::isActorInternalMember() const {
+  auto *nominal = getDeclContext()->getSelfNominalTypeDecl();
+  if (!nominal || isStatic() || isa<ConstructorDecl>(this))
+    return false;
+
+  if (!nominal->getAttrs().hasAttribute<ActorAttr>() ||
+      getAttrs().hasAttribute<ActorAttr>())
+    return false;
+
+  return true;
+}
+
+bool ValueDecl::isActorExternalMember() const {
+  if (isStatic())
+    return false;
+  auto *nominal = getDeclContext()->getSelfNominalTypeDecl();
+  if (!nominal || !nominal->getAttrs().hasAttribute<ActorAttr>())
+    return false;
+
+  return !isActorInternalMember();
+}
+
 bool swift::conflicting(const OverloadSignature& sig1,
                         const OverloadSignature& sig2,
                         bool skipProtocolExtensionCheck) {
@@ -4602,7 +4624,8 @@ void ProtocolDecl::setRequirementSignature(ArrayRef<Requirement> requirements) {
 void ProtocolDecl::computeKnownProtocolKind() const {
   auto module = getModuleContext();
   if (module != module->getASTContext().getStdlibModule() &&
-      !module->getName().is("Foundation")) {
+      !module->getName().is("Foundation") &&
+      !module->getName().is("Dispatch")) {
     const_cast<ProtocolDecl *>(this)->Bits.ProtocolDecl.KnownProtocol = 1;
     return;
   }
@@ -6541,6 +6564,12 @@ AccessorDecl *AccessorDecl::createImpl(ASTContext &ctx,
     *D->getImplicitSelfDeclStorage() = nullptr;
 
   return D;
+}
+
+void AbstractFunctionDecl::setActorCopyBindings(
+    ArrayRef<PatternBindingDecl *> bindings) {
+  auto &ctx = getASTContext();
+  ActorCopyBindings = ctx.AllocateCopy(bindings);
 }
 
 AccessorDecl *AccessorDecl::createDeserialized(ASTContext &ctx,

@@ -1365,6 +1365,13 @@ IsObjCRequest::evaluate(Evaluator &evaluator, ValueDecl *VD) const {
   if (dc->getSelfClassDecl() && !isa<TypeDecl>(VD)) {
     // Members of classes can be @objc.
     isObjC = shouldMarkAsObjC(VD, isa<ConstructorDecl>(VD));
+
+    // Non-actor methods cannot be marked @objc.
+    if (isObjC && dc->getSelfClassDecl()->getAttrs().hasAttribute<ActorAttr>()
+        && !VD->getAttrs().hasAttribute<ActorAttr>()) {
+      VD->diagnose(diag::non_actor_method_cannot_be_objc);
+      isObjC = None;
+    }
   }
   else if (isa<ClassDecl>(VD)) {
     // Classes can be @objc.

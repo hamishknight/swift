@@ -4202,6 +4202,7 @@ SpecialProtocol irgen::getSpecialProtocolID(ProtocolDecl *P) {
   case KnownProtocolKind::CodingKey:
   case KnownProtocolKind::Encodable:
   case KnownProtocolKind::Decodable:
+  case KnownProtocolKind::ActorProtocol:
   case KnownProtocolKind::Copyable:
   case KnownProtocolKind::CompilerCopyable:
   case KnownProtocolKind::StringInterpolationProtocol:

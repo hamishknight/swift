@@ -1641,6 +1641,13 @@ void TypeChecker::checkFunctionErrorHandling(AbstractFunctionDecl *fn) {
   if (auto ctor = dyn_cast<ConstructorDecl>(fn))
     if (auto superInit = ctor->getSuperInitCall())
       superInit->walk(checker);
+
+  if (auto *FD = dyn_cast<FuncDecl>(fn)) {
+    for (auto &pbd : FD->getActorCopyBindings()) {
+      if (pbd)
+        pbd->walk(checker);
+    }
+  }
 }
 
 void TypeChecker::checkInitializerErrorHandling(Initializer *initCtx,

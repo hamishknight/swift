@@ -27,6 +27,54 @@
 
 using namespace swift;
 
+static ValueDecl *deriveActor_queue(DerivedConformance &derived,
+                                    ValueDecl *requirement) {
+  auto &ctx = derived.TC.Context;
+  auto *conformanceDC = derived.getConformanceContext();
+
+  auto queueTy = requirement->getInterfaceType();
+  auto queueContextTy = conformanceDC->mapTypeIntoContext(queueTy);
+
+  auto *queueNominal = queueTy->getAnyNominal();
+  assert(queueNominal && "not a nominal type?");
+
+  // Create the initialiser expression.
+  auto *typeExpr = TypeExpr::createForDecl(SourceLoc(), queueNominal,
+                                           queueNominal->getDeclContext(),
+                                           /*Implicit*/ true);
+
+  SmallString<16> queueLabel;
+  queueLabel += "actor queue";
+
+  auto *arg =
+      new (ctx) StringLiteralExpr(ctx.AllocateCopy(StringRef(queueLabel)),
+                                  SourceRange(), /*Implicit*/ true);
+
+  auto *initExpr = CallExpr::createImplicit(ctx, typeExpr, {arg},
+                                            {ctx.getIdentifier("label")});
+
+  // Define the property.
+  VarDecl *propDecl;
+  PatternBindingDecl *pbDecl;
+  std::tie(propDecl, pbDecl) = derived.declareDerivedProperty(
+      ctx.Id_queue__, queueTy, queueContextTy, /*isStatic=*/false,
+      /*isFinal=*/true, initExpr);
+  propDecl->setUserAccessible(false);
+
+  ctx.addSynthesizedDecl(pbDecl);
+  derived.addMembersToConformanceContext({propDecl, pbDecl});
+
+  return propDecl;
+}
+
+ValueDecl *DerivedConformance::deriveActor(ValueDecl *requirement) {
+
+  if (checkAndDiagnoseDisallowedContext(requirement))
+    return nullptr;
+
+  return deriveActor_queue(*this, requirement);
+}
+
 /// Synthesizes the body for `init(_copying other: Self)`.
 ///
 /// \param initDecl The function decl whose body to synthesize.

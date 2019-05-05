@@ -1248,6 +1248,7 @@ namespace  {
     void visit##CLASS##Attr(CLASS##Attr *) {}
 
     UNINTERESTING_ATTR(AccessControl)
+    UNINTERESTING_ATTR(Actor)
     UNINTERESTING_ATTR(Alignment)
     UNINTERESTING_ATTR(AlwaysEmitIntoClient)
     UNINTERESTING_ATTR(Borrowed)

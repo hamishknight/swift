@@ -2696,7 +2696,13 @@ public:
   /// True if this is a C function that was imported as a member of a type in
   /// Swift.
   bool isImportAsMember() const;
-  
+
+  /// Whether this is an actor-internal member of an actor.
+  bool isActorInternalMember() const;
+
+  /// Whether this is an external member of an actor.
+  bool isActorExternalMember() const;
+
   /// Get the decl for this value's opaque result type, if it has one.
   OpaqueTypeDecl *getOpaqueResultTypeDecl() const;
 
@@ -5551,6 +5557,8 @@ protected:
   /// Location of the 'throws' token.
   SourceLoc ThrowsLoc;
 
+  ArrayRef<PatternBindingDecl *> ActorCopyBindings = {};
+
   AbstractFunctionDecl(DeclKind Kind, DeclContext *Parent, DeclName Name,
                        SourceLoc NameLoc, bool Throws, SourceLoc ThrowsLoc,
                        bool HasImplicitSelfDecl,
@@ -5590,6 +5598,12 @@ public:
     assert(!getFullName().isSpecial() && "Cannot get string for special names");
     return hasName() ? getBaseName().getIdentifier().str() : "_";
   }
+
+  ArrayRef<PatternBindingDecl *> getActorCopyBindings() const {
+    return ActorCopyBindings;
+  }
+
+  void setActorCopyBindings(ArrayRef<PatternBindingDecl *> bindings);
 
   /// Should this declaration be treated as if annotated with transparent
   /// attribute.

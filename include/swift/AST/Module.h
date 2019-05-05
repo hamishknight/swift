@@ -1012,6 +1012,8 @@ public:
   /// complete, we diagnose.
   llvm::SetVector<const DeclAttribute *> AttrsRequiringFoundation;
 
+  llvm::SetVector<const DeclAttribute *> AttrsRequiringDispatch;
+
   /// A set of synthesized declarations that need to be type checked.
   llvm::SmallVector<Decl *, 8> SynthesizedDecls;
 

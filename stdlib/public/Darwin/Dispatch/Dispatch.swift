@@ -178,3 +178,19 @@ extension DispatchSemaphore {
 	}
 }
 
+@actorSafe
+public protocol _ActorProtocol : Copyable {
+  var __queue: DispatchQueue { get }
+}
+
+extension _ActorProtocol {
+  public func copy() -> Self { return self }
+}
+
+@actorSafe(unchecked)
+@usableFromInline
+func _actorCall<T : _ActorProtocol>(_ x: T, body: @escaping (T) -> Void) {
+  x.__queue.async {
+    body(x)
+  }
+}

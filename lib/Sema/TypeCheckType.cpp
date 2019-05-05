@@ -1619,16 +1619,24 @@ static Type applyNonEscapingFromContext(DeclContext *DC,
   // Desugar here
   auto *funcTy = ty->castTo<FunctionType>();
   auto extInfo = funcTy->getExtInfo();
-  if (defaultNoEscape && !extInfo.isNoEscape()) {
-    extInfo = extInfo.withNoEscape();
 
+  auto newExtInfo = extInfo;
+  if (defaultNoEscape)
+    newExtInfo = newExtInfo.withNoEscape();
+
+  // If the function is a part of an actor method, it is never non-escaping.
+  if (options.contains(TypeResolutionFlags::IsActorMethod))
+    newExtInfo = newExtInfo.withNoEscape(false);
+
+  if (extInfo != newExtInfo) {
     // We lost the sugar to flip the isNoEscape bit.
     //
     // FIXME: It would be better to add a new AttributedType sugared type,
     // which would wrap the TypeAliasType or ParenType, and apply the
     // isNoEscape bit when de-sugaring.
     // <https://bugs.swift.org/browse/SR-2520>
-    return FunctionType::get(funcTy->getParams(), funcTy->getResult(), extInfo);
+    return FunctionType::get(funcTy->getParams(), funcTy->getResult(),
+                             newExtInfo);
   }
 
   // Note: original sugared type
