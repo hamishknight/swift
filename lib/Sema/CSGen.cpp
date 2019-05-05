@@ -956,13 +956,19 @@ namespace {
     Type addMemberRefConstraints(Expr *expr, Expr *base, DeclName name,
                                  FunctionRefKind functionRefKind,
                                  ArrayRef<ValueDecl *> outerAlternatives) {
+      // FIXME: Hack.
+      auto mustBeActorSafe =
+          isa<UnresolvedDotExpr>(expr)
+              ? cast<UnresolvedDotExpr>(expr)->getMustBeActorSafe()
+              : false;
       // The base must have a member of the given name, such that accessing
       // that member through the base returns a value convertible to the type
       // of this expression.
       auto baseTy = CS.getType(base);
       auto tv = CS.createTypeVariable(
                   CS.getConstraintLocator(expr, ConstraintLocator::Member),
-                  TVO_CanBindToLValue | TVO_CanBindToNoEscape);
+                  TVO_CanBindToLValue | TVO_CanBindToNoEscape |
+                  (mustBeActorSafe ? TVO_BindsActorSafe : 0));
       SmallVector<OverloadChoice, 4> outerChoices;
       for (auto decl : outerAlternatives) {
         outerChoices.push_back(OverloadChoice(Type(), decl, functionRefKind));

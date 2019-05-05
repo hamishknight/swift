@@ -492,6 +492,8 @@ makeEnumRawValueConstructor(ClangImporter::Implementation &Impl,
                             /*GenericParams=*/nullptr, enumDecl);
   ctorDecl->setImplicit();
   ctorDecl->setAccess(AccessLevel::Public);
+  ctorDecl->getAttrs().add(new (C) ActorSafetyAttr(
+      SourceRange(), ActorSafetyKind::Unchecked, /*Implicit*/ true));
 
   ctorDecl->computeType();
   ctorDecl->setValidationToChecked();
@@ -1297,6 +1299,8 @@ createValueConstructor(ClangImporter::Implementation &Impl,
 
   // Make the constructor transparent so we inline it away completely.
   constructor->getAttrs().add(new (context) TransparentAttr(/*implicit*/ true));
+  constructor->getAttrs().add(new (context) ActorSafetyAttr(
+      SourceRange(), ActorSafetyKind::Unchecked, /*Implicit*/ true));
 
   if (wantBody) {
     // Assign all of the member variables appropriately.
@@ -1430,6 +1434,9 @@ static void makeStructRawValued(
       AccessLevel::Public,
       setterAccess);
 
+  var->getAttrs().add(new (ctx) ActorSafetyAttr(
+      SourceRange(), ActorSafetyKind::Unchecked, /*Implicit*/ true));
+
   // Create the getter for the computed value variable.
   auto varGetter = makeStructRawValueGetter(
       Impl, structDecl, var, var);
@@ -1559,6 +1566,8 @@ static void makeStructRawValuedWithBridge(
   computedVar->setAccess(AccessLevel::Public);
   computedVar->setSetterAccess(AccessLevel::Private);
   computedVar->setValidationToChecked();
+  computedVar->getAttrs().add(new (ctx) ActorSafetyAttr(
+      SourceRange(), ActorSafetyKind::Unchecked, /*Implicit*/ true));
 
   // Create the getter for the computed value variable.
   auto computedVarGetter = makeStructRawValueGetter(
@@ -2777,6 +2786,8 @@ namespace {
         rawValue->setSetterAccess(AccessLevel::Private);
         rawValue->setInterfaceType(underlyingType);
         rawValue->setValidationToChecked();
+        rawValue->getAttrs().add(new (C) ActorSafetyAttr(
+            SourceRange(), ActorSafetyKind::Unchecked, /*Implicit*/ true));
 
         // Create a pattern binding to describe the variable.
         Pattern *varPattern = createTypedNamedPattern(rawValue);

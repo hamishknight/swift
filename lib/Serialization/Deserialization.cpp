@@ -4073,6 +4073,17 @@ llvm::Error DeclDeserializer::deserializeDeclAttributes() {
         break;
       }
 
+      case decls_block::ActorSafety_DECL_ATTR: {
+        unsigned kind;
+        bool isImplicit;
+        serialization::decls_block::ActorSafetyDeclAttrLayout::readRecord(
+            scratch, kind, isImplicit);
+
+        Attr = new (ctx)
+            ActorSafetyAttr(SourceRange(), (ActorSafetyKind)kind, isImplicit);
+        break;
+      }
+
       case decls_block::DynamicReplacement_DECL_ATTR: {
         bool isImplicit;
         uint64_t numArgs;
@@ -4591,14 +4602,12 @@ public:
                                             bool isGeneric) {
     TypeID resultID;
     uint8_t rawRepresentation;
-    bool noescape = false, throws;
+    bool noescape = false, throws, copyable = false;
     GenericSignature *genericSig = nullptr;
 
     if (!isGeneric) {
-      decls_block::FunctionTypeLayout::readRecord(scratch, resultID,
-                                                  rawRepresentation,
-                                                  noescape,
-                                                  throws);
+      decls_block::FunctionTypeLayout::readRecord(
+          scratch, resultID, rawRepresentation, noescape, throws, copyable);
     } else {
       GenericSignatureID rawGenericSig;
       decls_block::GenericFunctionTypeLayout::readRecord(scratch,
@@ -4615,7 +4624,8 @@ public:
       return nullptr;
     }
 
-    auto info = FunctionType::ExtInfo(*representation, noescape, throws);
+    auto info =
+        FunctionType::ExtInfo(*representation, noescape, throws, copyable);
 
     auto resultTy = MF.getTypeChecked(resultID);
     if (!resultTy)

@@ -223,6 +223,8 @@ public:
     }
   }
 
+  void visitActorSafetyAttr(ActorSafetyAttr *attr) {}
+
   void visitIBActionAttr(IBActionAttr *attr);
   void visitLazyAttr(LazyAttr *attr);
   void visitIBDesignableAttr(IBDesignableAttr *attr);
@@ -863,6 +865,7 @@ public:
 
   void visitFrozenAttr(FrozenAttr *attr);
 
+  void visitActorSafetyAttr(ActorSafetyAttr *A);
   void visitNonOverrideAttr(NonOverrideAttr *attr);
   void visitCustomAttr(CustomAttr *attr);
   void visitPropertyDelegateAttr(PropertyDelegateAttr *attr);
@@ -2535,6 +2538,30 @@ void AttributeChecker::visitFrozenAttr(FrozenAttr *attr) {
 void AttributeChecker::visitNonOverrideAttr(NonOverrideAttr *attr) {
   if (auto overrideAttr = D->getAttrs().getAttribute<OverrideAttr>()) {
     diagnoseAndRemoveAttr(overrideAttr, diag::nonoverride_and_override_attr);
+  }
+}
+
+void AttributeChecker::visitActorSafetyAttr(ActorSafetyAttr *attr) {
+  auto *vd = dyn_cast<ValueDecl>(D);
+  if (!vd)
+    return;
+
+  // Cannot be dynamic.
+  if (vd->isDynamic()) {
+    if (!vd->isImplicit()) {
+      TC.diagnose(attr->getLocation(), diag::actor_safe_cannot_be_dynamic,
+                  vd->getFullName());
+    }
+    attr->setInvalid();
+  }
+
+  // If it's marked @actorSafe, but not actually actor safe, we have a problem.
+  if (!vd->getActorSafety()) {
+    if (!vd->isImplicit()) {
+      TC.diagnose(attr->getLocation(), diag::decl_cannot_be_actor_safe,
+                  vd->getDescriptiveKind(), vd->getFullName());
+    }
+    attr->setInvalid();
   }
 }
 

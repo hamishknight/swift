@@ -1390,6 +1390,10 @@ RequirementCheck WitnessChecker::checkWitness(ValueDecl *requirement,
   if (match.Witness->isActorInternalMember())
     return CheckKind::NonActorWithinActor;
 
+  // If the thread safety mismatches, it's not viable.
+  if (requirement->getActorSafety() && !match.Witness->getActorSafety())
+    return CheckKind::ActorSafetyMismatch;
+
   return CheckKind::Success;
 }
 
@@ -3272,6 +3276,23 @@ ConformanceChecker::resolveWitnessViaLookup(ValueDecl *requirement) {
           });
       break;
 
+    case CheckKind::ActorSafetyMismatch:
+      diagnoseOrDefer(
+          requirement, /*isError*/ true,
+          [witness, requirement](NormalProtocolConformance *conformance) {
+            auto &diags = witness->getASTContext().Diags;
+            auto diagLoc = getLocForDiagnosingWitness(conformance, witness);
+
+            diags.diagnose(diagLoc, diag::non_actor_safe_witness_not_viable,
+                           witness->getDescriptiveKind(),
+                           witness->getFullName(),
+                           conformance->getProtocol()->getFullName());
+            emitDeclaredHereIfNeeded(diags, diagLoc, witness);
+            diags.diagnose(requirement, diag::kind_declname_declared_here,
+                           DescriptiveDeclKind::Requirement,
+                           requirement->getFullName());
+          });
+      break;
     }
 
     if (auto *classDecl = Adoptee->getClassOrBoundGenericClass()) {

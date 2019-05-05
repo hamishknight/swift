@@ -2430,8 +2430,15 @@ void Serializer::writeDeclAttribute(const DeclAttribute *DA) {
         addDeclRef(theAttr->getReplacedFunction()), pieces.size(), pieces);
     return;
   }
-
-    case DAK_Custom: {
+  case DAK_ActorSafety: {
+    auto *theAttr = cast<ActorSafetyAttr>(DA);
+    auto abbrCode = DeclTypeAbbrCodes[ActorSafetyDeclAttrLayout::Code];
+    auto kind = theAttr->getKind();
+    ActorSafetyDeclAttrLayout::emitRecord(
+        Out, ScratchRecord, abbrCode, (unsigned)kind, theAttr->isImplicit());
+    return;
+  }
+  case DAK_Custom: {
       auto abbrCode = DeclTypeAbbrCodes[CustomDeclAttrLayout::Code];
       auto theAttr = cast<CustomAttr>(DA);
       CustomDeclAttrLayout::emitRecord(
@@ -4003,11 +4010,10 @@ void Serializer::writeType(Type ty) {
 
     if (isa<FunctionType>(fnTy)) {
       unsigned abbrCode = DeclTypeAbbrCodes[FunctionTypeLayout::Code];
-      FunctionTypeLayout::emitRecord(Out, ScratchRecord, abbrCode,
-             addTypeRef(fnTy->getResult()),
-             getRawStableFunctionTypeRepresentation(fnTy->getRepresentation()),
-             fnTy->isNoEscape(),
-             fnTy->throws());
+      FunctionTypeLayout::emitRecord(
+          Out, ScratchRecord, abbrCode, addTypeRef(fnTy->getResult()),
+          getRawStableFunctionTypeRepresentation(fnTy->getRepresentation()),
+          fnTy->isNoEscape(), fnTy->throws(), fnTy->isActorSafe());
     } else {
       assert(!fnTy->isNoEscape());
 

@@ -761,7 +761,8 @@ namespace decls_block {
     TypeIDField, // output
     FunctionTypeRepresentationField, // representation
     BCFixed<1>,  // noescape?
-    BCFixed<1>   // throws?
+    BCFixed<1>,   // throws?
+    BCFixed<1>    // thread-safe?
 
     // trailed by parameters
   >;
@@ -1622,6 +1623,12 @@ namespace decls_block {
     Specialize_DECL_ATTR,
     BCFixed<1>, // exported flag
     BCFixed<1> // specialization kind
+  >;
+
+  using ActorSafetyDeclAttrLayout = BCRecordLayout<
+    ActorSafety_DECL_ATTR,
+    BCFixed<1>, // isUnchecked
+    BCFixed<1>  // isImplicit
   >;
 
 #define SIMPLE_DECL_ATTR(X, CLASS, ...) \

@@ -220,6 +220,39 @@ bool DeclContext::isTypeContext() const {
   return false;
 }
 
+bool DeclContext::isImplicitContext() const {
+  if (auto *decl = getAsDecl()) {
+    return decl->isImplicit();
+  } else if (auto *expr = getAsExpr()) {
+    return expr->isImplicit();
+  }
+  return false;
+}
+
+Optional<ActorSafetyKind> DeclContext::getContextActorSafety() const {
+  auto dc = this;
+  auto isImplicit = isImplicitContext();
+  do {
+    if (auto *decl = dyn_cast_or_null<ValueDecl>(dc->getAsDecl())) {
+      auto actorSafety = decl->getActorSafety();
+      if (!actorSafety)
+        return None;
+
+      if (isImplicit)
+        return ActorSafetyKind::Unchecked;
+
+      return *actorSafety;
+    } else if (auto *ace =
+                   dyn_cast_or_null<AbstractClosureExpr>(dc->getAsExpr())) {
+      if (!ace->isActorSafe())
+        return None;
+
+      return isImplicit ? ActorSafetyKind::Unchecked : ActorSafetyKind::Checked;
+    }
+  } while ((dc = dc->getParent()));
+  return None;
+}
+
 DeclContext *DeclContext::getInnermostTypeContext() {
   auto dc = this;
   do {

@@ -3559,6 +3559,7 @@ namespace {
 
       printFlag(!T->isNoEscape(), "escaping");
       printFlag(T->throws(), "throws");
+      printFlag(T->isActorSafe(), "actor-safe");
 
       OS << "\n";
       Indent += 2;

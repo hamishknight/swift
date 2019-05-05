@@ -67,6 +67,7 @@ enum class TypeResolutionFlags : uint16_t {
   /// Whether we should not produce diagnostics if the type is invalid.
   SilenceErrors = 1 << 10,
 
+  IsActorExternal = 1 << 11,
   IsActorMethod = 1 << 12,
 };
 

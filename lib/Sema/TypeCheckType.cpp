@@ -1608,8 +1608,8 @@ static bool diagnoseAvailability(IdentTypeRepr *IdType,
   return false;
 }
 
-// Hack to apply context-specific @escaping to an AST function type.
-static Type applyNonEscapingFromContext(DeclContext *DC,
+// Hack to apply context-specific @escaping/@actorSafe to an AST function type.
+static Type applyFunctionExtInfoFromContext(DeclContext *DC,
                                         Type ty,
                                         TypeResolutionOptions options) {
   // Remember whether this is a function parameter.
@@ -1623,6 +1623,11 @@ static Type applyNonEscapingFromContext(DeclContext *DC,
   auto newExtInfo = extInfo;
   if (defaultNoEscape)
     newExtInfo = newExtInfo.withNoEscape();
+
+  // If the function is a part of an actor external decl such as an actor
+  // method or init, then it must be actor safe.
+  if (options.contains(TypeResolutionFlags::IsActorExternal))
+    newExtInfo = newExtInfo.withActorSafe();
 
   // If the function is a part of an actor method, it is never non-escaping.
   if (options.contains(TypeResolutionFlags::IsActorMethod))
@@ -1672,7 +1677,7 @@ Type TypeChecker::resolveIdentifierType(
   // Hack to apply context-specific @escaping to a typealias with an underlying
   // function type.
   if (result->is<FunctionType>())
-    result = applyNonEscapingFromContext(DC, result, options);
+    result = applyFunctionExtInfoFromContext(DC, result, options);
 
   // Check the availability of the type.
 
@@ -1947,7 +1952,7 @@ Type TypeResolver::resolveType(TypeRepr *repr, TypeResolutionOptions options) {
       auto result =
           resolveASTFunctionType(cast<FunctionTypeRepr>(repr), options);
       if (result && result->is<FunctionType>())
-        return applyNonEscapingFromContext(DC, result, options);
+        return applyFunctionExtInfoFromContext(DC, result, options);
       return result;
     }
     return resolveSILFunctionType(cast<FunctionTypeRepr>(repr), options);
@@ -2116,10 +2121,10 @@ Type TypeResolver::resolveAttributedType(TypeAttributes &attrs,
   // Pass down the variable function type attributes to the
   // function-type creator.
   static const TypeAttrKind FunctionAttrs[] = {
-    TAK_convention, TAK_pseudogeneric,
-    TAK_callee_owned, TAK_callee_guaranteed, TAK_noescape, TAK_autoclosure,
-    TAK_escaping, TAK_yield_once, TAK_yield_many
-  };
+      TAK_convention,        TAK_pseudogeneric, TAK_callee_owned,
+      TAK_callee_guaranteed, TAK_noescape,      TAK_autoclosure,
+      TAK_actorSafe,         TAK_escaping,      TAK_yield_once,
+      TAK_yield_many};
 
   auto checkUnsupportedAttr = [&](TypeAttrKind attr) {
     if (attrs.has(attr)) {
@@ -2256,9 +2261,15 @@ Type TypeResolver::resolveAttributedType(TypeAttributes &attrs,
         attrs.clearAttribute(TAK_autoclosure);
       }
 
+      // The function type is actor-safe if it's either explicitly marked
+      // @actorSafe by the user, or is part of an actor-external decl such
+      // as an actor method or initialiser.
+      auto isActorSafe = attrs.has(TAK_actorSafe) ||
+        options.contains(TypeResolutionFlags::IsActorExternal);
+
       // Resolve the function type directly with these attributes.
       FunctionType::ExtInfo extInfo(rep, /*noescape=*/false,
-                                    fnRepr->throws());
+                                    fnRepr->throws(), isActorSafe);
 
       ty = resolveASTFunctionType(fnRepr, options, extInfo);
       if (!ty || ty->hasError())
@@ -2303,7 +2314,7 @@ Type TypeResolver::resolveAttributedType(TypeAttributes &attrs,
       attrs.clearAttribute(TAK_escaping);
     } else {
       // No attribute; set the isNoEscape bit if we're in parameter context.
-      ty = applyNonEscapingFromContext(DC, ty, options);
+      ty = applyFunctionExtInfoFromContext(DC, ty, options);
     }
   }
 

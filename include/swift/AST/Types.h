@@ -289,7 +289,7 @@ class alignas(1 << TypeAlignInBits) TypeBase {
   }
 
 protected:
-  enum { NumAFTExtInfoBits = 6 };
+  enum { NumAFTExtInfoBits = 7 };
   enum { NumSILExtInfoBits = 6 };
   union { uint64_t OpaqueBits;
 
@@ -341,11 +341,11 @@ protected:
     ID : 32 - NumTypeBaseBits,
 
     /// Type variable options.
-    Options : 4,
+    Options : 5,
 
     ///  Index into the list of type variables, as used by the
     ///  constraint graph.
-    GraphIndex : 28
+    GraphIndex : 27
   );
 
   SWIFT_INLINE_BITFIELD(SILFunctionType, TypeBase, NumSILExtInfoBits+3+1+2,
@@ -2834,7 +2834,8 @@ public:
       RepresentationMask     = 0xF << 0,
       NoEscapeMask           = 1 << 4,
       ThrowsMask             = 1 << 5,
-      NumMaskBits            = 6
+      ActorSafetyMask       = 1 << 6,
+      NumMaskBits            = 7
     };
 
     unsigned Bits; // Naturally sized for speed.
@@ -2857,12 +2858,15 @@ public:
     // Constructor with no defaults.
     ExtInfo(Representation Rep,
             bool IsNoEscape,
-            bool Throws)
+            bool Throws,
+            bool IsActorSafe)
       : ExtInfo(Rep, Throws) {
       Bits |= (IsNoEscape ? NoEscapeMask : 0);
+      Bits |= (IsActorSafe ? ActorSafetyMask : 0);
     }
 
     bool isNoEscape() const { return Bits & NoEscapeMask; }
+    bool isActorSafe() const { return Bits & ActorSafetyMask; }
     bool throws() const { return Bits & ThrowsMask; }
     Representation getRepresentation() const {
       unsigned rawRep = Bits & RepresentationMask;
@@ -2919,6 +2923,13 @@ public:
         return ExtInfo(Bits | NoEscapeMask);
       else
         return ExtInfo(Bits & ~NoEscapeMask);
+    }
+    LLVM_NODISCARD
+    ExtInfo withActorSafe(bool ActorSafe = true) const {
+      if (ActorSafe)
+        return ExtInfo(Bits | ActorSafetyMask);
+      else
+        return ExtInfo(Bits & ~ActorSafetyMask);
     }
     LLVM_NODISCARD
     ExtInfo withThrows(bool Throws = true) const {
@@ -3019,6 +3030,10 @@ public:
 
   bool throws() const {
     return getExtInfo().throws();
+  }
+
+  bool isActorSafe() const {
+    return getExtInfo().isActorSafe();
   }
 
   /// Returns a new function type exactly like this one but with the ExtInfo

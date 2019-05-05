@@ -59,7 +59,7 @@ namespace swift {
   constexpr size_t TypeAlignInBits = 3;
   constexpr size_t PatternAlignInBits = 3;
   constexpr size_t SILFunctionAlignInBits = 2;
-  constexpr size_t TypeVariableAlignInBits = 4;
+  constexpr size_t TypeVariableAlignInBits = 5;
 }
 
 namespace llvm {

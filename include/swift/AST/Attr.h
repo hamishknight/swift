@@ -258,6 +258,10 @@ protected:
       ownership : NumReferenceOwnershipBits
     );
 
+    SWIFT_INLINE_BITFIELD(ActorSafetyAttr, DeclAttribute, 1,
+      kind : 1
+    );
+
     SWIFT_INLINE_BITFIELD_FULL(SpecializeAttr, DeclAttribute, 1+1+32,
       exported : 1,
       kind : 1,
@@ -1144,6 +1148,33 @@ public:
 
   static bool classof(const DeclAttribute *DA) {
     return DA->getKind() == DAK_ReferenceOwnership;
+  }
+};
+
+enum class ActorSafetyKind {
+  Checked, Unchecked
+};
+
+class ActorSafetyAttr : public DeclAttribute {
+public:
+  ActorSafetyAttr(SourceRange range, ActorSafetyKind kind,
+                  bool isImplicit = false)
+      : DeclAttribute(DAK_ActorSafety, range.Start, range,
+                      /*Implicit=*/isImplicit) {
+    Bits.ActorSafetyAttr.kind = unsigned(kind);
+  }
+
+  ActorSafetyKind getKind() const {
+    return ActorSafetyKind(Bits.ActorSafetyAttr.kind);
+  }
+
+  /// Returns a copy of this attribute without any source information.
+  ActorSafetyAttr *clone(ASTContext &context) const {
+    return new (context) ActorSafetyAttr(SourceRange(), getKind());
+  }
+
+  static bool classof(const DeclAttribute *DA) {
+    return DA->getKind() == DAK_ActorSafety;
   }
 };
 

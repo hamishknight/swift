@@ -311,6 +311,9 @@ void AttributedTypeRepr::printAttrs(ASTPrinter &Printer,
     Printer.printStructurePost(PrintStructureKind::BuiltinAttribute);
     Printer << " ";
   }
+
+  if (hasAttr(TAK_actorSafe))
+    Printer.printSimpleAttr("@actorSafe") << " ";
 }
 
 IdentTypeRepr *IdentTypeRepr::create(ASTContext &C,

@@ -173,6 +173,9 @@ static VarDecl *deriveRawRepresentable_raw(DerivedConformance &derived) {
       C.Id_rawValue, rawInterfaceType, rawType, /*isStatic=*/false,
       /*isFinal=*/false);
 
+  propDecl->getAttrs().add(new (C) ActorSafetyAttr(
+      SourceRange(), ActorSafetyKind::Unchecked, /*Implicit*/ true));
+
   // Define the getter.
   auto getterDecl = DerivedConformance::addGetterToReadOnlyDerivedProperty(
       derived.TC, propDecl, rawType);
@@ -444,6 +447,8 @@ deriveRawRepresentable_init(DerivedConformance &derived) {
   
   initDecl->setImplicit();
   initDecl->setBodySynthesizer(&deriveBodyRawRepresentable_init);
+  initDecl->getAttrs().add(new (C) ActorSafetyAttr(
+      SourceRange(), ActorSafetyKind::Unchecked, /*Implicit*/ true));
 
   // Compute the interface type of the initializer.
   if (auto env = parentDC->getGenericEnvironmentOfContext())

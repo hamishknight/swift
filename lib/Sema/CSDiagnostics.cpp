@@ -2158,6 +2158,12 @@ bool InvalidActorMemberFailure::diagnoseAsError() {
   return true;
 }
 
+bool ActorSafeFunctionConversionFailure::diagnoseAsError() {
+  emitDiagnostic(getAnchor()->getLoc(),
+                 diag::cannot_convert_non_actor_safe_to_actor_safe, FnTy);
+  return true;
+}
+
 bool MissingArgumentsFailure::diagnoseAsError() {
   auto *locator = getLocator();
   auto path = locator->getPath();
@@ -2233,7 +2239,6 @@ bool MissingArgumentsFailure::diagnoseTrailingClosure(ClosureExpr *closure) {
 
     diag.fixItInsertAfter(params->getEndLoc(), OS.str());
   }
-
   return true;
 }
 

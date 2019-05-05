@@ -49,6 +49,7 @@
 // Type attributes
 TYPE_ATTR(autoclosure)
 TYPE_ATTR(convention)
+TYPE_ATTR(actorSafe)
 TYPE_ATTR(noescape)
 TYPE_ATTR(escaping)
 
@@ -406,6 +407,10 @@ CONTEXTUAL_SIMPLE_DECL_ATTR(actor, Actor,
   OnClass | OnFunc |
   DeclModifier,
   87)
+DECL_ATTR(actorSafe, ActorSafety,
+  OnProtocol | OnClass | OnStruct | OnEnum | OnExtension | OnFunc | OnVar |
+  OnSubscript | OnConstructor,
+  88)
 
 #undef TYPE_ATTR
 #undef DECL_ATTR_ALIAS

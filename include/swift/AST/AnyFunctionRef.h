@@ -135,7 +135,20 @@ public:
     }
     llvm_unreachable("unexpected AnyFunctionRef representation");
   }
-  
+
+  Optional<ActorSafetyKind> getActorSafety() const {
+    if (auto afd = TheFunction.dyn_cast<AbstractFunctionDecl *>()) {
+      return afd->getActorSafety();
+    } else if (auto *ace = TheFunction.dyn_cast<AbstractClosureExpr *>()) {
+      if (ace->isActorSafe()) {
+        return ActorSafetyKind::Checked;
+      } else {
+        return None;
+      }
+    }
+    llvm_unreachable("unexpected AnyFunctionRef representation");
+  }
+
   SourceLoc getLoc() const {
     if (auto afd = TheFunction.dyn_cast<AbstractFunctionDecl *>()) {
       return afd->getLoc();

@@ -1629,6 +1629,34 @@ bool Parser::parseNewDeclAttribute(DeclAttributes &Attributes, SourceLoc AtLoc,
     }
     break;
   }
+  case DAK_ActorSafety: {
+    SourceLoc EndLoc = Loc;
+
+    bool isUnchecked = false;
+    if (Tok.is(tok::l_paren)) {
+      // Parse an optional specifier after @actorSafe.
+      SourceLoc lp = consumeToken(tok::l_paren);
+      if (Tok.is(tok::identifier) && Tok.getText() == "checked") {
+        consumeToken();
+      } else if (Tok.is(tok::identifier) && Tok.getText() == "unchecked") {
+        consumeToken();
+        isUnchecked = true;
+      } else {
+        diagnose(Tok, diag::attr_thread_safe_invalid_specifier);
+        consumeIf(tok::identifier);
+      }
+
+      SourceLoc rp;
+      parseMatchingToken(tok::r_paren, rp,
+                         diag::attr_thread_safe_expected_rparen, lp);
+      EndLoc = rp;
+    }
+    if (!DiscardAttribute)
+      Attributes.add(new (Context) ActorSafetyAttr(
+          SourceRange(Loc, EndLoc),
+          isUnchecked ? ActorSafetyKind::Unchecked : ActorSafetyKind::Checked));
+    break;
+  }
   }
 
   if (DuplicateAttribute) {

@@ -35,6 +35,7 @@ class RequirementRepr;
 class SpecializeAttr;
 class TypeAliasDecl;
 struct TypeLoc;
+class TypeChecker;
 
 /// Display a nominal type or extension thereof.
 void simple_display(
@@ -266,6 +267,30 @@ public:
   bool isCached() const { return true; }
   Optional<bool> getCachedResult() const;
   void cacheResult(bool value) const;
+};
+
+class ActorSafetyRequest
+    : public SimpleRequest<ActorSafetyRequest, CacheKind::SeparatelyCached,
+                           Optional<ActorSafetyKind>, ValueDecl *> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  // Evaluation.
+  llvm::Expected<Optional<ActorSafetyKind>> evaluate(Evaluator &evaluator,
+                                                     ValueDecl *decl) const;
+
+public:
+  // Cycle handling
+  void diagnoseCycle(DiagnosticEngine &diags) const;
+  void noteCycleStep(DiagnosticEngine &diags) const;
+
+  // Separate caching.
+  bool isCached() const { return true; }
+  Optional<Optional<ActorSafetyKind>> getCachedResult() const;
+  void cacheResult(Optional<ActorSafetyKind> value) const;
 };
 
 /// Describes the owner of a where clause, from which we can extract

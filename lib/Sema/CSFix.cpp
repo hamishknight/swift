@@ -370,6 +370,19 @@ AllowInvalidActorMember::create(ConstraintSystem &cs,
   return new (cs.getAllocator()) AllowInvalidActorMember(cs, locator);
 }
 
+bool AllowActorSafeFunctionConversion::diagnose(Expr *root, bool asNote) const {
+  auto failure = ActorSafeFunctionConversionFailure(root, getConstraintSystem(),
+                                                    FnTy, getLocator());
+  return failure.diagnose(asNote);
+}
+
+AllowActorSafeFunctionConversion *
+AllowActorSafeFunctionConversion::create(ConstraintSystem &cs, Type fnTy,
+                                         ConstraintLocator *locator) {
+  return new (cs.getAllocator())
+      AllowActorSafeFunctionConversion(cs, fnTy, locator);
+}
+
 bool AddMissingArguments::diagnose(Expr *root, bool asNote) const {
   MissingArgumentsFailure failure(root, getConstraintSystem(), Fn,
                                   NumSynthesized, getLocator());

@@ -7660,27 +7660,6 @@ Expr *ConstraintSystem::applySolution(Solution &solution, Expr *expr,
   if (!result)
     return nullptr;
 
-  // If we're re-typechecking an expression for diagnostics, don't
-  // visit closures that have non-single expression bodies.
-  if (!skipClosures) {
-    auto &tc = getTypeChecker();
-    bool hadError = false;
-    for (auto *closure : walker.getClosuresToTypeCheck())
-      hadError |= tc.typeCheckClosureBody(closure);
-
-    // Tap expressions too; they should or should not be
-    // type-checked under the same conditions as closure bodies.
-    for (auto tuple : walker.getTapsToTypeCheck()) {
-      auto tap = std::get<0>(tuple);
-      auto tapDC = std::get<1>(tuple);
-      hadError |= tc.typeCheckTapBody(tap, tapDC);
-    }
-
-    // If any of them failed to type check, bail.
-    if (hadError)
-      return nullptr;
-  }
-
   // We are supposed to use contextual type only if it is present and
   // this expression doesn't represent the implicit return of the single
   // expression function which got deduced to be `Never`.
@@ -7704,6 +7683,26 @@ Expr *ConstraintSystem::applySolution(Solution &solution, Expr *expr,
 
   if (result)
     rewriter.finalize(result);
+  // If we're re-typechecking an expression for diagnostics, don't
+  // visit closures that have non-single expression bodies.
+  if (!skipClosures) {
+    auto &tc = getTypeChecker();
+    bool hadError = false;
+    for (auto *closure : walker.getClosuresToTypeCheck())
+      hadError |= tc.typeCheckClosureBody(closure);
+
+    // Tap expressions too; they should or should not be
+    // type-checked under the same conditions as closure bodies.
+    for (auto tuple : walker.getTapsToTypeCheck()) {
+      auto tap = std::get<0>(tuple);
+      auto tapDC = std::get<1>(tuple);
+      hadError |= tc.typeCheckTapBody(tap, tapDC);
+    }
+
+    // If any of them failed to type check, bail.
+    if (hadError)
+      return nullptr;
+  }
 
   return result;
 }

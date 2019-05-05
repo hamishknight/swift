@@ -1442,6 +1442,12 @@ ERROR(attr_unowned_invalid_specifier,none,
 ERROR(attr_unowned_expected_rparen,none,
       "expected ')' after specifier for 'unowned'", ())
 
+// (actor/thread)Safe
+ERROR(attr_thread_safe_invalid_specifier,none,
+      "expected 'checked' or 'unchecked'", ())
+ERROR(attr_thread_safe_expected_rparen,none,
+      "expected ')' after specifier", ())
+
 // warn_unused_result
 WARNING(attr_warn_unused_result_removed,none,
         "'warn_unused_result' attribute behavior is now the default", ())

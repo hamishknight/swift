@@ -39,6 +39,7 @@ namespace llvm {
 
 namespace swift {
   class AbstractFunctionDecl;
+  enum class ActorSafetyKind;
   class GenericEnvironment;
   class ASTContext;
   class ASTWalker;
@@ -59,6 +60,7 @@ namespace swift {
   class Requirement;
   class SourceFile;
   class Type;
+  class TypeChecker;
   class ModuleDecl;
   class GenericTypeDecl;
   class NominalTypeDecl;
@@ -252,6 +254,15 @@ public:
     return const_cast<DeclContext*>(this)->getAsDecl();
   }
 
+  LLVM_READONLY
+  Expr *getAsExpr() {
+    return ParentAndKind.getInt() == ASTHierarchy::Expr ?
+      reinterpret_cast<Expr*>(this + 1) : nullptr;
+  }
+  const Expr *getAsExpr() const {
+    return const_cast<DeclContext*>(this)->getAsExpr();
+  }
+
   DeclContext(DeclContextKind Kind, DeclContext *Parent)
       : ParentAndKind(Parent, getASTHierarchyFromKind(Kind)) {
     if (Kind != DeclContextKind::Module)
@@ -281,6 +292,12 @@ public:
   /// enum, a protocol, or an extension.
   LLVM_READONLY
   bool isTypeContext() const;
+
+  LLVM_READONLY
+  bool isImplicitContext() const;
+
+  LLVM_READONLY
+  Optional<ActorSafetyKind> getContextActorSafety() const;
 
   /// If this DeclContext is a NominalType declaration or an
   /// extension thereof, return the NominalTypeDecl.

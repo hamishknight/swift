@@ -1218,6 +1218,16 @@ bool swift::checkOverrides(ValueDecl *decl) {
   auto overridden = matcher.checkPotentialOverrides(matches, attempt);
   if (overridden.empty())
     invalidateOverrideAttribute(decl);
+
+  auto &ctx = decl->getASTContext();
+  for (auto &baseDecl : overridden) {
+    // If we have a non-actor-safe override of an actor-safe decl, complain.
+    if (baseDecl->getActorSafety() && !decl->getActorSafety()) {
+      ctx.Diags.diagnose(decl, diag::override_actor_safe_with_non_actor_safe,
+                         decl->getDescriptiveKind());
+    }
+  }
+
   decl->setOverriddenDecls(overridden);
   return false;
 }
@@ -1249,6 +1259,7 @@ namespace  {
 
     UNINTERESTING_ATTR(AccessControl)
     UNINTERESTING_ATTR(Actor)
+    UNINTERESTING_ATTR(ActorSafety)
     UNINTERESTING_ATTR(Alignment)
     UNINTERESTING_ATTR(AlwaysEmitIntoClient)
     UNINTERESTING_ATTR(Borrowed)

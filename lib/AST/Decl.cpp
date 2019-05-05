@@ -2561,6 +2561,12 @@ bool NominalTypeDecl::isCompilerCopyable() const {
       IsCompilerCopyableRequest{const_cast<NominalTypeDecl *>(this)}, false);
 }
 
+Optional<ActorSafetyKind> ValueDecl::getActorSafety() const {
+  auto &ctx = getASTContext();
+  return evaluateOrDefault(
+      ctx.evaluator, ActorSafetyRequest{const_cast<ValueDecl *>(this)}, None);
+}
+
 bool ValueDecl::canBeAccessedByDynamicLookup() const {
   if (!hasName())
     return false;

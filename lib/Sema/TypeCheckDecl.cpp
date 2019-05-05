@@ -1459,6 +1459,99 @@ IsCompilerCopyableRequest::evaluate(Evaluator &evaluator,
   return true;
 }
 
+llvm::Expected<Optional<ActorSafetyKind>>
+ActorSafetyRequest::evaluate(Evaluator &evaluator, ValueDecl *decl) const {
+  auto *dc = decl->getDeclContext();
+
+  // @objc protocol requirements are never actor safe, because they use
+  // objc_msgSend.
+  if (auto *proto = dyn_cast_or_null<ProtocolDecl>(dc->getAsDecl()))
+    if (proto->isObjC())
+      return None;
+
+  // ... nor are @objc protocols.
+  if (auto *proto = dyn_cast<ProtocolDecl>(decl))
+    if (proto->isObjC())
+      return None;
+
+  // Mutable stored global/static vars are never actor safe.
+  if (auto *vd = dyn_cast<VarDecl>(decl))
+    if (vd->hasStorage() && !vd->isLet())
+      if (vd->isStatic() || dc->isModuleScopeContext())
+        return None;
+
+  if (auto *ntd = dyn_cast_or_null<NominalTypeDecl>(dc->getAsDecl())) {
+    // HACK: If it's NSThread.isMainThread (despite being dynamic), it's actor
+    // safe.
+    if (auto *module = decl->getModuleContext()) {
+      auto &ctx = decl->getASTContext();
+      if (module->getName() == ctx.Id_Foundation &&
+          ntd->getFullName() == ctx.getIdentifier("Thread") &&
+          decl->getFullName() == ctx.getIdentifier("isMainThread"))
+        return ActorSafetyKind::Checked;
+    }
+  }
+
+  // Dynamic decls are never thread safe.
+  if (decl->isDynamic())
+    return None;
+
+  if (auto *tsAttr = decl->getAttrs().getAttribute<ActorSafetyAttr>())
+    return tsAttr->getKind();
+
+  if (decl->getAttrs().hasAttribute<ActorAttr>())
+    return ActorSafetyKind::Checked;
+
+  // If this is a protocol requirement, it's implicitly @actorSafe if the
+  // protocol is.
+  if (auto *proto = dyn_cast_or_null<ProtocolDecl>(dc->getAsDecl()))
+    if (auto actorSafety = proto->getActorSafety())
+      return *actorSafety;
+
+  // If this is a member, it can inherit its thread safety from its type.
+  if (auto *parent = dc->getAsDecl()) {
+    if (auto *ntd = dyn_cast<NominalTypeDecl>(parent))
+      if (auto actorSafety = ntd->getActorSafety())
+        return *actorSafety;
+
+    if (auto *ext = dyn_cast<ExtensionDecl>(parent)) {
+      if (auto *tsAttr = ext->getAttrs().getAttribute<ActorSafetyAttr>())
+        return tsAttr->getKind();
+
+      if (auto *nominal = ext->getExtendedNominal())
+        if (auto actorSafety = nominal->getActorSafety())
+          return *actorSafety;
+    }
+  }
+
+  // Accessors inherit their actor-safety from the parent var.
+  if (auto *accessor = dyn_cast<AccessorDecl>(decl))
+    if (auto actorSafety = accessor->getStorage()->getActorSafety())
+      return actorSafety;
+
+  if (auto *vd = dyn_cast<VarDecl>(decl)) {
+    // Immutable variables are always actor safe.
+    if (vd->isImmutable())
+      return ActorSafetyKind::Checked;
+
+    // Simple local variables and struct properties are always actor safe.
+    if (vd->getImplInfo().isSimpleStored())
+      if (dc->isLocalContext() || dc->getSelfStructDecl())
+        return ActorSafetyKind::Checked;
+
+    // Local variables w/ accessors inherit actor safety from the parent func.
+    if (dc->isLocalContext())
+      return dc->getContextActorSafety();
+  }
+
+  // If this is an override of an actor-safe decl, it's also actor safe.
+  if (auto *baseDecl = decl->getOverriddenDecl())
+    if (auto actorSafety = baseDecl->getActorSafety())
+      return *actorSafety;
+
+  return None;
+}
+
 namespace {
   /// How to generate the raw value for each element of an enum that doesn't
   /// have one explicitly specified.

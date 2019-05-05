@@ -70,7 +70,7 @@ namespace constraints {
 /// can be restored.
 class SavedTypeVariableBinding {
   /// The type variable and type variable options.
-  llvm::PointerIntPair<TypeVariableType *, 4> TypeVarAndOptions;
+  llvm::PointerIntPair<TypeVariableType *, 5> TypeVarAndOptions;
   
   /// The parent or fixed type.
   llvm::PointerUnion<TypeVariableType *, TypeBase *> ParentOrFixed;
@@ -170,6 +170,8 @@ enum TypeVariableOptions {
   /// Whether a more specific deduction for this type variable implies a
   /// better solution to the constraint system.
   TVO_PrefersSubtypeBinding = 0x08,
+
+  TVO_BindsActorSafe = 0x10,
 };
 
 /// The implementation object for a type variable used within the
@@ -231,6 +233,8 @@ public:
 
   /// Whether this type variable can bind to an inout type.
   bool canBindToNoEscape() const { return getRawOptions() & TVO_CanBindToNoEscape; }
+
+  bool bindsActorSafe() const { return getRawOptions() & TVO_BindsActorSafe; }
 
   /// Whether this type variable prefers a subtype binding over a supertype
   /// binding.
@@ -2437,11 +2441,11 @@ public:
   ///
   /// \returns a pair containing the full opened type (if applicable) and
   /// opened type of a reference to declaration.
-  std::pair<Type, Type> getTypeOfReference(
-                          ValueDecl *decl,
-                          FunctionRefKind functionRefKind,
-                          ConstraintLocatorBuilder locator,
-                          DeclContext *useDC);
+  std::pair<Type, Type> getTypeOfReference(ValueDecl *decl,
+                                           FunctionRefKind functionRefKind,
+                                           ConstraintLocatorBuilder locator,
+                                           DeclContext *useDC,
+                                           bool withActorSafety = false);
 
   /// Return the type-of-reference of the given value.
   ///
@@ -2472,12 +2476,10 @@ public:
   /// \returns a pair containing the full opened type (which includes the opened
   /// base) and opened type of a reference to this member.
   std::pair<Type, Type> getTypeOfMemberReference(
-                          Type baseTy, ValueDecl *decl, DeclContext *useDC,
-                          bool isDynamicResult,
-                          FunctionRefKind functionRefKind,
-                          ConstraintLocatorBuilder locator,
-                          const DeclRefExpr *base = nullptr,
-                          OpenedTypeMap *replacements = nullptr);
+      Type baseTy, ValueDecl *decl, DeclContext *useDC, bool isDynamicResult,
+      FunctionRefKind functionRefKind, ConstraintLocatorBuilder locator,
+      const DeclRefExpr *base = nullptr, OpenedTypeMap *replacements = nullptr,
+      bool withActorSafety = false);
 
   /// Attempt to simplify the set of overloads corresponding to a given
   /// function application constraint.

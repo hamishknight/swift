@@ -2363,20 +2363,22 @@ class UnresolvedDotExpr : public Expr {
   DeclNameLoc NameLoc;
   DeclName Name;
   ArrayRef<ValueDecl *> OuterAlternatives;
+  bool MustBeActorSafe;
 
 public:
   UnresolvedDotExpr(
       Expr *subexpr, SourceLoc dotloc, DeclName name, DeclNameLoc nameloc,
       bool Implicit,
-      ArrayRef<ValueDecl *> outerAlternatives = ArrayRef<ValueDecl *>())
+      ArrayRef<ValueDecl *> outerAlternatives = ArrayRef<ValueDecl *>(),
+      bool mustBeActorSafe = false)
       : Expr(ExprKind::UnresolvedDot, Implicit), SubExpr(subexpr),
         DotLoc(dotloc), NameLoc(nameloc), Name(name),
-        OuterAlternatives(outerAlternatives) {
+        OuterAlternatives(outerAlternatives), MustBeActorSafe(mustBeActorSafe) {
     Bits.UnresolvedDotExpr.FunctionRefKind =
       static_cast<unsigned>(NameLoc.isCompound() ? FunctionRefKind::Compound
                                                  : FunctionRefKind::Unapplied);
   }
-  
+
   SourceLoc getLoc() const { return NameLoc.getBaseNameLoc(); }
 
   SourceLoc getStartLoc() const {
@@ -2397,6 +2399,8 @@ public:
   ArrayRef<ValueDecl *> getOuterAlternatives() const {
     return OuterAlternatives;
   }
+
+  bool getMustBeActorSafe() const { return MustBeActorSafe; }
 
   /// Retrieve the kind of function reference.
   FunctionRefKind getFunctionRefKind() const {
@@ -3438,6 +3442,8 @@ public:
 
   /// Whether this closure consists of a single expression.
   bool hasSingleExpressionBody() const;
+
+  bool isActorSafe() const;
 
   static bool classof(const Expr *E) {
     return E->getKind() >= ExprKind::First_AbstractClosureExpr &&

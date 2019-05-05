@@ -630,9 +630,10 @@ Type ConstraintSystem::openFunctionType(
     auto resultTy = openType(genericFn->getResult(), replacements);
 
     // Build the resulting (non-generic) function type.
-    funcType = FunctionType::get(
-        openedParams, resultTy,
-        FunctionType::ExtInfo().withThrows(genericFn->throws()));
+    funcType = FunctionType::get(openedParams, resultTy,
+                                 FunctionType::ExtInfo()
+                                     .withThrows(genericFn->throws())
+                                     .withActorSafe(genericFn->isActorSafe()));
   }
 
   return funcType->removeArgumentLabels(numArgumentLabelsToRemove);
@@ -886,11 +887,61 @@ static unsigned getNumRemovedArgumentLabels(TypeChecker &TC, ValueDecl *decl,
   llvm_unreachable("Unhandled FunctionRefKind in switch.");
 }
 
+// FIXME: Figure out a better way to do this.
+static Type adjustDeclReferenceTypeForActorSafety(const ValueDecl *vd,
+                                                  Type type) {
+  if (!vd->getActorSafety())
+    return type;
+
+  if (auto *afd = dyn_cast<AbstractFunctionDecl>(vd)) {
+    auto *fnTy = type->castTo<AnyFunctionType>();
+
+    auto *sig = afd->getGenericSignature();
+    auto hasSelf = afd->getImplicitSelfDecl();
+
+    if (hasSelf) {
+      auto *innerFnTy = fnTy->getResult()->castTo<AnyFunctionType>();
+      innerFnTy =
+          innerFnTy->withExtInfo(innerFnTy->getExtInfo().withActorSafe());
+
+      if (sig) {
+        fnTy = GenericFunctionType::get(sig, fnTy->getParams(), innerFnTy);
+      } else {
+        fnTy = FunctionType::get(fnTy->getParams(), innerFnTy);
+      }
+    } else {
+      fnTy = fnTy->withExtInfo(fnTy->getExtInfo().withActorSafe());
+    }
+    return fnTy;
+  }
+
+  if (auto *eed = dyn_cast<EnumElementDecl>(vd)) {
+    auto *fnTy = type->castTo<AnyFunctionType>();
+    auto *sig = eed->getParentEnum()->getGenericSignature();
+    auto hasPayload = eed->getParameterList();
+
+    if (hasPayload) {
+      auto *innerFnTy = fnTy->getResult()->castTo<AnyFunctionType>();
+      innerFnTy =
+          innerFnTy->withExtInfo(innerFnTy->getExtInfo().withActorSafe());
+
+      if (sig) {
+        fnTy = GenericFunctionType::get(sig, fnTy->getParams(), innerFnTy);
+      } else {
+        fnTy = FunctionType::get(fnTy->getParams(), innerFnTy);
+      }
+    }
+    return fnTy;
+  }
+
+  return type;
+}
+
 std::pair<Type, Type>
 ConstraintSystem::getTypeOfReference(ValueDecl *value,
                                      FunctionRefKind functionRefKind,
                                      ConstraintLocatorBuilder locator,
-                                     DeclContext *useDC) {
+                                     DeclContext *useDC, bool withActorSafety) {
   if (value->getDeclContext()->isTypeContext() && isa<FuncDecl>(value)) {
     // Unqualified lookup can find operator names within nominal types.
     auto func = cast<FuncDecl>(value);
@@ -898,13 +949,14 @@ ConstraintSystem::getTypeOfReference(ValueDecl *value,
 
     OpenedTypeMap replacements;
 
+    auto rawType = func->getInterfaceType();
+    if (withActorSafety)
+      rawType = adjustDeclReferenceTypeForActorSafety(value, rawType);
     auto openedType = openFunctionType(
-            func->getInterfaceType()->castTo<AnyFunctionType>(),
-            /*numArgumentLabelsToRemove=*/0,
-            locator, replacements,
-            func->getInnermostDeclContext(),
-            func->getDeclContext(),
-            /*skipProtocolSelfConstraint=*/false);
+        rawType->castTo<AnyFunctionType>(),
+        /*numArgumentLabelsToRemove=*/0, locator, replacements,
+        func->getInnermostDeclContext(), func->getDeclContext(),
+        /*skipProtocolSelfConstraint=*/false);
     auto openedFnType = openedType->castTo<FunctionType>();
 
     // If we opened up any type variables, record the replacements.
@@ -934,6 +986,9 @@ ConstraintSystem::getTypeOfReference(ValueDecl *value,
     OpenedTypeMap replacements;
 
     auto funcType = funcDecl->getInterfaceType()->castTo<AnyFunctionType>();
+    if (withActorSafety)
+      funcType = adjustDeclReferenceTypeForActorSafety(value, funcType)
+                     ->castTo<AnyFunctionType>();
     auto openedType =
       openFunctionType(
         funcType,
@@ -1182,14 +1237,11 @@ static bool isRequirementOrWitness(const ConstraintLocatorBuilder &locator) {
   return false;
 }
 
-std::pair<Type, Type>
-ConstraintSystem::getTypeOfMemberReference(
-    Type baseTy, ValueDecl *value, DeclContext *useDC,
-    bool isDynamicResult,
-    FunctionRefKind functionRefKind,
-    ConstraintLocatorBuilder locator,
-    const DeclRefExpr *base,
-    OpenedTypeMap *replacementsPtr) {
+std::pair<Type, Type> ConstraintSystem::getTypeOfMemberReference(
+    Type baseTy, ValueDecl *value, DeclContext *useDC, bool isDynamicResult,
+    FunctionRefKind functionRefKind, ConstraintLocatorBuilder locator,
+    const DeclRefExpr *base, OpenedTypeMap *replacementsPtr,
+    bool withActorSafety) {
   // Figure out the instance type used for the base.
   Type baseObjTy = getFixedTypeRecursive(baseTy, /*wantRValue=*/true);
 
@@ -1240,6 +1292,9 @@ ConstraintSystem::getTypeOfMemberReference(
       isa<EnumElementDecl>(value)) {
     // This is the easy case.
     funcType = value->getInterfaceType()->castTo<AnyFunctionType>();
+    if (withActorSafety)
+      funcType = adjustDeclReferenceTypeForActorSafety(value, funcType)
+                     ->castTo<AnyFunctionType>();
   } else {
     // For a property, build a type (Self) -> PropType.
     // For a subscript, build a type (Self) -> (Indices...) -> ElementType.
@@ -1570,7 +1625,8 @@ resolveOverloadForDeclWithSpecialTypeCheckingSemantics(ConstraintSystem &CS,
     auto bodyClosure = FunctionType::get(arg, result,
         FunctionType::ExtInfo(FunctionType::Representation::Swift,
                               /*noescape*/ true,
-                              /*throws*/ true));
+                              /*throws*/ true,
+                              /*isActorSafe*/ false));
     FunctionType::Param args[] = {
       FunctionType::Param(noescapeClosure),
       FunctionType::Param(bodyClosure, CS.getASTContext().getIdentifier("do")),
@@ -1579,7 +1635,8 @@ resolveOverloadForDeclWithSpecialTypeCheckingSemantics(ConstraintSystem &CS,
     refType = FunctionType::get(args, result,
       FunctionType::ExtInfo(FunctionType::Representation::Swift,
                             /*noescape*/ false,
-                            /*throws*/ true));
+                            /*throws*/ true,
+                            /*isActorSafe*/ false));
     openedFullType = refType;
     return true;
   }
@@ -1602,7 +1659,8 @@ resolveOverloadForDeclWithSpecialTypeCheckingSemantics(ConstraintSystem &CS,
     auto bodyClosure = FunctionType::get(bodyArgs, result,
         FunctionType::ExtInfo(FunctionType::Representation::Swift,
                               /*noescape*/ true,
-                              /*throws*/ true));
+                              /*throws*/ true,
+                              /*copyable*/ false));
     FunctionType::Param args[] = {
       FunctionType::Param(existentialTy),
       FunctionType::Param(bodyClosure, CS.getASTContext().getIdentifier("do")),
@@ -1610,7 +1668,8 @@ resolveOverloadForDeclWithSpecialTypeCheckingSemantics(ConstraintSystem &CS,
     refType = FunctionType::get(args, result,
       FunctionType::ExtInfo(FunctionType::Representation::Swift,
                             /*noescape*/ false,
-                            /*throws*/ true));
+                            /*throws*/ true,
+                            /*copyable*/ false));
     openedFullType = refType;
     return true;
   }
@@ -1788,15 +1847,14 @@ void ConstraintSystem::resolveOverload(ConstraintLocator *locator,
       };
       auto anchor = locator ? locator->getAnchor() : nullptr;
       auto base = getDotBase(anchor);
-      std::tie(openedFullType, refType)
-        = getTypeOfMemberReference(baseTy, choice.getDecl(), useDC,
-                                   isDynamicResult,
-                                   choice.getFunctionRefKind(),
-                                   locator, base, nullptr);
+      std::tie(openedFullType, refType) = getTypeOfMemberReference(
+          baseTy, choice.getDecl(), useDC, isDynamicResult,
+          choice.getFunctionRefKind(), locator, base, nullptr,
+          /*withActorSafety*/ true);
     } else {
-      std::tie(openedFullType, refType)
-        = getTypeOfReference(choice.getDecl(),
-                             choice.getFunctionRefKind(), locator, useDC);
+      std::tie(openedFullType, refType) = getTypeOfReference(
+          choice.getDecl(), choice.getFunctionRefKind(), locator, useDC,
+          /*withActorSafety*/ true);
     }
 
     // For a non-subscript declaration found via dynamic lookup, strip

@@ -277,6 +277,8 @@ enum class CheckKind : unsigned {
   WitnessUnavailable,
 
   NonActorWithinActor,
+
+  ActorSafetyMismatch
 };
 
 /// Describes an optional adjustment made to a witness.

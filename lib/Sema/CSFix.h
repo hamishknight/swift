@@ -125,6 +125,8 @@ enum class FixKind : uint8_t {
   AllowInvalidInitRef,
 
   AllowInvalidActorMember,
+  AllowActorSafeFunctionConversion,
+
   /// If there are fewer arguments than parameters, let's fix that up
   /// by adding new arguments to the list represented as type variables.
   AddMissingArguments,
@@ -704,6 +706,26 @@ public:
 
   static AllowInvalidActorMember *create(ConstraintSystem &cs,
                                          ConstraintLocator *locator);
+};
+
+class AllowActorSafeFunctionConversion final : public ConstraintFix {
+  Type FnTy;
+
+public:
+  AllowActorSafeFunctionConversion(ConstraintSystem &cs, Type fnTy,
+                                   ConstraintLocator *locator)
+      : ConstraintFix(cs, FixKind::AllowActorSafeFunctionConversion, locator,
+                      false),
+        FnTy(fnTy) {}
+
+  std::string getName() const override {
+    return "allow non-@actorSafe to @actor safe function conversion";
+  }
+
+  bool diagnose(Expr *root, bool asNote = false) const override;
+
+  static AllowActorSafeFunctionConversion *
+  create(ConstraintSystem &cs, Type fnTy, ConstraintLocator *locator);
 };
 
 class AddMissingArguments final

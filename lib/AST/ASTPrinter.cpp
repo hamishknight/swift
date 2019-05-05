@@ -3846,6 +3846,14 @@ public:
       Printer.printStructurePost(PrintStructureKind::BuiltinAttribute);
       Printer << " ";
     }
+
+    if (info.isActorSafe() && !Options.excludeAttrKind(TAK_actorSafe)) {
+      Printer.callPrintStructurePre(PrintStructureKind::BuiltinAttribute);
+      SWIFT_DEFER {
+        Printer.printStructurePost(PrintStructureKind::BuiltinAttribute);
+      };
+      Printer << "@actorSafe ";
+    }
   }
 
   void printFunctionExtInfo(

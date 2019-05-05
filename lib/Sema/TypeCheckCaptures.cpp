@@ -175,6 +175,24 @@ public:
     }
   }
 
+  void checkActorSafetyOfCapture(CapturedValue capture, SourceLoc Loc) {
+    // Prevent escaping @actorSafe closures from capturing anything.
+    if (!AFR.getAbstractClosureExpr() || AFR.isKnownNoEscape() ||
+        !AFR.getActorSafety())
+      return;
+
+    // Only interested in vars.
+    auto *vd = dyn_cast<VarDecl>(capture.getDecl());
+    if (!vd)
+      return;
+
+    // Vars must be captured through capture lists.
+    if (!vd->isCaptureList()) {
+      TC.diagnose(Loc, diag::actor_safe_closure_must_use_capture_list,
+                  vd->getFullName());
+    }
+  }
+
   /// Add the specified capture to the closure's capture list, diagnosing it
   /// if invalid.
   void addCapture(CapturedValue capture, SourceLoc Loc) {
@@ -202,6 +220,8 @@ public:
             || !isa<VarDecl>(VD)
             || !cast<VarDecl>(VD)->getType()->hasRetainablePointerRepresentation()))
       checkType(VD->getInterfaceType(), VD->getLoc());
+
+    checkActorSafetyOfCapture(capture, Loc);
   }
 
   bool shouldWalkIntoLazyInitializers() override {

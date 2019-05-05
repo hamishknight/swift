@@ -528,6 +528,13 @@ bool DeclAttribute::printImpl(ASTPrinter &Printer, const PrintOptions &Options,
     break;
   }
 
+  case DAK_ActorSafety: {
+    Printer.printAttrName("@actorSafe");
+    if (cast<ActorSafetyAttr>(this)->getKind() == ActorSafetyKind::Unchecked)
+      Printer << "(unchecked)";
+    break;
+  }
+
   case DAK_PrivateImport: {
     Printer.printAttrName("@_private(sourceFile: \"");
     Printer << cast<PrivateImportAttr>(this)->getSourceFile() << "\")";
@@ -734,6 +741,13 @@ StringRef DeclAttribute::getAttrName() const {
         return "_effects(readwrite)";
       case EffectsKind::Unspecified:
         return "_effects(unspecified)";
+    }
+  case DAK_ActorSafety:
+    switch (cast<ActorSafetyAttr>(this)->getKind()) {
+    case ActorSafetyKind::Checked:
+      return "actorSafe";
+    case ActorSafetyKind::Unchecked:
+      return "actorSafe(unchecked)";
     }
   case DAK_AccessControl:
   case DAK_SetterAccess: {

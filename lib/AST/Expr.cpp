@@ -1902,6 +1902,17 @@ bool AbstractClosureExpr::hasSingleExpressionBody() const {
   return true;
 }
 
+bool AbstractClosureExpr::isActorSafe() const {
+  auto ty = getType();
+  if (!ty)
+    return false;
+
+  if (ty->is<ErrorType>())
+    return false;
+
+  return ty->castTo<FunctionType>()->isActorSafe();
+}
+
 #define FORWARD_SOURCE_LOCS_TO(CLASS, NODE) \
   SourceRange CLASS::getSourceRange() const {     \
     return (NODE)->getSourceRange();              \

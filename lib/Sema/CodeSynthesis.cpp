@@ -2154,6 +2154,8 @@ ConstructorDecl *swift::createImplicitConstructor(TypeChecker &tc,
   // Mark implicit.
   ctor->setImplicit();
   ctor->setAccess(accessLevel);
+  ctor->getAttrs().add(new (tc.Context) ActorSafetyAttr(
+      SourceRange(), ActorSafetyKind::Unchecked, /*IsImplicit=*/true));
 
   if (ICK == ImplicitConstructorKind::Memberwise) {
     ctor->setIsMemberwiseInitializer();

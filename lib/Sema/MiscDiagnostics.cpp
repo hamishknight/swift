@@ -3898,6 +3898,143 @@ static void diagnoseDeprecatedWritableKeyPath(TypeChecker &TC, const Expr *E,
   const_cast<Expr *>(E)->walk(Walker);
 }
 
+static void diagnoseActorSafetyViolations(TypeChecker &TC, const Expr *E,
+                                          const DeclContext *DC) {
+  if (!E || isa<ErrorExpr>(E) || !E->getType())
+    return;
+
+  class ActorSafetyWalker : public ASTWalker {
+    TypeChecker &TC;
+    SmallVector<const DeclContext *, 8> DCStack;
+    unsigned IsEscapingContext;
+
+  public:
+    ActorSafetyWalker(TypeChecker &TC, const DeclContext *DC)
+        : TC(TC), DCStack({DC}), IsEscapingContext(0) {
+          SmallVector<const DeclContext *, 8> parentContexts;
+          auto *currentContext = DC;
+          while (auto *parent = currentContext->getParent()) {
+            parentContexts.push_back(parent);
+            currentContext = parent;
+          }
+          for (unsigned i = 0; i < parentContexts.size(); i++)
+            enterContext(parentContexts[parentContexts.size() - 1 - i]);
+          enterContext(DC);
+        }
+
+    void enterContext(const DeclContext *DC) {
+      DCStack.push_back(DC);
+      auto *constDC = const_cast<DeclContext *>(DC);
+      if (auto *ace = dyn_cast_or_null<AbstractClosureExpr>(constDC->getAsExpr()))
+        IsEscapingContext += !AnyFunctionRef(ace).isKnownNoEscape();
+    }
+
+    void leaveContext(const DeclContext *DC) {
+      DCStack.pop_back();
+      auto *constDC = const_cast<DeclContext *>(DC);
+      if (auto *ace = dyn_cast_or_null<AbstractClosureExpr>(constDC->getAsExpr()))
+        IsEscapingContext -= !AnyFunctionRef(ace).isKnownNoEscape();
+    }
+
+    void checkReferenceToDecl(const ValueDecl *decl, const Expr *expr) {
+      if (!decl)
+        return;
+
+      if (!decl->getActorSafety() &&
+          DCStack.back()->getContextActorSafety() == ActorSafetyKind::Checked) {
+
+        TC.diagnose(expr->getLoc(),
+                    diag::reference_to_actor_unsafe_decl_in_actor_safe,
+                    decl->getDescriptiveKind(), decl->getFullName())
+            .highlight(expr->getSourceRange());
+        return;
+      }
+
+      // Actor-safe decl, check that it's not an out-of-scope access to a
+      // non-actor member.
+      auto *parentDC = decl->getDeclContext()->getSelfClassDecl();
+      if (IsEscapingContext && parentDC &&
+          !decl->getAttrs().hasAttribute<ActorAttr>() &&
+           parentDC->getAttrs().hasAttribute<ActorAttr>()) {
+        enum {
+          DBK_Func = 0,
+          DBK_AbstractStorage
+        } declBaseKind = DBK_Func;
+
+        if (isa<AbstractStorageDecl>(decl))
+          declBaseKind = DBK_AbstractStorage;
+
+        TC.diagnose(expr->getLoc(), diag::non_actor_member_is_out_of_context,
+                    decl->getDescriptiveKind(), decl->getFullName(),
+                    declBaseKind)
+          .highlight(expr->getSourceRange());
+      }
+    }
+
+    void checkApply(const ApplyExpr *apply) {
+      if (DCStack.back()->getContextActorSafety() != ActorSafetyKind::Checked)
+        return;
+
+      if (!apply || !isa<CallExpr>(apply))
+        return;
+
+      auto *fn = apply->getFn();
+      auto *fnTy = fn->getType()->getAs<AnyFunctionType>();
+      if (!fnTy || fnTy->isActorSafe())
+        return;
+
+      TC.diagnose(apply->getLoc(), diag::invalid_expr_in_actor_safe_context)
+          .highlight(apply->getSourceRange());
+    }
+
+    std::pair<bool, Expr *> walkToExprPre(Expr *E) override {
+      if (!E || isa<ErrorExpr>(E) || !E->getType())
+        return {false, E};
+
+      // Don't visit, the TapExprs get type checked seperately anyways.
+      if (auto *sie = dyn_cast<InterpolatedStringLiteralExpr>(E))
+        return {false, E};
+
+      if (auto *ce = dyn_cast<ClosureExpr>(E)) {
+        // Don't walk into multi-expression closure bodies, they get type
+        // checked seperately.
+        if (!ce->hasSingleExpressionBody())
+          return {false, E};
+        enterContext(ce);
+      }
+
+      // Don't check implicit exprs, we can assume the compiler knows what it's
+      // doing.
+      if (E->isImplicit())
+        return {true, E};
+
+      if (auto *dre = dyn_cast<DeclRefExpr>(E))
+        checkReferenceToDecl(dre->getDecl(), dre);
+
+      if (auto *le = dyn_cast<LookupExpr>(E))
+        checkReferenceToDecl(le->getDecl().getDecl(), le);
+
+      if (auto *apply = dyn_cast<ApplyExpr>(E))
+        checkApply(apply);
+
+      return {true, E};
+    }
+
+    Expr *walkToExprPost(Expr *E) override {
+      if (!E || isa<ErrorExpr>(E) || !E->getType())
+        return E;
+
+      if (auto *ce = dyn_cast<ClosureExpr>(E))
+        leaveContext(ce);
+
+      return E;
+    }
+  };
+
+  ActorSafetyWalker Walker(TC, DC);
+  const_cast<Expr *>(E)->walk(Walker);
+}
+
 //===----------------------------------------------------------------------===//
 // High-level entry points.
 //===----------------------------------------------------------------------===//
@@ -3911,6 +4048,7 @@ void swift::performSyntacticExprDiagnostics(TypeChecker &TC, const Expr *E,
   diagRecursivePropertyAccess(TC, E, DC);
   diagnoseImplicitSelfUseInClosure(TC, E, DC);
   diagnoseUnintendedOptionalBehavior(TC, E, DC);
+  diagnoseActorSafetyViolations(TC, E, DC);
   if (!TC.Context.isSwiftVersionAtLeast(5))
     diagnoseDeprecatedWritableKeyPath(TC, E, DC);
   if (!TC.getLangOpts().DisableAvailabilityChecking)

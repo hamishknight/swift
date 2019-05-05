@@ -911,6 +911,17 @@ public:
   bool diagnoseAsError() override;
 };
 
+class ActorSafeFunctionConversionFailure final : public FailureDiagnostic {
+  Type FnTy;
+
+public:
+  ActorSafeFunctionConversionFailure(Expr *root, ConstraintSystem &cs,
+                                     Type fnTy, ConstraintLocator *locator)
+      : FailureDiagnostic(root, cs, locator), FnTy(fnTy) {}
+
+  bool diagnoseAsError() override;
+};
+
 class MissingArgumentsFailure final : public FailureDiagnostic {
   using Param = AnyFunctionType::Param;
 

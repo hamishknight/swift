@@ -1336,6 +1336,11 @@ void NominalTypeDecl::prepareConformanceTable() const {
   if (mutableThis->getAttrs().hasAttribute<ActorAttr>())
     addSynthesized(KnownProtocolKind::ActorProtocol);
 
+  // @actorSafe implies Copyable conformance for non-generic types.
+  if (mutableThis->getAttrs().hasAttribute<ActorSafetyAttr>() &&
+      !mutableThis->isGeneric() && !isa<ProtocolDecl>(mutableThis))
+    addSynthesized(KnownProtocolKind::Copyable);
+
   if (isCompilerCopyable()) {
     addSynthesized(KnownProtocolKind::Copyable);
     addSynthesized(KnownProtocolKind::CompilerCopyable);

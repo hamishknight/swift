@@ -1317,6 +1317,22 @@ ConstraintSystem::matchFunctionTypes(FunctionType *func1, FunctionType *func2,
       return getTypeMatchFailure(locator);
   }
 
+  // A actor-safe function is a subtype of a non-actor-safe function.
+  if (func1->isActorSafe() != func2->isActorSafe()) {
+    if (kind < ConstraintKind::Subtype)
+      return getTypeMatchFailure(locator);
+
+    if (func2->isActorSafe()) {
+      if (!shouldAttemptFixes())
+        return getTypeMatchFailure(locator);
+
+      auto *fix = AllowActorSafeFunctionConversion::create(
+          *this, func1, getConstraintLocator(locator));
+      if (recordFix(fix))
+        return getTypeMatchFailure(locator);
+    }
+  }
+
   // A non-@noescape function type can be a subtype of a @noescape function
   // type.
   if (func1->isNoEscape() != func2->isNoEscape() &&
@@ -1885,6 +1901,13 @@ ConstraintSystem::matchTypesBindTypeVar(
   // If the left-hand type variable cannot bind to an lvalue,
   // but we still have an lvalue, fail.
   if (!typeVar->getImpl().canBindToLValue() && type->hasLValueType()) {
+      return getTypeMatchFailure(locator);
+  }
+
+  // If we must bind to a actor-safe func, do so now.
+  if (typeVar->getImpl().bindsActorSafe()) {
+    auto *fnTy = type->getAs<AnyFunctionType>();
+    if (!fnTy || !fnTy->isActorSafe())
       return getTypeMatchFailure(locator);
   }
 
@@ -6520,6 +6543,7 @@ ConstraintSystem::SolutionKind ConstraintSystem::simplifyFixConstraint(
   case FixKind::AllowInvalidInitRef:
   case FixKind::AllowClosureParameterDestructuring:
   case FixKind::AllowInvalidActorMember:
+  case FixKind::AllowActorSafeFunctionConversion:
   case FixKind::MoveOutOfOrderArgument:
   case FixKind::AllowInaccessibleMember:
   case FixKind::AllowAnyObjectKeyPathRoot:

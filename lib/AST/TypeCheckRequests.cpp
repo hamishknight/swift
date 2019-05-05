@@ -310,6 +310,49 @@ void IsCompilerCopyableRequest::cacheResult(bool value) const {
 }
 
 //----------------------------------------------------------------------------//
+// isActorSafe computation.
+//----------------------------------------------------------------------------//
+
+void ActorSafetyRequest::diagnoseCycle(DiagnosticEngine &diags) const {
+  // FIXME: Improve this diagnostic.
+  auto decl = std::get<0>(getStorage());
+  diags.diagnose(decl, diag::circular_reference);
+}
+
+void ActorSafetyRequest::noteCycleStep(DiagnosticEngine &diags) const {
+  auto decl = std::get<0>(getStorage());
+  // FIXME: Customize this further.
+  diags.diagnose(decl, diag::circular_reference_through);
+}
+
+Optional<Optional<ActorSafetyKind>>
+ActorSafetyRequest::getCachedResult() const {
+  auto *decl = std::get<0>(getStorage());
+  if (decl->LazySemanticInfo.IsActorSafetyComputed) {
+    auto rawActorSafety = decl->LazySemanticInfo.ActorSafety;
+    if (rawActorSafety == 0) {
+      return Optional<ActorSafetyKind>();
+    }
+    return Optional<ActorSafetyKind>((ActorSafetyKind)(rawActorSafety - 1));
+  }
+
+  return None;
+}
+
+void ActorSafetyRequest::cacheResult(Optional<ActorSafetyKind> value) const {
+  auto decl = std::get<0>(getStorage());
+  if (decl->LazySemanticInfo.IsActorSafetyComputed)
+    assert(*getCachedResult() == value);
+
+  decl->LazySemanticInfo.IsActorSafetyComputed = true;
+  if (value) {
+    decl->LazySemanticInfo.ActorSafety = unsigned(*value) + 1;
+  } else {
+    decl->LazySemanticInfo.ActorSafety = 0;
+  }
+}
+
+//----------------------------------------------------------------------------//
 // Requirement computation.
 //----------------------------------------------------------------------------//
 

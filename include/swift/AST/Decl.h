@@ -2372,6 +2372,9 @@ class ValueDecl : public Decl {
     /// yet.
     unsigned IsCompilerCopyableComputed : 1;
     unsigned IsCompilerCopyable : 1;
+
+    unsigned IsActorSafetyComputed : 1;
+    unsigned ActorSafety : 3;
   } LazySemanticInfo = { };
 
   friend class OverriddenDeclsRequest;
@@ -2379,6 +2382,7 @@ class ValueDecl : public Decl {
   friend class IsFinalRequest;
   friend class IsDynamicRequest;
   friend class IsCompilerCopyableRequest;
+  friend class ActorSafetyRequest;
 
 protected:
   ValueDecl(DeclKind K,
@@ -2630,6 +2634,8 @@ public:
 
   /// Is this declaration 'final'?
   bool isFinal() const;
+
+  Optional<ActorSafetyKind> getActorSafety() const;
 
   /// Is this declaration marked with 'dynamic'?
   bool isDynamic() const;
