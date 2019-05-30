@@ -3172,15 +3172,20 @@ NOTE(silence_debug_description_in_interpolation_segment_call,none,
 NOTE(noescape_parameter,none,
     "parameter %0 is implicitly non-escaping",
      (Identifier))
-NOTE(generic_parameters_always_escaping,none,
-     "generic parameters are always considered '@escaping'", ())
+NOTE(type_parameter_always_escaping,none,
+    "%select{generic parameters|associated types}0 are always considered "
+    "'@escaping'", (unsigned))
 
 ERROR(passing_noescape_to_escaping,none,
       "passing non-escaping parameter %0 to function expecting an @escaping closure",
       (Identifier))
-ERROR(converting_noespace_param_to_generic_type,none,
-      "converting non-escaping parameter %0 to generic parameter %1 may allow it to escape",
-      (Identifier, Type))
+ERROR(converting_noespace_param_to_type_parameter,none,
+      "converting non-escaping parameter %0 to "
+      "%select{generic parameter|associated type}1 %2 may allow it to escape",
+      (Identifier, unsigned, Type))
+NOTE(type_parameter_inferred_to_be_escaping_fn,none,
+     "%select{generic parameter|associated type}0 %1 inferred to be escaping "
+     "function type %2", (unsigned, Type, Type))
 ERROR(assigning_noescape_to_escaping,none,
       "assigning non-escaping parameter %0 to an @escaping closure",
       (Identifier))

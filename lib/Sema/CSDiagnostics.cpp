@@ -772,6 +772,17 @@ bool NoEscapeFuncToTypeConversionFailure::diagnoseParameterUse() const {
   auto diagnostic = diag::general_noescape_to_escaping;
 
   ParamDecl *PD = nullptr;
+  auto emitParameterNote = [&]() {
+    assert(PD);
+    // Give a note and fix-it.
+    auto note = emitDiagnostic(PD->getLoc(), diag::noescape_parameter,
+                               PD->getName());
+
+    if (!PD->isAutoClosure()) {
+      note.fixItInsert(PD->getTypeLoc().getSourceRange().Start, "@escaping ");
+    } // TODO: add in a fixit for autoclosure
+  };
+
   if (auto *DRE = dyn_cast<DeclRefExpr>(anchor)) {
     PD = dyn_cast<ParamDecl>(DRE->getDecl());
 
@@ -786,27 +797,23 @@ bool NoEscapeFuncToTypeConversionFailure::diagnoseParameterUse() const {
     if (auto argApplyInfo = getFunctionArgApplyInfo(getLocator())) {
       auto paramInterfaceTy = argApplyInfo->getParamInterfaceType();
       if (paramInterfaceTy->isTypeParameter()) {
-        auto diagnoseGenericParamFailure = [&](GenericTypeParamDecl *decl) {
-          emitDiagnostic(anchor->getLoc(),
-                         diag::converting_noespace_param_to_generic_type,
-                         PD->getName(), paramInterfaceTy);
-
-          emitDiagnostic(decl, diag::generic_parameters_always_escaping);
-        };
-
         // If this is a situation when non-escaping parameter is passed
         // to the argument which represents generic parameter, there is
         // a tailored diagnostic for that.
+        bool isAssociatedType = paramInterfaceTy->is<DependentMemberType>();
+        emitDiagnostic(anchor->getLoc(),
+                       diag::converting_noespace_param_to_type_parameter,
+                       PD->getName(), isAssociatedType, paramInterfaceTy)
+          .highlight(anchor->getSourceRange());
 
-        if (auto *DMT = paramInterfaceTy->getAs<DependentMemberType>()) {
-          diagnoseGenericParamFailure(DMT->getRootGenericParam()->getDecl());
-          return true;
-        }
-
-        if (auto *GP = paramInterfaceTy->getAs<GenericTypeParamType>()) {
-          diagnoseGenericParamFailure(GP->getDecl());
-          return true;
-        }
+        auto substTy = argApplyInfo->getParamType();
+        auto loc = getRawAnchor()->getLoc();
+        emitDiagnostic(loc, diag::type_parameter_always_escaping,
+                       isAssociatedType);
+        emitDiagnostic(loc, diag::type_parameter_inferred_to_be_escaping_fn,
+                       isAssociatedType, paramInterfaceTy, substTy);
+        emitParameterNote();
+        return true;
       }
 
       // If there are no generic parameters involved, this could
@@ -824,15 +831,7 @@ bool NoEscapeFuncToTypeConversionFailure::diagnoseParameterUse() const {
     return false;
 
   emitDiagnostic(anchor->getLoc(), diagnostic, PD->getName());
-
-  // Give a note and fix-it
-  auto note =
-      emitDiagnostic(PD->getLoc(), diag::noescape_parameter, PD->getName());
-
-  if (!PD->isAutoClosure()) {
-    note.fixItInsert(PD->getTypeLoc().getSourceRange().Start, "@escaping ");
-  } // TODO: add in a fixit for autoclosure
-
+  emitParameterNote();
   return true;
 }
 
