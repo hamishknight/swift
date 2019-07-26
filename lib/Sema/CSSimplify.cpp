@@ -2485,7 +2485,8 @@ bool ConstraintSystem::repairFailures(
       }
     }
 
-    if (elt.getKind() != ConstraintLocator::ApplyArgToParam)
+    auto applyArgElt = elt.getAs<LocatorPathElt::ApplyArgToParam>();
+    if (!applyArgElt)
       break;
 
     if (auto *fix = fixPropertyWrapperFailure(
@@ -2507,6 +2508,7 @@ bool ConstraintSystem::repairFailures(
       break;
     }
 
+<<<<<<< HEAD
     // If argument in l-value type and parameter is `inout` or a pointer,
     // let's see if it's generic parameter matches and suggest adding explicit
     // `&`.
@@ -2527,12 +2529,24 @@ bool ConstraintSystem::repairFailures(
         conversionsOrFixes.push_back(AddAddressOf::create(
             *this, lhs, rhs, getConstraintLocator(locator)));
         break;
+=======
+    // Fix the passing of an argument to an inout parameter without using '&'.
+    auto *argExpr = getArgumentExpr(loc->getAnchor(), applyArgElt->getArgIdx());
+    auto paramFlags = applyArgElt->getParameterFlags();
+    if (paramFlags.isInOut() && !isa<InOutExpr>(argExpr)) {
+      if (lhs->is<LValueType>()) {
+        // If lvalue, add the missing '&'.
+        conversionsOrFixes.push_back(AddAddressOf::create(*this, lhs, rhs, loc));
+      } else {
+        // Otherwise we have an rvalue, fix by treating it as an lvalue.
+        conversionsOrFixes.push_back(TreatRValueAsLValue::create(*this, loc));
+>>>>>>> [CS] Remove a check for InOutType
       }
     }
 
     // If the argument is inout and the parameter is not inout or a pointer,
     // suggest removing the &.
-    if (lhs->is<InOutType>() && !rhs->is<InOutType>()) {
+    if (isa<InOutExpr>(argExpr) && !paramFlags.isInOut()) {
       auto objectType = rhs->lookThroughAllOptionalTypes();
       if (!objectType->getAnyPointerElementType()) {
         auto result = matchTypes(lhs->getInOutObjectType(), rhs,
@@ -3693,6 +3707,17 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
             getConstraintLocator(locator)));
       }
     }
+<<<<<<< HEAD
+=======
+  }
+
+  if (attemptFixes && type2->is<LValueType>()) {
+    conversionsOrFixes.push_back(
+        TreatRValueAsLValue::create(*this, getConstraintLocator(locator)));
+  } else if (attemptFixes && kind == ConstraintKind::Bind && type1->is<LValueType>()) {
+    conversionsOrFixes.push_back(
+          TreatRValueAsLValue::create(*this, getConstraintLocator(locator)));
+>>>>>>> [CS] Remove a check for InOutType
   }
 
   // Attempt to repair any failures identifiable at this point.
