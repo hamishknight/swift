@@ -921,7 +921,7 @@ ConstraintSystem::TypeMatchResult constraints::matchCallArguments(
       if (param.isAutoClosure()) {
         auto &ctx = cs.getASTContext();
         auto *fnType = paramTy->castTo<FunctionType>();
-        auto *argExpr = getArgumentExpr(locator.getAnchor(), argIdx);
+        auto *argExpr = getArgumentExpr(cs.getConstraintLocator(loc));
 
         // If the argument is not marked as @autoclosure or
         // this is Swift version >= 5 where forwarding is not allowed,
@@ -944,7 +944,7 @@ ConstraintSystem::TypeMatchResult constraints::matchCallArguments(
       // closure, apply the function builder transformation.
       if (Type functionBuilderType
               = paramInfo.getFunctionBuilderType(paramIdx)) {
-        Expr *arg = getArgumentExpr(locator.getAnchor(), argIdx);
+        Expr *arg = getArgumentExpr(cs.getConstraintLocator(loc));
         if (auto closure = dyn_cast_or_null<ClosureExpr>(arg)) {
           auto result =
               cs.applyFunctionBuilder(closure, functionBuilderType,
@@ -2509,6 +2509,7 @@ bool ConstraintSystem::repairFailures(
     }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     // If argument in l-value type and parameter is `inout` or a pointer,
     // let's see if it's generic parameter matches and suggest adding explicit
     // `&`.
@@ -2530,10 +2531,21 @@ bool ConstraintSystem::repairFailures(
             *this, lhs, rhs, getConstraintLocator(locator)));
         break;
 =======
+=======
+    auto isArgInOut = isa<InOutExpr>(getArgumentExpr(loc));
+    auto paramAcceptsInOut = applyArgElt->getParameterFlags().isInOut();
+
+    // A pointer parameter can also accept inout arguments by applying an
+    // [inout/array]-to-pointer conversion.
+    if (!paramAcceptsInOut) {
+      auto paramObjectTy = rhs->lookThroughAllOptionalTypes();
+      if (paramObjectTy->getAnyPointerElementType())
+        paramAcceptsInOut = true;
+    }
+
+>>>>>>> xxxx
     // Fix the passing of an argument to an inout parameter without using '&'.
-    auto *argExpr = getArgumentExpr(loc->getAnchor(), applyArgElt->getArgIdx());
-    auto paramFlags = applyArgElt->getParameterFlags();
-    if (paramFlags.isInOut() && !isa<InOutExpr>(argExpr)) {
+    if (!isArgInOut && paramAcceptsInOut) {
       if (lhs->is<LValueType>()) {
         // If lvalue, add the missing '&'.
         conversionsOrFixes.push_back(AddAddressOf::create(*this, lhs, rhs, loc));
@@ -2546,6 +2558,7 @@ bool ConstraintSystem::repairFailures(
 
     // If the argument is inout and the parameter is not inout or a pointer,
     // suggest removing the &.
+<<<<<<< HEAD
     if (isa<InOutExpr>(argExpr) && !paramFlags.isInOut()) {
       auto objectType = rhs->lookThroughAllOptionalTypes();
       if (!objectType->getAnyPointerElementType()) {
@@ -2565,6 +2578,12 @@ bool ConstraintSystem::repairFailures(
     // invalid escapiness of the argument.
     if (rhs->isAny())
       break;
+=======
+    if (isArgInOut && !paramAcceptsInOut) {
+      auto result = matchTypes(lhs->getInOutObjectType(), rhs,
+                               ConstraintKind::ArgumentConversion,
+                               TypeMatchFlags::TMF_ApplyingFix, locator);
+>>>>>>> xxxx
 
     // If there are any other argument mismatches already detected
     // for this call, we can consider overload unrelated.

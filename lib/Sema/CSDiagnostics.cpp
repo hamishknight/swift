@@ -2711,12 +2711,7 @@ bool TupleContextualFailure::diagnoseAsError() {
 }
 
 bool AutoClosureForwardingFailure::diagnoseAsError() {
-  auto *loc = getLocator();
-  auto last = loc->castLastElementTo<LocatorPathElt::ApplyArgToParam>();
-
-  // We need a raw anchor here because `getAnchor()` is simplified
-  // to the argument expression.
-  auto *argExpr = getArgumentExpr(getRawAnchor(), last.getArgIdx());
+  auto *argExpr = getArgumentExpr(getLocator());
   emitDiagnostic(argExpr->getLoc(), diag::invalid_autoclosure_forwarding)
       .highlight(argExpr->getSourceRange())
       .fixItInsertAfter(argExpr->getEndLoc(), "()");

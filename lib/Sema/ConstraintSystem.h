@@ -3985,7 +3985,7 @@ Expr *simplifyLocatorToAnchor(ConstraintLocator *locator);
 ///
 /// \returns argument expression or `nullptr` if given "base" expression
 /// wasn't of one of the kinds listed above.
-Expr *getArgumentExpr(Expr *expr, unsigned index);
+Expr *getArgumentExpr(ConstraintLocator *locator);
 
 /// Determine whether given locator points to one of the arguments
 /// associated with implicit `~=` (pattern-matching) operator
