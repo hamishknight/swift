@@ -2958,24 +2958,15 @@ Expr *constraints::simplifyLocatorToAnchor(ConstraintLocator *locator) {
   return path.empty() ? anchor : nullptr;
 }
 
-Expr *constraints::getArgumentExpr(Expr *expr, unsigned index) {
-  Expr *argExpr = nullptr;
-  if (auto *AE = dyn_cast<ApplyExpr>(expr))
-    argExpr = AE->getArg();
-  else if (auto *UME = dyn_cast<UnresolvedMemberExpr>(expr))
-    argExpr = UME->getArgument();
-  else if (auto *SE = dyn_cast<SubscriptExpr>(expr))
-    argExpr = SE->getIndex();
-  else
+Expr *constraints::getArgumentExpr(ConstraintSystem &cs, ConstraintLocator *locator) {
+  auto path = locator->getPath();
+  auto iter = path.begin();
+  if (!locator->findFirst<LocatorPathElt::ApplyArgToParam>(iter))
     return nullptr;
 
-  if (auto *PE = dyn_cast<ParenExpr>(argExpr)) {
-    assert(index == 0);
-    return PE->getSubExpr();
-  }
-
-  assert(isa<TupleExpr>(argExpr));
-  return cast<TupleExpr>(argExpr)->getElement(index);
+  auto argPath = path.drop_back(path.end() - iter - 1);
+  auto *argLocator = cs.getConstraintLocator(locator->getAnchor(), argPath);
+  return simplifyLocatorToAnchor(argLocator);
 }
 
 bool constraints::isAutoClosureArgument(Expr *argExpr) {

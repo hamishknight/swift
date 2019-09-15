@@ -921,7 +921,7 @@ ConstraintSystem::TypeMatchResult constraints::matchCallArguments(
       if (param.isAutoClosure()) {
         auto &ctx = cs.getASTContext();
         auto *fnType = paramTy->castTo<FunctionType>();
-        auto *argExpr = getArgumentExpr(locator.getAnchor(), argIdx);
+        auto *argExpr = getArgumentExpr(cs, cs.getConstraintLocator(locator));
 
         // If the argument is not marked as @autoclosure or
         // this is Swift version >= 5 where forwarding is not allowed,
@@ -944,7 +944,7 @@ ConstraintSystem::TypeMatchResult constraints::matchCallArguments(
       // closure, apply the function builder transformation.
       if (Type functionBuilderType
               = paramInfo.getFunctionBuilderType(paramIdx)) {
-        Expr *arg = getArgumentExpr(locator.getAnchor(), argIdx);
+        Expr *arg = getArgumentExpr(cs, cs.getConstraintLocator(locator));
         if (auto closure = dyn_cast_or_null<ClosureExpr>(arg)) {
           auto result =
               cs.applyFunctionBuilder(closure, functionBuilderType,

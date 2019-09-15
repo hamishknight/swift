@@ -197,21 +197,15 @@ FailureDiagnostic::getFunctionArgApplyInfo(ConstraintLocator *locator) const {
   // have to look through other elements that are generated from an argument
   // conversion such as GenericArgument for an optional-to-optional conversion,
   // and OptionalPayload for a value-to-optional conversion.
-  auto iter = path.rbegin();
-  auto applyArgElt = locator->findLast<LocatorPathElt::ApplyArgToParam>(iter);
+  auto iter = path.begin();
+  auto applyArgElt = locator->findFirst<LocatorPathElt::ApplyArgToParam>(iter);
   if (!applyArgElt)
     return None;
 
-  auto nextIter = iter + 1;
-  assert(!locator->findLast<LocatorPathElt::ApplyArgToParam>(nextIter) &&
-         "Multiple ApplyArgToParam components?");
-
   // Form a new locator that ends at the apply-arg-to-param element, and
   // simplify it to get the full argument expression.
-  auto argPath = path.drop_back(iter - path.rbegin());
-  auto *argLocator = cs.getConstraintLocator(
-      anchor, argPath, ConstraintLocator::getSummaryFlagsForPath(argPath));
-
+  auto argPath = path.drop_back(path.end () - iter - 1);
+  auto *argLocator = cs.getConstraintLocator(anchor, argPath);
   auto *argExpr = simplifyLocatorToAnchor(argLocator);
 
   // If we were unable to simplify down to the argument expression, we don't
@@ -2643,12 +2637,9 @@ bool TupleContextualFailure::diagnoseAsError() {
 }
 
 bool AutoClosureForwardingFailure::diagnoseAsError() {
-  auto *loc = getLocator();
-  auto last = loc->castLastElementTo<LocatorPathElt::ApplyArgToParam>();
-
-  // We need a raw anchor here because `getAnchor()` is simplified
-  // to the argument expression.
-  auto *argExpr = getArgumentExpr(getRawAnchor(), last.getArgIdx());
+  auto &cs = getConstraintSystem();
+  auto *argExpr = getArgumentExpr(cs, getLocator());
+  assert(argExpr);
   emitDiagnostic(argExpr->getLoc(), diag::invalid_autoclosure_forwarding)
       .highlight(argExpr->getSourceRange())
       .fixItInsertAfter(argExpr->getEndLoc(), "()");

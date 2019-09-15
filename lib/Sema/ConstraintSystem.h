@@ -3985,7 +3985,7 @@ Expr *simplifyLocatorToAnchor(ConstraintLocator *locator);
 ///
 /// \returns argument expression or `nullptr` if given "base" expression
 /// wasn't of one of the kinds listed above.
-Expr *getArgumentExpr(Expr *expr, unsigned index);
+Expr *getArgumentExpr(ConstraintSystem &cs, ConstraintLocator *locator);
 
 // Check whether argument of the call at given position refers to
 // parameter marked as `@autoclosure`. This function is used to
