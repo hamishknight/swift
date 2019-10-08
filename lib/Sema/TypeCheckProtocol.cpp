@@ -254,14 +254,6 @@ static bool checkObjCWitnessSelector(TypeChecker &tc, ValueDecl *req,
   return false;
 }
 
-static ParameterList *getParameterList(ValueDecl *value) {
-  if (auto func = dyn_cast<AbstractFunctionDecl>(value))
-    return func->getParameters();
-
-  auto subscript = cast<SubscriptDecl>(value);
-  return subscript->getIndices();
-}
-
 // Find a standin declaration to place the diagnostic at for the
 // given accessor kind.
 static ValueDecl *getStandinForAccessor(AbstractStorageDecl *witness,
