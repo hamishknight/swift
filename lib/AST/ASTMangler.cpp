@@ -1912,8 +1912,19 @@ void ASTMangler::appendAnyGenericType(const GenericTypeDecl *decl) {
     addSubstitution(cast<TypeAliasDecl>(decl));
 }
 
+/// Is this declaration a method for mangling purposes? If so, we'll leave the
+/// Self type out of its mangling.
+static bool isMethodDecl(const Decl *decl) {
+  return isa<AbstractFunctionDecl>(decl)
+    && decl->getDeclContext()->isTypeContext();
+}
+
 void ASTMangler::appendFunction(AnyFunctionType *fn, bool isFunctionMangling,
                                 const ValueDecl *forDecl) {
+  SmallString<16> oldStr;
+  SmallString<16> newStr;
+
+  {
   // Append parameter labels right before the signature/type.
   auto parameters = fn->getParams();
   auto firstLabel = std::find_if(
@@ -1924,12 +1935,47 @@ void ASTMangler::appendFunction(AnyFunctionType *fn, bool isFunctionMangling,
     for (auto param : parameters) {
       auto label = param.getLabel();
       if (!label.empty())
-        appendIdentifier(label.str());
+        oldStr += label.str();
       else
-        appendOperator("_");
+        oldStr += "_";
     }
   } else if (!parameters.empty()) {
+    oldStr += "y";
+  }
+  }
+
+  bool hasLabel = false;
+  if (isMethodDecl(forDecl) || !forDecl->hasCurriedSelf()) {
+  if (auto *paramList = getParameterListOrNull(forDecl)) {
+    // Append parameter labels right before the signature/type.
+    auto firstLabel = std::find_if(
+                    paramList->begin(), paramList->end(),
+                    [&](ParamDecl *param) { return param->hasArgumentName(); });
+
+    if (firstLabel != paramList->end()) {
+      hasLabel = true;
+      for (auto param : *paramList) {
+        auto label = param->getArgumentName();
+        if (!label.empty()) {
+          appendIdentifier(label.str());
+          newStr += label.str();
+        } else {
+          appendOperator("_");
+          newStr += "_";
+        }
+      }
+    }
+  }
+  }
+
+  if (!hasLabel && !fn->getParams().empty()) {
     appendOperator("y");
+    newStr += "y";
+  }
+
+  if (!fn->hasError() && !oldStr.equals(newStr)) {
+    llvm::errs() << oldStr.str() << " does not equal " << newStr.str() << "\n";
+    abort();
   }
 
   if (isFunctionMangling) {
@@ -2001,9 +2047,14 @@ void ASTMangler::appendFunctionInputType(
     const auto &param = params.front();
     auto type = param.getPlainType();
 
+    bool firstParamHasLabel = false;
+    if (auto *paramList = getParameterListOrNull(forDecl)) {
+      firstParamHasLabel = paramList->get(0)->hasArgumentName();
+    }
+
     // If the sole unlabeled parameter has a non-tuple type, encode
     // the parameter list as a single type.
-    if (!param.hasLabel() && !param.isVariadic() &&
+    if (!firstParamHasLabel && !param.isVariadic() &&
         !isa<TupleType>(type.getPointer())) {
       appendTypeListElement(Identifier(), type, param.getParameterFlags(),
                             forDecl);
@@ -2349,13 +2400,6 @@ void ASTMangler::appendInitializerEntity(const VarDecl *var) {
 void ASTMangler::appendBackingInitializerEntity(const VarDecl *var) {
   appendEntity(var, "vp", var->isStatic());
   appendOperator("fP");
-}
-
-/// Is this declaration a method for mangling purposes? If so, we'll leave the
-/// Self type out of its mangling.
-static bool isMethodDecl(const Decl *decl) {
-  return isa<AbstractFunctionDecl>(decl)
-    && decl->getDeclContext()->isTypeContext();
 }
 
 CanType ASTMangler::getDeclTypeForMangling(

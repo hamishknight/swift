@@ -7300,15 +7300,17 @@ ConstraintSystem::simplifyDynamicCallableApplicableFnConstraint(
   // Determine whether to call a `withArguments` method or a
   // `withKeywordArguments` method.
   bool useKwargsMethod = methods.argumentsMethods.empty();
-  useKwargsMethod |= llvm::any_of(
-    func1->getParams(), [](AnyFunctionType::Param p) { return p.hasLabel(); });
+  auto loc = getConstraintLocator(locator);
+  if (auto argInfo = getArgumentInfo(loc)) {
+    auto labels = argInfo->Labels;
+    useKwargsMethod |= llvm::any_of(labels, [](Identifier label) { return !label.empty(); });
+  }
 
   auto candidates = useKwargsMethod ?
     methods.keywordArgumentsMethods :
     methods.argumentsMethods;
 
   // Create a type variable for the `dynamicallyCall` method.
-  auto loc = getConstraintLocator(locator);
   auto tv = createTypeVariable(loc,
                                TVO_CanBindToLValue |
                                TVO_CanBindToNoEscape);

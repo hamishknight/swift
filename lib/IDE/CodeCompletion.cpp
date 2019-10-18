@@ -1527,9 +1527,9 @@ public:
   bool FoundFunctionsWithoutFirstKeyword = false;
 
 private:
-  void foundFunction(const AbstractFunctionDecl *AFD) {
+  void foundFunctionOrSubscript(const ValueDecl *VD) {
     FoundFunctionCalls = true;
-    DeclName Name = AFD->getFullName();
+    DeclName Name = VD->getFullName();
     auto ArgNames = Name.getArgumentNames();
     if (ArgNames.empty())
       return;
@@ -1539,14 +1539,7 @@ private:
 
   void foundFunction(const AnyFunctionType *AFT) {
     FoundFunctionCalls = true;
-    auto Params = AFT->getParams();
-    if (Params.empty())
-      return;
-    if (Params.size() == 1 && !Params[0].hasLabel()) {
-      FoundFunctionsWithoutFirstKeyword = true;
-      return;
-    }
-    if (!Params[0].hasLabel())
+    if (!AFT->getParams().empty())
       FoundFunctionsWithoutFirstKeyword = true;
   }
 
@@ -2356,7 +2349,7 @@ public:
 
   void addSubscriptCallPattern(const AnyFunctionType *AFT,
                                const SubscriptDecl *SD) {
-    foundFunction(AFT);
+    foundFunctionOrSubscript(SD);
     auto genericSig =
         SD->getInnermostDeclContext()->getGenericSignatureOfContext();
     AFT = eraseArchetypes(const_cast<AnyFunctionType *>(AFT), genericSig)
@@ -2439,7 +2432,7 @@ public:
       return;
     } else {
       // Calling function or method.
-      foundFunction(AFD);
+      foundFunctionOrSubscript(AFD);
 
       // FIXME: Hack because we don't know we are calling instance
       // method or not. There's invariant that funcTy is derived from AFD.
@@ -2502,7 +2495,7 @@ public:
                      DynamicLookupInfo dynamicLookupInfo) {
     if (FD->getName().empty())
       return;
-    foundFunction(FD);
+    foundFunctionOrSubscript(FD);
 
     Identifier Name = FD->getName();
     assert(!Name.empty() && "name should not be empty");
@@ -2618,7 +2611,7 @@ public:
                           Optional<Type> BaseType, Optional<Type> Result,
                           bool IsOnType = true,
                           Identifier addName = Identifier()) {
-    foundFunction(CD);
+    foundFunctionOrSubscript(CD);
     Type MemberType = getTypeOfMember(CD, BaseType.getValueOr(ExprType));
     AnyFunctionType *ConstructorType = nullptr;
     if (auto MemberFuncType = MemberType->getAs<AnyFunctionType>())

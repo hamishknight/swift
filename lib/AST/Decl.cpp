@@ -6289,18 +6289,36 @@ DeclName AbstractFunctionDecl::getEffectiveFullName() const {
 }
 
 ParameterList *swift::getParameterList(ValueDecl *source) {
+  if (auto *paramList = getParameterListOrNull(source))
+    return paramList;
+    llvm_unreachable("Expected to find a param list!");
+}
+
+const ParameterList *swift::getParameterList(const ValueDecl *source) {
+  return swift::getParameterList(const_cast<ValueDecl *>(source));
+}
+
+ParameterList *swift::getParameterListOrNull(ValueDecl *source) {
+  if (!source)
+    return nullptr;
   if (auto *AFD = dyn_cast<AbstractFunctionDecl>(source)) {
     return AFD->getParameters();
   } else if (auto *EED = dyn_cast<EnumElementDecl>(source)) {
     return EED->getParameterList();
+  } else if (auto *SD = dyn_cast<SubscriptDecl>(source)) {
+    return SD->getIndices();
   } else {
-    return cast<SubscriptDecl>(source)->getIndices();
+    return nullptr;
   }
+}
+
+const ParameterList *swift::getParameterListOrNull(const ValueDecl *source) {
+  return swift::getParameterListOrNull(const_cast<ValueDecl *>(source));
 }
 
 const ParamDecl *swift::getParameterAt(const ValueDecl *source,
                                        unsigned index) {
-  return getParameterList(const_cast<ValueDecl *>(source))->get(index);
+  return getParameterList(source)->get(index);
 }
 
 Type AbstractFunctionDecl::getMethodInterfaceType() const {

@@ -86,6 +86,10 @@ public:
   size_t size() const {
     return numParameters;
   }
+
+  bool empty() const {
+    return size() == 0;
+  }
   
   const ParamDecl *get(unsigned i) const {
     return getArray()[i];

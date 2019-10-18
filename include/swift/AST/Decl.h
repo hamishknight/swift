@@ -5216,6 +5216,8 @@ public:
   /// Retrieve the argument (API) name for this function parameter.
   Identifier getArgumentName() const { return ArgumentName; }
 
+  bool hasArgumentName() const { return !ArgumentName.empty(); }
+
   /// Retrieve the parameter (local) name for this function parameter.
   Identifier getParameterName() const { return getName(); }
 
@@ -7258,6 +7260,10 @@ inline EnumElementDecl *EnumDecl::getUniqueElement(bool hasValue) const {
 
 /// Retrieve the parameter list for a given declaration.
 ParameterList *getParameterList(ValueDecl *source);
+const ParameterList *getParameterList(const ValueDecl *source);
+
+ParameterList *getParameterListOrNull(ValueDecl *source);
+const ParameterList *getParameterListOrNull(const ValueDecl *source);
 
 /// Retrieve parameter declaration from the given source at given index.
 const ParamDecl *getParameterAt(const ValueDecl *source, unsigned index);

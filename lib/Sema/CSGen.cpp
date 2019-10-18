@@ -1512,14 +1512,14 @@ namespace {
         SmallVector<AnyFunctionType::Param, 8> params;
         AnyFunctionType::decomposeInput(CS.getType(arg), params);
 
+        associateArgumentLabels(
+            CS.getConstraintLocator(expr),
+            {expr->getArgumentLabels(), expr->hasTrailingClosure()});
+
         CS.addConstraint(ConstraintKind::ApplicableFunction,
                          FunctionType::get(params, outputTy),
                          memberTy,
           CS.getConstraintLocator(expr, ConstraintLocator::ApplyFunction));
-
-        associateArgumentLabels(
-            CS.getConstraintLocator(expr),
-            {expr->getArgumentLabels(), expr->hasTrailingClosure()});
         return baseTy;
       }
 
