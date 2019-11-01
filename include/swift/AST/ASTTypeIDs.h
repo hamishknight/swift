@@ -26,6 +26,7 @@ class BraceStmt;
 class ConstructorDecl;
 class CustomAttr;
 class Decl;
+class DeclIterator;
 class EnumDecl;
 class GenericParamList;
 class GenericSignature;

@@ -1697,6 +1697,24 @@ public:
   bool isCached() const { return true; }
 };
 
+/// Synthesizes inherited designated initializers for a given class.
+class SynthesizeInheritedDesignatedInitsRequest
+    : public SimpleRequest<SynthesizeInheritedDesignatedInitsRequest,
+                           DeclRange(ClassDecl *), CacheKind::Cached> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  // Evaluation.
+  llvm::Expected<DeclRange> evaluate(Evaluator &evaluator, ClassDecl *decl) const;
+
+public:
+  // Caching.
+  bool isCached() const { return true; }
+};
+
 // Allow AnyValue to compare two Type values, even though Type doesn't
 // support ==.
 template<>
@@ -1714,6 +1732,15 @@ AnyValue::Holder<GenericSignature>::equals(const HolderBase &other) const {
   return value.getPointer() ==
          static_cast<const Holder<GenericSignature> &>(other)
              .value.getPointer();
+}
+
+// Allow AnyValue to compare DeclRanges. Unfortunately attempting to define
+// == for DeclRange leads to weird ambiguities.
+template <>
+inline bool AnyValue::Holder<DeclRange>::equals(const HolderBase &other) const {
+  assert(typeID == other.typeID && "Caller should match type IDs");
+  auto otherVal = static_cast<const Holder<DeclRange> &>(other).value;
+  return value.begin() == otherVal.begin() && value.end() == otherVal.end();
 }
 
 void simple_display(llvm::raw_ostream &out, Type value);

@@ -17,6 +17,7 @@
 
 SWIFT_TYPEID(AncestryFlags)
 SWIFT_TYPEID(CtorInitializerKind)
+SWIFT_TYPEID(DeclIterator)
 SWIFT_TYPEID(GenericSignature)
 SWIFT_TYPEID(ImplicitMemberAction)
 SWIFT_TYPEID(ParamSpecifier)

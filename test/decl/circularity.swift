@@ -85,7 +85,7 @@ class C3: G1<A>, P {
     // expected-error@-1 {{method does not override any method from its superclass}}
 }
 
-// Another case that can trigger circular override checking.
+// Another 2 cases that can trigger circular override checking.
 protocol P1 {
   associatedtype X = Int
   init(x: X)
@@ -98,5 +98,20 @@ class C4 {
 class D4 : C4, P1 {
   required init(x: X) {
     super.init(x: x)
+  }
+}
+
+protocol P2 {
+  associatedtype X = Int
+  init(x: X)
+}
+
+class C5 {
+  required convenience init(x: Int) { self.init() }
+}
+
+class D5 : C5, P2 {
+  convenience init(z: X) {
+    self.init(x: z)
   }
 }

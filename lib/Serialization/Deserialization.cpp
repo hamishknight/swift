@@ -2431,7 +2431,6 @@ public:
     else
       MF.fatal();
 
-    theStruct->setAddedImplicitInitializers();
     if (isImplicit)
       theStruct->setImplicit();
     theStruct->setIsObjC(isObjC);
@@ -3412,7 +3411,6 @@ public:
     else
       MF.fatal();
 
-    theClass->setAddedImplicitInitializers();
     if (isImplicit)
       theClass->setImplicit();
     theClass->setIsObjC(isObjC);
@@ -3482,7 +3480,6 @@ public:
     else
       MF.fatal();
 
-    theEnum->setAddedImplicitInitializers();
     // @objc enums have all their raw values checked.
     if (isObjC) {
       theEnum->setHasFixedRawValues();

@@ -918,6 +918,10 @@ static bool shouldAttemptInitializerSynthesis(const NominalTypeDecl *decl) {
     if (SF->Kind == SourceFileKind::Interface)
       return false;
 
+  // Don't add implicit constructors to deserialized decls.
+  if (decl->wasDeserialized())
+    return false;
+
   // Don't attempt if we know the decl is invalid.
   if (decl->isInvalid())
     return false;
@@ -927,26 +931,14 @@ static bool shouldAttemptInitializerSynthesis(const NominalTypeDecl *decl) {
 
 /// For a class with a superclass, automatically define overrides
 /// for all of the superclass's designated initializers.
-static void addImplicitInheritedConstructorsToClass(ClassDecl *decl) {
-  // Bail out if we're validating one of our constructors already;
-  // we'll revisit the issue later.
-  for (auto member : decl->getMembers()) {
-    if (auto ctor = dyn_cast<ConstructorDecl>(member)) {
-      if (ctor->isRecursiveValidation())
-        return;
-    }
-  }
+llvm::Expected<DeclRange>
+SynthesizeInheritedDesignatedInitsRequest::evaluate(Evaluator &evaluator,
+                                                    ClassDecl *decl) const {
+  if (!shouldAttemptInitializerSynthesis(decl))
+    return DeclRange(nullptr, nullptr);
 
-  decl->setAddedImplicitInitializers();
-
-  // We can only inherit initializers if we have a superclass.
-  // FIXME: We should be bailing out earlier in the function, but unfortunately
-  // that currently regresses associated type inference for cases like
-  // compiler_crashers_2_fixed/0124-sr5825.swift due to the fact that we no
-  // longer eagerly compute the interface types of the other constructors.
   auto superclassTy = decl->getSuperclass();
-  if (!superclassTy)
-    return;
+  assert(superclassTy);
 
   // Check whether the user has defined a designated initializer for this class,
   // and whether all of its stored properties have initial values.
@@ -958,11 +950,12 @@ static void addImplicitInheritedConstructorsToClass(ClassDecl *decl) {
   // We can't define these overrides if we have any uninitialized
   // stored properties.
   if (!defaultInitable && !foundDesignatedInit)
-    return;
+    return DeclRange(nullptr, nullptr);
 
   SmallVector<ConstructorDecl *, 4> nonOverridenSuperclassCtors;
   collectNonOveriddenSuperclassInits(decl, nonOverridenSuperclassCtors);
 
+  SmallVector<ConstructorDecl *, 4> ctorsToAdd;
   bool inheritDesignatedInits = canInheritDesignatedInits(ctx.evaluator, decl);
   for (auto *superclassCtor : nonOverridenSuperclassCtors) {
     // We only care about required or designated initializers.
@@ -1022,9 +1015,17 @@ static void addImplicitInheritedConstructorsToClass(ClassDecl *decl) {
 
     if (auto ctor = createDesignatedInitOverride(
                       decl, superclassCtor, kind, ctx)) {
-      decl->addMember(ctor);
+      ctorsToAdd.push_back(ctor);
     }
   }
+
+  if (ctorsToAdd.empty())
+    return DeclRange(nullptr, nullptr);
+
+  for (auto *ctor : ctorsToAdd)
+    decl->addMember(ctor);
+
+  return DeclRange(ctorsToAdd[0], nullptr);
 }
 
 llvm::Expected<bool>
@@ -1057,22 +1058,29 @@ InheritsSuperclassInitializersRequest::evaluate(Evaluator &eval,
 }
 
 void TypeChecker::addImplicitConstructors(NominalTypeDecl *decl) {
-  // If we already added implicit initializers, we're done.
-  if (decl->addedImplicitInitializers())
-    return;
-  
-  if (!shouldAttemptInitializerSynthesis(decl)) {
-    decl->setAddedImplicitInitializers();
-    return;
-  }
-
-  if (auto *classDecl = dyn_cast<ClassDecl>(decl))
-    addImplicitInheritedConstructorsToClass(classDecl);
-
-  // Force the memberwise and default initializers if the type has them.
+  // Force the memberwise and default initializers as well as synthesized
+  // overrides of designated initializers if the type has them.
   // FIXME: We need to be more lazy about synthesizing constructors.
   (void)decl->getMemberwiseInitializer();
   (void)decl->getDefaultInitializer();
+
+  if (auto *classDecl = dyn_cast<ClassDecl>(decl)) {
+    // HACK: Avoid triggering the synthesis of designated init overrides for
+    // a Swift subclass if we're already validating one of its initializers.
+    // This is necessary in order to break a cycle with associated type
+    // inference where computing initializer overrides can trigger associated
+    // type inference, which does name lookup, which calls into this logic,
+    // which can check overrides.
+    // FIXME: We need to find a more principled way of breaking these
+    // associated type inference cycles.
+    if (classDecl->getSuperclass() && !classDecl->hasClangNode())
+      for (auto *member : classDecl->getMembers())
+        if (auto *ctor = dyn_cast<ConstructorDecl>(member))
+          if (ctor->isRecursiveValidation())
+            return;
+
+    (void)classDecl->getSynthesizedDesignatedInitOverrides();
+  }
 }
 
 llvm::Expected<bool>

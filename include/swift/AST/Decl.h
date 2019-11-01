@@ -477,11 +477,7 @@ protected:
     IsDebuggerAlias : 1
   );
 
-  SWIFT_INLINE_BITFIELD(NominalTypeDecl, GenericTypeDecl, 1+1+1,
-    /// Whether we have already added implicitly-defined initializers
-    /// to this declaration.
-    AddedImplicitInitializers : 1,
-
+  SWIFT_INLINE_BITFIELD(NominalTypeDecl, GenericTypeDecl, 1+1,
     /// Whether there is are lazily-loaded conformances for this nominal type.
     HasLazyConformances : 1,
 
@@ -3328,7 +3324,6 @@ protected:
     GenericTypeDecl(K, DC, name, NameLoc, inherited, GenericParams),
     IterableDeclContext(IterableDeclContextKind::NominalTypeDecl)
   {
-    Bits.NominalTypeDecl.AddedImplicitInitializers = false;
     ExtensionGeneration = 0;
     Bits.NominalTypeDecl.HasLazyConformances = false;
     Bits.NominalTypeDecl.IsComputingSemanticMembers = false;
@@ -3357,17 +3352,6 @@ public:
   /// Do we need to use resilient access patterns when accessing this
   /// type from the given module?
   bool isResilient(ModuleDecl *M, ResilienceExpansion expansion) const;
-
-  /// Determine whether we have already attempted to add any
-  /// implicitly-defined initializers to this declaration.
-  bool addedImplicitInitializers() const {
-    return Bits.NominalTypeDecl.AddedImplicitInitializers;
-  }
-
-  /// Note that we have attempted to add implicit initializers.
-  void setAddedImplicitInitializers() {
-    Bits.NominalTypeDecl.AddedImplicitInitializers = true;
-  }
 
   /// getDeclaredType - Retrieve the type declared by this entity, without
   /// any generic parameters bound if this is a generic type.
@@ -3982,6 +3966,8 @@ public:
   
   /// Retrieve the destructor for this class.
   DestructorDecl *getDestructor() const;
+
+  DeclRange getSynthesizedDesignatedInitOverrides() const;
 
   /// Determine whether this class inherits the convenience initializers
   /// from its superclass.

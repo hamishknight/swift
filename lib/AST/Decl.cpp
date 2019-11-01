@@ -4118,6 +4118,18 @@ bool ClassDecl::isIncompatibleWithWeakReferences() const {
   return false;
 }
 
+DeclRange ClassDecl::getSynthesizedDesignatedInitOverrides() const {
+  // If there's no superclass, there are no overrides.
+  if (!getSuperclass())
+    return DeclRange(nullptr, nullptr);
+
+  auto &ctx = getASTContext();
+  auto *mutableThis = const_cast<ClassDecl *>(this);
+  return evaluateOrDefault(
+      ctx.evaluator, SynthesizeInheritedDesignatedInitsRequest{mutableThis},
+      DeclRange(nullptr, nullptr));
+}
+
 bool ClassDecl::inheritsSuperclassInitializers() {
   // If there's no superclass, there's nothing to inherit.
   if (!getSuperclass())
