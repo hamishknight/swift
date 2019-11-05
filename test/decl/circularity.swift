@@ -84,3 +84,19 @@ class C3: G1<A>, P {
     override func run(a: A) {}
     // expected-error@-1 {{method does not override any method from its superclass}}
 }
+
+// Another case that can trigger circular override checking.
+protocol P1 {
+  associatedtype X = Int
+  init(x: X)
+}
+
+class C4 {
+  required init(x: Int) {}
+}
+
+class D4 : C4, P1 {
+  required init(x: X) {
+    super.init(x: x)
+  }
+}

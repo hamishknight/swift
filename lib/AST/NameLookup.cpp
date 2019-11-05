@@ -1627,7 +1627,29 @@ bool DeclContext::lookupQualified(ArrayRef<NominalTypeDecl *> typeDecls,
       // object initializers.
       bool visitSuperclass = true;
       if (member.getBaseName() == DeclBaseName::createConstructor()) {
-        if (classDecl->inheritsSuperclassInitializers())
+        // HACK: Don't check whether we can look into the superclass if we're
+        // already validating one of the class' constructors. This is necessary
+        // in order to break a cycle with associated type inference where
+        // computing initializer overrides can trigger associated type inference
+        // which performs this logic to check whether we can inherit
+        // initializers, which can check overrides.
+        // FIXME: We need to find a more principled way of breaking these
+        // associated type inference cycles.
+        auto isRecursiveValidation = [&]() -> bool {
+          // This case isn't interesting if the class doesn't have a superclass
+          // or is imported.
+          if (!classDecl->getSuperclassDecl() || classDecl->hasClangNode())
+            return false;
+
+          for (auto *member : classDecl->getMembers())
+            if (auto *ctor = dyn_cast<ConstructorDecl>(member))
+              if (ctor->isRecursiveValidation())
+                return true;
+          return false;
+        };
+
+        if (!isRecursiveValidation() &&
+            classDecl->inheritsSuperclassInitializers())
           onlyCompleteObjectInits = true;
         else
           visitSuperclass = false;
