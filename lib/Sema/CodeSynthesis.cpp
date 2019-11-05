@@ -908,6 +908,23 @@ static void collectNonOveriddenSuperclassInits(
   }
 }
 
+static bool shouldAttemptInitializerSynthesis(const NominalTypeDecl *decl) {
+  // Don't synthesize initializers for imported decls.
+  if (decl->hasClangNode())
+    return false;
+
+  // Don't add implicit constructors in module interfaces.
+  if (auto *SF = decl->getParentSourceFile())
+    if (SF->Kind == SourceFileKind::Interface)
+      return false;
+
+  // Don't attempt if we know the decl is invalid.
+  if (decl->isInvalid())
+    return false;
+
+  return true;
+}
+
 /// For a class with a superclass, automatically define overrides
 /// for all of the superclass's designated initializers.
 static void addImplicitInheritedConstructorsToClass(ClassDecl *decl) {
@@ -1037,23 +1054,6 @@ InheritsSuperclassInitializersRequest::evaluate(Evaluator &eval,
         return ctor->isDesignatedInit();
       });
   return allDesignatedInitsOverriden;
-}
-
-static bool shouldAttemptInitializerSynthesis(const NominalTypeDecl *decl) {
-  // Don't synthesize initializers for imported decls.
-  if (decl->hasClangNode())
-    return false;
-
-  // Don't add implicit constructors in module interfaces.
-  if (auto *SF = decl->getParentSourceFile())
-    if (SF->Kind == SourceFileKind::Interface)
-      return false;
-
-  // Don't attempt if we know the decl is invalid.
-  if (decl->isInvalid())
-    return false;
-
-  return true;
 }
 
 void TypeChecker::addImplicitConstructors(NominalTypeDecl *decl) {
