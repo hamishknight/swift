@@ -3934,6 +3934,92 @@ public:
   }
 };
 
+class FunctionArgument {
+  Expr *E;
+  Identifier Label;
+  SourceLoc LabelLoc;
+
+public:
+  FunctionArgument(Expr *oldExpr, Identifier label, SourceLoc labelLoc)
+    : E(oldExpr), Label(label), LabelLoc(labelLoc) {}
+
+  Expr *getOldExpr() const { return E; }
+  Expr *getExpr() const {
+    if (auto *ioe = dyn_cast<InOutExpr>(E))
+      return ioe->getSubExpr();
+    return E;
+  }
+  Identifier getLabel() const { return Label; }
+  SourceLoc getLabelLoc() const { return LabelLoc; }
+  bool isInout() const {
+    // FIXME: Eventually we should store the inout-ness as a seperate bit.
+    return isa<InOutExpr>(E);
+  }
+};
+
+class ArgumentList final
+    : private llvm::TrailingObjects<ArgumentList, FunctionArgument> {
+  friend TrailingObjects;
+
+  ASTContext &Ctx;
+  SourceLoc LParenLoc;
+  SourceLoc RParenLoc;
+  Expr *LegacyPackedExpr = nullptr;
+  unsigned NumArgs : 16;
+  bool HasTrailingClosure;
+  bool IsImplicit;
+
+  ArgumentList(ASTContext &ctx, SourceLoc lParenLoc,
+               ArrayRef<FunctionArgument> args, Expr *legacyPackedExpr,
+               bool hasTrailingClosure, SourceLoc rParenLoc, bool implict);
+
+public:
+  static ArgumentList *create(ASTContext &ctx, SourceLoc lParenLoc,
+                              ArrayRef<FunctionArgument> args,
+                              bool hasTrailingClosure, SourceLoc rParenLoc,
+                              bool implicit, llvm::function_ref<Type(const Expr *)> getType = [](const Expr *E) -> Type { return E->getType(); });
+
+  static ArgumentList *createUnary(ASTContext &ctx, Expr *arg) {
+    return create(ctx, SourceLoc(), { FunctionArgument(arg, Identifier(), SourceLoc()) }, false, SourceLoc(), /*implicit*/ false);
+  }
+
+  static ArrayRef<FunctionArgument> decompose(Expr *arg, SmallVectorImpl<FunctionArgument> &scratch);
+
+  size_t numTrailingObjects(OverloadToken<FunctionArgument>) const {
+    return NumArgs;
+  }
+
+  typedef MutableArrayRef<FunctionArgument>::iterator iterator;
+  typedef ArrayRef<FunctionArgument>::iterator const_iterator;
+  iterator begin() { return getArray().begin(); }
+  iterator end() { return getArray().end(); }
+  const_iterator begin() const { return getArray().begin(); }
+  const_iterator end() const { return getArray().end(); }
+
+  MutableArrayRef<FunctionArgument> getArray() {
+    return {getTrailingObjects<FunctionArgument>(), NumArgs};
+  }
+
+  ArrayRef<FunctionArgument> getArray() const {
+    return {getTrailingObjects<FunctionArgument>(), NumArgs};
+  }
+
+  size_t size() const { return NumArgs; }
+
+  const FunctionArgument &get(unsigned i) const { return getArray()[i]; }
+
+  FunctionArgument &get(unsigned i) { return getArray()[i]; }
+
+  const FunctionArgument &operator[](unsigned i) const { return get(i); }
+  FunctionArgument &operator[](unsigned i) { return get(i); }
+
+  /// Whether this call with written with a trailing closure.
+  bool hasTrailingClosure() const { return HasTrailingClosure; }
+
+  Expr *getLegacyPackedExpr() const;
+  void setLegacyPackedExpr(Expr *newArg);
+};
+
 /// ApplyExpr - Superclass of various function calls, which apply an argument to
 /// a function to get a result.
 class ApplyExpr : public Expr {
@@ -3941,17 +4027,16 @@ class ApplyExpr : public Expr {
   Expr *Fn;
 
   /// The argument being passed to it, and whether it's a 'super' argument.
-  llvm::PointerIntPair<Expr *, 1, bool> ArgAndIsSuper;
-  
-  /// Returns true if \c e could be used as the call's argument. For most \c ApplyExpr
-  /// subclasses, this means it is a \c ParenExpr or \c TupleExpr.
-  bool validateArg(Expr *e) const;
+  llvm::PointerIntPair<ArgumentList *, 1, bool> ArgAndIsSuper;
+
+  void validateArg() const;
 
 protected:
-  ApplyExpr(ExprKind Kind, Expr *Fn, Expr *Arg, bool Implicit, Type Ty = Type())
-    : Expr(Kind, Implicit, Ty), Fn(Fn), ArgAndIsSuper(Arg, false) {
+  ApplyExpr(ExprKind Kind, Expr *Fn, ArgumentList *argList, bool Implicit,
+            Type Ty = Type())
+    : Expr(Kind, Implicit, Ty), Fn(Fn), ArgAndIsSuper(argList, false) {
     assert(classof((Expr*)this) && "ApplyExpr::classof out of date");
-    assert(validateArg(Arg) && "Arg is not a permitted expr kind");
+    validateArg();
     Bits.ApplyExpr.ThrowsIsSet = false;
   }
 
@@ -3960,10 +4045,12 @@ public:
   void setFn(Expr *e) { Fn = e; }
   Expr *getSemanticFn() const { return Fn->getSemanticsProvidingExpr(); }
   
-  Expr *getArg() const { return ArgAndIsSuper.getPointer(); }
+  Expr *getArg() const {
+    return ArgAndIsSuper.getPointer()->getLegacyPackedExpr();
+  }
   void setArg(Expr *e) {
-    assert(validateArg(e) && "Arg is not a permitted expr kind");
-    ArgAndIsSuper = {e, ArgAndIsSuper.getInt()};
+    ArgAndIsSuper.getPointer()->setLegacyPackedExpr(e);
+    validateArg();
   }
   
   bool isSuper() const { return ArgAndIsSuper.getInt(); }
@@ -4016,11 +4103,7 @@ class CallExpr final : public ApplyExpr,
                        public TrailingCallArguments<CallExpr> {
   friend TrailingCallArguments;
 
-  CallExpr(Expr *fn, Expr *arg, bool Implicit,
-           ArrayRef<Identifier> argLabels,
-           ArrayRef<SourceLoc> argLabelLocs,
-           bool hasTrailingClosure,
-           Type ty);
+  CallExpr(Expr *fn, ArgumentList *argList, bool Implicit, Type ty);
 
 public:
   /// Create a new call expression.
@@ -4100,9 +4183,15 @@ public:
   
 /// PrefixUnaryExpr - Prefix unary expressions like '!y'.
 class PrefixUnaryExpr : public ApplyExpr {
-public:
-  PrefixUnaryExpr(Expr *Fn, Expr *Arg, Type Ty = Type())
+  PrefixUnaryExpr(Expr *Fn, ArgumentList *Arg, Type Ty)
     : ApplyExpr(ExprKind::PrefixUnary, Fn, Arg, /*Implicit=*/false, Ty) {}
+
+public:
+  static PrefixUnaryExpr *create(ASTContext &ctx, Expr *fn, Expr *arg,
+                                 Type ty = Type()) {
+    auto *argList = ArgumentList::createUnary(ctx, arg);
+    return new (ctx) PrefixUnaryExpr(fn, argList, ty);
+  }
 
   SourceLoc getLoc() const { return getFn()->getStartLoc(); }
 
@@ -4120,9 +4209,15 @@ public:
 
 /// PostfixUnaryExpr - Postfix unary expressions like 'y!'.
 class PostfixUnaryExpr : public ApplyExpr {
-public:
-  PostfixUnaryExpr(Expr *Fn, Expr *Arg, Type Ty = Type())
+  PostfixUnaryExpr(Expr *Fn, ArgumentList *Arg, Type Ty)
     : ApplyExpr(ExprKind::PostfixUnary, Fn, Arg, /*Implicit=*/false, Ty) {}
+
+public:
+  static PostfixUnaryExpr *create(ASTContext &ctx, Expr *fn, Expr *arg,
+                                  Type ty = Type()) {
+    auto *argList = ArgumentList::createUnary(ctx, arg);
+    return new (ctx) PostfixUnaryExpr(fn, argList, ty);
+  }
 
   SourceLoc getLoc() const { return getFn()->getStartLoc(); }
   
@@ -4142,8 +4237,15 @@ public:
 /// an implicit tuple expression of the type expected by the function.
 class BinaryExpr : public ApplyExpr {
 public:
-  BinaryExpr(Expr *Fn, TupleExpr *Arg, bool Implicit, Type Ty = Type())
+  BinaryExpr(Expr *Fn, ArgumentList *Arg, bool Implicit, Type Ty)
     : ApplyExpr(ExprKind::Binary, Fn, Arg, Implicit, Ty) {}
+
+public:
+  static BinaryExpr *create(ASTContext &ctx, Expr *lhs, Expr *fn, Expr *rhs,
+                            bool implicit, Type ty = Type()) {
+    auto *argList = ArgumentList::create(ctx, SourceLoc(), { FunctionArgument(lhs, Identifier(), SourceLoc()), FunctionArgument(rhs, Identifier(), SourceLoc())}, false, SourceLoc(), implicit);
+    return new (ctx) BinaryExpr(fn, argList, implicit, ty);
+  }
 
   SourceLoc getLoc() const { return getFn()->getLoc(); }
 
@@ -4164,8 +4266,8 @@ public:
 /// materialized from an rvalue.
 class SelfApplyExpr : public ApplyExpr {
 protected:
-  SelfApplyExpr(ExprKind K, Expr *FnExpr, Expr *BaseExpr, Type Ty)
-    : ApplyExpr(K, FnExpr, BaseExpr, FnExpr->isImplicit(), Ty) { }
+  SelfApplyExpr(ExprKind K, Expr *FnExpr, ArgumentList *argList, Type Ty)
+    : ApplyExpr(K, FnExpr, argList, FnExpr->isImplicit(), Ty) { }
   
 public:
   Expr *getBase() const { return getArg(); }
@@ -4182,12 +4284,18 @@ public:
 class DotSyntaxCallExpr : public SelfApplyExpr {
   SourceLoc DotLoc;
   
-public:
-  DotSyntaxCallExpr(Expr *FnExpr, SourceLoc DotLoc, Expr *BaseExpr,
+  DotSyntaxCallExpr(Expr *FnExpr, SourceLoc DotLoc, ArgumentList *ArgList,
                     Type Ty = Type())
-    : SelfApplyExpr(ExprKind::DotSyntaxCall, FnExpr, BaseExpr, Ty),
+    : SelfApplyExpr(ExprKind::DotSyntaxCall, FnExpr, ArgList, Ty),
       DotLoc(DotLoc) {
     setImplicit(DotLoc.isInvalid());
+  }
+
+  public:
+  static DotSyntaxCallExpr *create(ASTContext &ctx, Expr *fn, SourceLoc dotLoc,
+                                   Expr *arg, Type ty = Type()) {
+    auto *argList = ArgumentList::createUnary(ctx, arg);
+    return new (ctx) DotSyntaxCallExpr(fn, dotLoc, argList, ty);
   }
 
   SourceLoc getDotLoc() const { return DotLoc; }
@@ -4211,9 +4319,15 @@ public:
 /// actual reference to function which returns the constructor is modeled
 /// as a DeclRefExpr.
 class ConstructorRefCallExpr : public SelfApplyExpr {
-public:
-  ConstructorRefCallExpr(Expr *FnExpr, Expr *BaseExpr, Type Ty = Type())
-    : SelfApplyExpr(ExprKind::ConstructorRefCall, FnExpr, BaseExpr, Ty) {}
+  ConstructorRefCallExpr(Expr *FnExpr, ArgumentList *ArgList, Type Ty = Type())
+    : SelfApplyExpr(ExprKind::ConstructorRefCall, FnExpr, ArgList, Ty) {}
+
+  public:
+  static ConstructorRefCallExpr *create(ASTContext &ctx, Expr *fn, Expr *arg,
+                                        Type ty = Type()) {
+    auto *argList = ArgumentList::createUnary(ctx, arg);
+    return new (ctx) ConstructorRefCallExpr(fn, argList, ty);
+  }
 
   SourceLoc getLoc() const { return getFn()->getLoc(); }
   SourceLoc getStartLoc() const { return getBase()->getStartLoc(); }
@@ -5349,13 +5463,12 @@ inline bool Expr::isInfixOperator() const {
          isa<AssignExpr>(this) || isa<ExplicitCastExpr>(this);
 }
   
-inline bool ApplyExpr::validateArg(Expr *e) const {
-  if (isa<SelfApplyExpr>(this))
-    return true;
-  else if (isa<BinaryExpr>(this))
-    return isa<TupleExpr>(e);
-  else
-    return isa<ParenExpr>(e) || isa<TupleExpr>(e);
+inline void ApplyExpr::validateArg() const {
+  if (isa<SelfApplyExpr>(this)) {
+    assert(ArgAndIsSuper.getPointer()->size() == 1);
+  } else if (isa<BinaryExpr>(this)) {
+    assert(ArgAndIsSuper.getPointer()->size() == 2);
+  }
 }
 
 inline Expr *const *CollectionExpr::getTrailingObjectsPointer() const {

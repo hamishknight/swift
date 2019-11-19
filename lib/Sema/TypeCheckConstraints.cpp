@@ -2538,6 +2538,7 @@ TypeChecker::getTypeOfCompletionOperator(DeclContext *DC, Expr *LHS,
   UnresolvedDeclRefExpr UDRE(opName, refKind, DeclNameLoc(Loc));
   auto *opExpr = TypeChecker::resolveDeclRefExpr(&UDRE, DC);
 
+  auto &ctx = DC->getASTContext();
   switch (refKind) {
 
   case DeclRefKind::PostfixOperator: {
@@ -2545,10 +2546,8 @@ TypeChecker::getTypeOfCompletionOperator(DeclContext *DC, Expr *LHS,
     //   (declref_expr name=<opName>)
     //   (paren_expr
     //     (<LHS>)))
-    ParenExpr Args(SourceLoc(), LHS, SourceLoc(),
-                   /*hasTrailingClosure=*/false);
-    PostfixUnaryExpr postfixExpr(opExpr, &Args);
-    return getTypeOfCompletionOperatorImpl(DC, &postfixExpr,
+    auto *postfixExpr = PostfixUnaryExpr::create(ctx, opExpr, LHS);
+    return getTypeOfCompletionOperatorImpl(DC, postfixExpr,
                                            referencedDecl);
   }
 
@@ -2559,12 +2558,10 @@ TypeChecker::getTypeOfCompletionOperator(DeclContext *DC, Expr *LHS,
     //     (<LHS>)
     //     (code_completion_expr)))
     CodeCompletionExpr dummyRHS(Loc);
-    auto Args = TupleExpr::create(
-        DC->getASTContext(), SourceLoc(), {LHS, &dummyRHS}, {}, {}, SourceLoc(),
-        /*hasTrailingClosure=*/false, /*isImplicit=*/true);
-    BinaryExpr binaryExpr(opExpr, Args, /*isImplicit=*/true);
+    auto *binaryExpr = BinaryExpr::create(ctx, LHS, opExpr, &dummyRHS,
+                                          /*isImplicit=*/true);
 
-    return getTypeOfCompletionOperatorImpl(DC, &binaryExpr,
+    return getTypeOfCompletionOperatorImpl(DC, binaryExpr,
                                            referencedDecl);
   }
 
@@ -3147,15 +3144,8 @@ bool TypeChecker::typeCheckExprPattern(ExprPattern *EP, DeclContext *DC,
                                                 DeclNameLoc(EP->getLoc()),
                                                 /*Implicit=*/true);
   
-  Expr *matchArgElts[] = {EP->getSubExpr(), matchVarRef};
-  auto *matchArgs
-    = TupleExpr::create(Context, EP->getSubExpr()->getSourceRange().Start,
-                        matchArgElts, { }, { },
-                        EP->getSubExpr()->getSourceRange().End,
-                        /*HasTrailingClosure=*/false, /*Implicit=*/true);
-  
-  Expr *matchCall = new (Context) BinaryExpr(matchOp, matchArgs,
-                                             /*Implicit=*/true);
+  Expr *matchCall = BinaryExpr::create(Context, EP->getSubExpr(), matchOp,
+                                       matchVarRef, /*Implicit=*/true);
 
   // Check the expression as a condition.
   //

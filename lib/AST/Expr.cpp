@@ -1043,6 +1043,50 @@ swift::packSingleArgument(ASTContext &ctx, SourceLoc lParenLoc,
   return arg;
 }
 
+static Expr *packSingleArgument(ASTContext &ctx, SourceLoc lParenLoc,
+                                ArrayRef<FunctionArgument> args,
+                                SourceLoc rParenLoc, bool hasTrailingClosure,
+                                bool implicit, llvm::function_ref<Type(const Expr*)> getType) {
+  // Do we have a single, unlabeled argument?
+  if (args.size() == 1 && args[0].getLabel().empty()) {
+    auto arg = new (ctx) ParenExpr(lParenLoc, args[0].getOldExpr(), rParenLoc,
+                                   hasTrailingClosure);
+
+    if (auto ty = getType(args[0].getExpr())) {
+      auto parenFlags = ParameterTypeFlags().withInOut(args[0].isInout());
+      arg->setType(ParenType::get(ctx, ty, parenFlags));
+    }
+    return arg;
+  }
+  assert(!hasTrailingClosure || args.size() > 1);
+
+  SmallVector<Expr *, 8> argExprs;
+  SmallVector<Identifier, 8> argLabels;
+  SmallVector<SourceLoc, 8> argLabelLocs;
+  for (auto &arg : args) {
+    argExprs.push_back(arg.getOldExpr());
+    argLabels.push_back(arg.getLabel());
+    argLabelLocs.push_back(arg.getLabelLoc());
+  }
+
+  auto tuple = TupleExpr::create(ctx, lParenLoc, argExprs, argLabels,
+                                 argLabelLocs, rParenLoc,  hasTrailingClosure,
+                                 implicit);
+
+  SmallVector<TupleTypeElt, 4> typeElements;
+  for (unsigned i = 0, n = tuple->getNumElements(); i != n; ++i) {
+    auto type = getType(args[i].getExpr());
+    if (!type)
+      return tuple;
+
+    typeElements.push_back(
+        TupleTypeElt(type, tuple->getElementName(i),
+                     ParameterTypeFlags().withInOut(args[i].isInout())));
+  }
+  tuple->setType(TupleType::get(typeElements, ctx));
+  return tuple;
+}
+
 ObjectLiteralExpr::ObjectLiteralExpr(SourceLoc PoundLoc, LiteralKind LitKind,
                                      Expr *Arg,
                                      ArrayRef<Identifier> argLabels,
@@ -1571,6 +1615,70 @@ UnresolvedMemberExpr::create(ASTContext &ctx, SourceLoc dotLoc,
                                            argLabels, argLabelLocs,
                                            trailingClosure != nullptr,
                                            implicit);
+}
+
+ArgumentList::ArgumentList(ASTContext &ctx, SourceLoc lParenLoc,
+                           ArrayRef<FunctionArgument> args,
+                           Expr *legacyPackedExpr,
+                           bool hasTrailingClosure, SourceLoc rParenLoc,
+                           bool isImplicit)
+    : Ctx(ctx), LParenLoc(lParenLoc), RParenLoc(rParenLoc),
+      LegacyPackedExpr(legacyPackedExpr),
+      NumArgs(args.size()), HasTrailingClosure(hasTrailingClosure),
+      IsImplicit(isImplicit) {
+  std::uninitialized_copy(args.begin(), args.end(),
+                          getTrailingObjects<FunctionArgument>());
+}
+
+ArgumentList *ArgumentList::create(ASTContext &ctx, SourceLoc lParenLoc,
+                                   ArrayRef<FunctionArgument> args,
+                                   bool hasTrailingClosure,
+                                   SourceLoc rParenLoc, bool isImplicit,
+                                   llvm::function_ref<Type(const Expr *)> getType) {
+  auto *legacyExpr = ::packSingleArgument(ctx, lParenLoc, args, rParenLoc,
+                                          hasTrailingClosure, isImplicit,
+                                          getType);
+  size_t size = totalSizeToAlloc<FunctionArgument>(args.size());
+  void *memory = ctx.Allocate(size, alignof(ArgumentList));
+  return new (memory)
+      ArgumentList(ctx, lParenLoc, args, legacyExpr, hasTrailingClosure,
+                   rParenLoc, isImplicit);
+}
+
+ArrayRef<FunctionArgument> ArgumentList::decompose(Expr *arg, SmallVectorImpl<FunctionArgument> &scratch) {
+  if (auto *te = dyn_cast<TupleExpr>(arg)) {
+    auto exprElts = te->getElements();
+    auto labels = te->getElementNames();
+    auto labelLocs = te->getElementNameLocs();
+
+    for (unsigned i : indices(exprElts)) {
+      scratch.push_back(FunctionArgument(exprElts[i], labels.empty() ? Identifier() : labels[i], labelLocs.empty() ? SourceLoc() : labelLocs[i]));
+    }
+  } else {
+    while (auto *pe = dyn_cast<ParenExpr>(arg))
+      arg = pe->getSubExpr();
+
+    scratch.push_back(FunctionArgument(arg, Identifier(), SourceLoc()));
+  }
+  return scratch;
+}
+
+Expr *ArgumentList::getLegacyPackedExpr() const {
+  if (!LegacyPackedExpr) {
+    auto *mutableThis = const_cast<ArgumentList *>(this);
+    mutableThis->LegacyPackedExpr =
+        ::packSingleArgument(Ctx, LParenLoc, getArray(), RParenLoc,
+                             HasTrailingClosure, IsImplicit);
+  }
+  return LegacyPackedExpr;
+}
+
+void ArgumentList::setLegacyPackedExpr(Expr *newArg) {
+  LegacyPackedExpr = newArg;
+  SmallVector<FunctionArgument, 8> scratch;
+  auto newArgs = decompose(newArg, scratch);
+  assert(newArgs.size() == NumArgs);
+  std::copy(newArgs.begin(), newArgs.end(), getTrailingObjects<FunctionArgument>());
 }
 
 ArrayRef<Identifier> ApplyExpr::getArgumentLabels(
