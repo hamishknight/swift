@@ -2234,12 +2234,6 @@ public:
     printRec(E->getSubExpr());
     PrintWithColorRAII(OS, ParenthesisColor) << ')';
   }
-  void visitImplicitlyUnwrappedFunctionConversionExpr(
-      ImplicitlyUnwrappedFunctionConversionExpr *E) {
-    printCommon(E, "implicitly_unwrapped_function_conversion_expr") << '\n';
-    printRec(E->getSubExpr());
-    PrintWithColorRAII(OS, ParenthesisColor) << ')';
-  }
   void visitUnderlyingToOpaqueExpr(UnderlyingToOpaqueExpr *E){
     printCommon(E, "underlying_to_opaque_expr") << '\n';
     printRec(E->getSubExpr());

@@ -64,6 +64,15 @@ enum class OverloadChoiceKind : int {
   TupleIndex,
 };
 
+enum class IUOReferenceKind {
+  /// This overload references an IUO value which may be directly unwrapped.
+  Value,
+
+  /// This overload references a function, the return value of which may be
+  /// unwrapped.
+  ReturnValue,
+};
+
 /// Describes a particular choice within an overload set.
 ///
 class OverloadChoice {
@@ -254,10 +263,16 @@ public:
   /// declared as one that can be implicitly unwrapped, or is a
   /// function-typed decl that has a return value that is implicitly
   /// unwrapped.
-  bool isImplicitlyUnwrappedValueOrReturnValue() const;
+
+  Optional<IUOReferenceKind> getIUOReferenceKind(ConstraintSystem &cs) const;
 
   bool isKeyPathDynamicMemberLookup() const {
     return getKind() == OverloadChoiceKind::KeyPathDynamicMemberLookup;
+  }
+
+  bool isAnyDynamicMemberLookup() const {
+    return getKind() == OverloadChoiceKind::DynamicMemberLookup ||
+           isKeyPathDynamicMemberLookup();
   }
 
   /// Get the name of the overload choice.

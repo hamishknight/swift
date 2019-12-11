@@ -1227,13 +1227,6 @@ public:
     visitExpr(e);
   }
 
-  void visitImplicitlyUnwrappedFunctionConversionExpr(
-      ImplicitlyUnwrappedFunctionConversionExpr *e) {
-    // These are generated for short term use in the type checker.
-    llvm_unreachable(
-        "We should not see ImplicitlyUnwrappedFunctionConversionExpr here");
-  }
-
   void visitIdentityExpr(IdentityExpr *e) {
     visit(e->getSubExpr());
   }

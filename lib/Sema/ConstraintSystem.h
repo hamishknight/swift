@@ -2977,15 +2977,6 @@ public:
                           OpenedTypeMap *replacements = nullptr);
 
 private:
-  /// Adjust the constraint system to accomodate the given selected overload, and
-  /// recompute the type of the referenced declaration.
-  ///
-  /// \returns a pair containing the adjusted opened type of a reference to
-  /// this member and a bit indicating whether or not a bind constraint was added.
-  std::pair<Type, bool> adjustTypeOfOverloadReference(
-      const OverloadChoice &choice, ConstraintLocator *locator, Type boundType,
-      Type refType);
-
   /// Add the constraints needed to bind an overload's type variable.
   void bindOverloadType(
       const SelectedOverload &overload, Type boundType,
@@ -3200,6 +3191,10 @@ public:
       TypeMatchOptions flags, ConstraintLocatorBuilder locator,
       llvm::function_ref<TypeMatchResult()> formUnsolvedResult);
 
+  TypeMatchResult matchFunctionResultTypes(Type expectedResult, Type fnResult,
+                                           TypeMatchOptions flags,
+                                           ConstraintLocatorBuilder locator);
+
 public: // FIXME: public due to statics in CSSimplify.cpp
   /// Attempt to match up types \c type1 and \c type2, which in effect
   /// is solving the given type constraint between these two types.
@@ -3235,35 +3230,6 @@ public: // FIXME: public due to statics in CSSimplify.cpp
   }
 
 public:
-  /// Given a function type where the eventual result type is an optional,
-  /// where "eventual result type" is defined as:
-  ///   1. The result type is an optional
-  ///   2. The result type is a function type with an eventual result
-  ///      type that is an optional.
-  ///
-  /// return the same function type but with the eventual result type
-  /// replaced by its underlying type.
-  ///
-  /// i.e. return (S) -> T for (S) -> T?
-  //       return (X) -> () -> Y for (X) -> () -> Y?
-  Type replaceFinalResultTypeWithUnderlying(AnyFunctionType *fnTy) {
-    auto resultTy = fnTy->getResult();
-    if (auto *resultFnTy = resultTy->getAs<AnyFunctionType>())
-      resultTy = replaceFinalResultTypeWithUnderlying(resultFnTy);
-    else
-      resultTy = resultTy->getWithoutSpecifierType()->getOptionalObjectType();
-
-    assert(resultTy);
-
-    if (auto *genericFn = fnTy->getAs<GenericFunctionType>()) {
-      return GenericFunctionType::get(genericFn->getGenericSignature(),
-                                      genericFn->getParams(), resultTy,
-                                      genericFn->getExtInfo());
-    }
-
-    return FunctionType::get(fnTy->getParams(), resultTy, fnTy->getExtInfo());
-  }
-
   // Build a disjunction that attempts both T? and T for a particular
   // type binding. The choice of T? is preferred, and we will not
   // attempt T if we can type check with T?
@@ -3283,17 +3249,26 @@ public:
       Constraint::create(*this, ConstraintKind::Bind, boundTy, type, locator);
     bindToOptional->setFavored();
 
-    Type underlyingType;
-    if (auto *fnTy = type->getAs<AnyFunctionType>())
-      underlyingType = replaceFinalResultTypeWithUnderlying(fnTy);
-    else
-      underlyingType = type->getWithoutSpecifierType()->getOptionalObjectType();
-
-    assert(underlyingType);
-
-    if (type->is<LValueType>())
-      underlyingType = LValueType::get(underlyingType);
+    auto underlyingType = type->getWithoutSpecifierType()
+                              ->getOptionalObjectType();
     assert(!type->is<InOutType>());
+
+    if (underlyingType) {
+      if (type->is<LValueType>())
+        underlyingType = LValueType::get(underlyingType);
+    } else {
+      // If we don't have an optional, we should have a type variable. In that
+      // case, create a type variable to represent the object type.
+      // FIXME: We should be using the OptionalObject constraint for
+      // `bindToUnderlying` which would avoid the need for this special case as
+      // well as the lvalue handling logic above. Unfortunately this currently
+      // causes us to fail to identify the disjunction in
+      // `selectBestBindingDisjunction`.
+      assert(type->is<TypeVariableType>());
+      underlyingType = createTypeVariable(locator, /*options*/ 0);
+      addConstraint(ConstraintKind::OptionalObject, type, underlyingType,
+                    locator);
+    }
 
     auto *bindToUnderlying = Constraint::create(
         *this, ConstraintKind::Bind, boundTy, underlyingType, locator);

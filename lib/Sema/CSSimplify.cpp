@@ -1126,6 +1126,41 @@ ConstraintSystem::TypeMatchResult constraints::matchCallArguments(
 }
 
 ConstraintSystem::TypeMatchResult
+ConstraintSystem::matchFunctionResultTypes(Type expectedResult, Type fnResult,
+                                           TypeMatchOptions flags,
+                                           ConstraintLocatorBuilder locator) {
+  // If we have a callee with an IUO return, add a disjunction that can either
+  // bind to the result or an unwrapped result.
+  auto *calleeLoc = getCalleeLocator(getConstraintLocator(locator));
+  if (auto selected = findSelectedOverloadFor(calleeLoc)) {
+    auto choice = selected->choice;
+    auto *resultLoc =
+        getConstraintLocator(calleeLoc, ConstraintLocator::FunctionResult);
+
+    // Subscripts found through dynamic lookup need special treatment. Unlike
+    // other decls found through dynamic lookup, they cannot have an optional
+    // applied to their reference, instead it's applied to their result. As
+    // such, we may need to unwrap another level of optionality.
+    if (choice.getKind() == OverloadChoiceKind::DeclViaDynamic &&
+        isa<SubscriptDecl>(choice.getDecl())) {
+      // Introduce a type variable to record whether we needed to unwrap the
+      // outer optional.
+      auto outerTy = createTypeVariable(resultLoc, /*options*/ 0);
+      buildDisjunctionForDynamicLookupResult(outerTy, fnResult, resultLoc);
+      fnResult = outerTy;
+    }
+
+    if (choice.getIUOReferenceKind(*this) == IUOReferenceKind::ReturnValue) {
+      buildDisjunctionForImplicitlyUnwrappedOptional(expectedResult, fnResult,
+                                                     resultLoc);
+      return getTypeMatchSuccess();
+    }
+  }
+  return matchTypes(expectedResult, fnResult, ConstraintKind::Bind, flags,
+                    locator);
+}
+
+ConstraintSystem::TypeMatchResult
 ConstraintSystem::matchTupleTypes(TupleType *tuple1, TupleType *tuple2,
                                   ConstraintKind kind, TypeMatchOptions flags,
                                   ConstraintLocatorBuilder locator) {
@@ -2285,6 +2320,14 @@ ConstraintSystem::matchTypesBindTypeVar(
                                                  getConstraintLocator(locator));
         return !recordFix(fix);
       }
+    }
+
+    auto result = matchTypes(typeVar, type->getWithoutSpecifierType(), kind,
+                             TMF_ApplyingFix, locator);
+    if (result.isSuccess()) {
+      auto *fix =
+          TreatRValueAsLValue::create(*this, getConstraintLocator(locator));
+      return !recordFix(fix);
     }
 
     return false;
@@ -6040,8 +6083,7 @@ fixMemberRef(ConstraintSystem &cs, Type baseTy,
     switch (*reason) {
     case MemberLookupResult::UR_InstanceMemberOnType:
     case MemberLookupResult::UR_TypeMemberOnInstance: {
-      if (choice.getKind() == OverloadChoiceKind::DynamicMemberLookup ||
-          choice.getKind() == OverloadChoiceKind::KeyPathDynamicMemberLookup)
+      if (choice.isAnyDynamicMemberLookup())
         return nullptr;
 
       return choice.isDecl()
@@ -6263,7 +6305,8 @@ ConstraintSystem::SolutionKind ConstraintSystem::simplifyMemberConstraint(
               dyn_cast_or_null<UnresolvedDotExpr>(locator->getAnchor())) {
         auto baseExpr = dotExpr->getBase();
         if (auto overload = findSelectedOverloadFor(baseExpr))
-          if (overload->choice.isImplicitlyUnwrappedValueOrReturnValue())
+          if (overload->choice.getIUOReferenceKind(*this) ==
+              IUOReferenceKind::Value)
             return SolutionKind::Error;
       }
 
@@ -7651,26 +7694,6 @@ ConstraintSystem::simplifyApplicableFnConstraint(
       // Track how many times we do this so that we can record a fix for each.
       ++unwrapCount;
     }
-
-    // Let's account for optional members concept from Objective-C
-    // which forms a disjunction for member type to check whether
-    // it would be possible to use optional type directly or it has
-    // to be force unwrapped (because such types are imported as IUO).
-    if (unwrapCount > 0 && desugar2->is<TypeVariableType>()) {
-      auto *typeVar = desugar2->castTo<TypeVariableType>();
-      auto *locator = typeVar->getImpl().getLocator();
-      if (locator->isLastElement<LocatorPathElt::Member>()) {
-        auto *fix = ForceOptional::create(*this, origType2, desugar2,
-                                          getConstraintLocator(locator));
-        if (recordFix(fix, /*impact=*/unwrapCount))
-          return SolutionKind::Error;
-
-        // Since the right-hand side of the constraint has been changed
-        // we have to re-generate this constraint to use new type.
-        flags |= TMF_GenerateConstraints;
-        return formUnsolved();
-      }
-    }
   }
 
   // For a function, bind the output and convert the argument to the input.
@@ -7687,12 +7710,10 @@ ConstraintSystem::simplifyApplicableFnConstraint(
       return SolutionKind::Error;
 
     // The result types are equivalent.
-    if (matchTypes(func1->getResult(),
-                   func2->getResult(),
-                   ConstraintKind::Bind,
-                   subflags,
-                   locator.withPathElement(
-                     ConstraintLocator::FunctionResult)).isFailure())
+    if (matchFunctionResultTypes(
+            func1->getResult(), func2->getResult(), subflags,
+            locator.withPathElement(ConstraintLocator::FunctionResult))
+            .isFailure())
       return SolutionKind::Error;
 
     if (unwrapCount == 0)
