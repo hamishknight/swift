@@ -144,7 +144,13 @@ bool ConstraintLocator::isSubscriptMemberRef() const {
   if (!anchor || path.empty())
     return false;
 
-  return path.back().getKind() == ConstraintLocator::SubscriptMember;
+  auto iter = llvm::find_if(llvm::reverse(path), [](LocatorPathElt elt) -> bool {
+    return !elt.is<LocatorPathElt::KeyPathDynamicMember>();
+  });
+  if (iter == path.rend())
+    return false;
+
+  return iter->is<LocatorPathElt::SubscriptMember>();
 }
 
 bool ConstraintLocator::isKeyPathType() const {
