@@ -1164,7 +1164,7 @@ void ModuleDecl::getImportedModules(SmallVectorImpl<ImportedModule> &modules,
 void
 SourceFile::getImportedModules(SmallVectorImpl<ModuleDecl::ImportedModule> &modules,
                                ModuleDecl::ImportFilter filter) const {
-  assert(ASTStage >= Parsed || Kind == SourceFileKind::SIL);
+  assert(ASTStage >= NameBound);
   assert(filter && "no imports requested?");
   for (auto desc : Imports) {
     ModuleDecl::ImportFilter requiredFilter;
