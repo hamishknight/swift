@@ -1701,7 +1701,7 @@ static int doPrintAST(const CompilerInvocation &InitInvok,
   }
 
   if (!RunTypeChecker)
-    CI.performParseOnly();
+    CI.performParseAndResolveImportsOnly();
   else
     CI.performSema();
 
