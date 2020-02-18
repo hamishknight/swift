@@ -4885,7 +4885,7 @@ swift::getInheritedForPrinting(const Decl *decl, const PrintOptions &options,
   // Collect synthesized conformances.
   auto &ctx = decl->getASTContext();
   for (auto attr : decl->getAttrs().getAttributes<SynthesizedProtocolAttr>()) {
-    if (auto *proto = ctx.getProtocol(attr->getProtocolKind())) {
+    if (auto *proto = ctx.getProtocol(attr->getProtocolKind(), decl->getDeclContext())) {
       if (!options.shouldPrint(proto))
         continue;
       if (attr->getProtocolKind() == KnownProtocolKind::RawRepresentable &&

@@ -1315,7 +1315,7 @@ class CodeCompletionCallbacksImpl : public CodeCompletionCallbacks {
       for (auto Component : ITR->getComponentRange())
         AccessPath.push_back({ Component->getNameRef().getBaseIdentifier(),
                                Component->getLoc() });
-      if (auto Module = Context.getLoadedModule(AccessPath))
+      if (auto Module = Context.getLoadedModule(AccessPath, CurDeclContext))
         ParsedTypeLoc.setType(ModuleType::get(Module));
       return true;
     }
@@ -3588,7 +3588,7 @@ public:
                                    CodeCompletionLiteralKind kind,
                                    StringRef defaultTypeName) {
     // Check for matching ExpectedTypes.
-    auto *P = Ctx.getProtocol(protocolForLiteralKind(kind));
+    auto *P = Ctx.getProtocol(protocolForLiteralKind(kind), const_cast<DeclContext *>(CurrDeclContext));
     for (auto T : expectedTypeContext.possibleTypes) {
       if (!T)
         continue;
@@ -4753,7 +4753,7 @@ void CodeCompletionCallbacksImpl::completeImportDecl(
   for (StringRef Sub : SubNames) {
     Path.push_back({ Ctx.getIdentifier(Sub), SourceLoc() });
     SubModuleNameVisibilityPairs.push_back(
-      std::make_pair(Sub.str(), Ctx.getLoadedModule(Path)));
+      std::make_pair(Sub.str(), Ctx.getModule(Path)));
     Path.pop_back();
   }
 }

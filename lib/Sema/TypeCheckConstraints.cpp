@@ -1912,7 +1912,8 @@ Expr *PreCheckExpression::simplifyTypeConstructionWithLiteralArg(Expr *E) {
   if (!literal)
     return nullptr;
 
-  auto *protocol = TypeChecker::getLiteralProtocol(getASTContext(), literal);
+  auto *protocol = TypeChecker::getLiteralProtocol(getASTContext(), literal,
+                                                   DC);
   if (!protocol)
     return nullptr;
 
@@ -1937,7 +1938,7 @@ Expr *PreCheckExpression::simplifyTypeConstructionWithLiteralArg(Expr *E) {
     return nullptr;
 
   // Don't bother to convert deprecated selector syntax.
-  if (auto selectorTy = getASTContext().getSelectorType()) {
+  if (auto selectorTy = getASTContext().getSelectorType(DC)) {
     if (type->isEqual(selectorTy))
       return nullptr;
   }
@@ -2559,7 +2560,7 @@ bool TypeChecker::typeCheckForEachBinding(DeclContext *dc, ForEachStmt *stmt) {
 
       // The expression type must conform to the Sequence protocol.
       SequenceProto = TypeChecker::getProtocol(
-          cs.getASTContext(), Stmt->getForLoc(), KnownProtocolKind::Sequence);
+          cs.getASTContext(), Stmt->getForLoc(), KnownProtocolKind::Sequence, DC);
       if (!SequenceProto) {
         return true;
       }
@@ -2614,13 +2615,13 @@ bool TypeChecker::typeCheckForEachBinding(DeclContext *dc, ForEachStmt *stmt) {
       // The iterator type must conform to IteratorProtocol.
       IteratorProto = TypeChecker::getProtocol(
           cs.getASTContext(), Stmt->getForLoc(),
-          KnownProtocolKind::IteratorProtocol);
+          KnownProtocolKind::IteratorProtocol, DC);
       if (!IteratorProto) {
         return true;
       }
 
       // Reference the makeIterator witness.
-      FuncDecl *makeIterator = ctx.getSequenceMakeIterator();
+      FuncDecl *makeIterator = ctx.getSequenceMakeIterator(DC);
       Type makeIteratorType =
           cs.createTypeVariable(Locator, TVO_CanBindToNoEscape);
       cs.addValueWitnessConstraint(
@@ -2737,7 +2738,7 @@ bool TypeChecker::typeCheckForEachBinding(DeclContext *dc, ForEachStmt *stmt) {
   assert(seq && "type-checking an uninitialized for-each statement?");
 
   auto sequenceProto = TypeChecker::getProtocol(
-      dc->getASTContext(), stmt->getForLoc(), KnownProtocolKind::Sequence);
+      dc->getASTContext(), stmt->getForLoc(), KnownProtocolKind::Sequence, dc);
   if (!sequenceProto)
     return true;
 
@@ -4098,7 +4099,7 @@ CheckedCastKind TypeChecker::typeCheckCheckedCast(Type fromType,
   
   // Objective-C metaclasses are subclasses of NSObject in the ObjC runtime,
   // so casts from NSObject to potentially-class metatypes may succeed.
-  if (auto nsObject = Context.getNSObjectType()) {
+  if (auto nsObject = Context.getNSObjectType(dc)) {
     if (fromType->isEqual(nsObject)) {
       if (auto toMeta = toType->getAs<MetatypeType>()) {
         if (toMeta->getInstanceType()->mayHaveSuperclass()
@@ -4114,10 +4115,10 @@ CheckedCastKind TypeChecker::typeCheckCheckedCast(Type fromType,
   // type.  This is handled in the runtime, so it doesn't need a special cast
   // kind.
   if (Context.LangOpts.EnableObjCInterop) {
-    auto nsObject = Context.getNSObjectType();
-    auto nsErrorTy = Context.getNSErrorType();
+    auto nsObject = Context.getNSObjectType(dc);
+    auto nsErrorTy = Context.getNSErrorType(dc);
 
-    if (auto errorTypeProto = Context.getProtocol(KnownProtocolKind::Error)) {
+    if (auto errorTypeProto = Context.getProtocol(KnownProtocolKind::Error, dc)) {
       if (!conformsToProtocol(toType, errorTypeProto, dc,
                               ConformanceCheckFlags::InExpression)
                .isInvalid()) {

@@ -435,7 +435,7 @@ public:
     ASTContext &ctx = M.getASTContext();
 
     SmallVector<ProtocolConformance *, 1> conformances;
-    auto errorTypeProto = ctx.getProtocol(KnownProtocolKind::Error);
+    auto errorTypeProto = ctx.getProtocol(KnownProtocolKind::Error, ED->getDeclContext());
     if (ED->lookupConformance(&M, errorTypeProto, conformances)) {
       bool hasDomainCase = std::any_of(ED->getAllElements().begin(),
                                        ED->getAllElements().end(),

@@ -1351,7 +1351,7 @@ private:
     auto &ctx = nominal->getASTContext();
 
     // Dig out the ObjectiveCBridgeable protocol.
-    auto proto = ctx.getProtocol(KnownProtocolKind::ObjectiveCBridgeable);
+    auto proto = ctx.getProtocol(KnownProtocolKind::ObjectiveCBridgeable, nominal->getDeclContext());
     if (!proto) return nullptr;
 
     // Determine whether this nominal type is _ObjectiveCBridgeable.
@@ -1403,7 +1403,7 @@ private:
     // upper-bounded keys.
     else if (swiftNominal == ctx.getDictionaryDecl() &&
              isNSObjectOrAnyHashable(ctx, typeArgs[0])) {
-      if (auto protoTy = ctx.getNSCopyingType()) {
+      if (auto protoTy = ctx.getNSCopyingType(/*useDC*/ nullptr)) {
         rewrittenArgsBuf[0] = protoTy;
         rewrittenArgsBuf[1] = typeArgs[1];
         typeArgs = rewrittenArgsBuf;

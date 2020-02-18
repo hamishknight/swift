@@ -2192,7 +2192,7 @@ SILParser::parseKeyPathPatternComponent(KeyPathPatternComponent &component,
              loweredTy.getCategory());
 
          // Formal type must be hashable.
-         auto proto = P.Context.getProtocol(KnownProtocolKind::Hashable);
+         auto proto = P.Context.getProtocol(KnownProtocolKind::Hashable, /*useDC*/ nullptr);
          Type contextFormalTy = formalTy;
          if (patternEnv)
            contextFormalTy = patternEnv->mapTypeIntoContext(formalTy);

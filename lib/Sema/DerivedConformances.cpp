@@ -174,7 +174,7 @@ ValueDecl *DerivedConformance::getDerivableRequirement(NominalTypeDecl *nominal,
   // the provided requirement, but within the given known protocol.
   auto getRequirement = [&](KnownProtocolKind kind) -> ValueDecl * {
     // Dig out the protocol.
-    auto proto = ctx.getProtocol(kind);
+    auto proto = ctx.getProtocol(kind, nominal->getDeclContext());
     if (!proto) return nullptr;
 
     auto conformance = TypeChecker::conformsToProtocol(

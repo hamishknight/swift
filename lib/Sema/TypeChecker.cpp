@@ -63,8 +63,9 @@ TypeChecker &TypeChecker::createForContext(ASTContext &ctx) {
 }
 
 ProtocolDecl *TypeChecker::getProtocol(ASTContext &Context, SourceLoc loc,
-                                       KnownProtocolKind kind) {
-  auto protocol = Context.getProtocol(kind);
+                                       KnownProtocolKind kind,
+                                       const DeclContext *useDC) {
+  auto protocol = Context.getProtocol(kind, useDC);
   if (!protocol && loc.isValid()) {
     Context.Diags.diagnose(loc, diag::missing_protocol,
                            Context.getIdentifier(getProtocolName(kind)));
@@ -77,56 +78,65 @@ ProtocolDecl *TypeChecker::getProtocol(ASTContext &Context, SourceLoc loc,
   return protocol;
 }
 
-ProtocolDecl *TypeChecker::getLiteralProtocol(ASTContext &Context, Expr *expr) {
+ProtocolDecl *TypeChecker::getLiteralProtocol(ASTContext &Context, Expr *expr,
+                                              const DeclContext *useDC) {
   if (isa<ArrayExpr>(expr))
     return TypeChecker::getProtocol(
-        Context, expr->getLoc(), KnownProtocolKind::ExpressibleByArrayLiteral);
+        Context, expr->getLoc(), KnownProtocolKind::ExpressibleByArrayLiteral,
+                                    useDC);
 
   if (isa<DictionaryExpr>(expr))
     return TypeChecker::getProtocol(
         Context, expr->getLoc(),
-        KnownProtocolKind::ExpressibleByDictionaryLiteral);
+        KnownProtocolKind::ExpressibleByDictionaryLiteral, useDC);
 
   if (!isa<LiteralExpr>(expr))
     return nullptr;
   
   if (isa<NilLiteralExpr>(expr))
     return TypeChecker::getProtocol(Context, expr->getLoc(),
-                                    KnownProtocolKind::ExpressibleByNilLiteral);
+                                    KnownProtocolKind::ExpressibleByNilLiteral,
+                                    useDC);
 
   if (isa<IntegerLiteralExpr>(expr))
     return TypeChecker::getProtocol(
         Context, expr->getLoc(),
-        KnownProtocolKind::ExpressibleByIntegerLiteral);
+        KnownProtocolKind::ExpressibleByIntegerLiteral,
+                                    useDC);
 
   if (isa<FloatLiteralExpr>(expr))
     return TypeChecker::getProtocol(
-        Context, expr->getLoc(), KnownProtocolKind::ExpressibleByFloatLiteral);
+        Context, expr->getLoc(), KnownProtocolKind::ExpressibleByFloatLiteral,
+                                    useDC);
 
   if (isa<BooleanLiteralExpr>(expr))
     return TypeChecker::getProtocol(
         Context, expr->getLoc(),
-        KnownProtocolKind::ExpressibleByBooleanLiteral);
+        KnownProtocolKind::ExpressibleByBooleanLiteral,
+                                    useDC);
 
   if (const auto *SLE = dyn_cast<StringLiteralExpr>(expr)) {
     if (SLE->isSingleUnicodeScalar())
       return TypeChecker::getProtocol(
           Context, expr->getLoc(),
-          KnownProtocolKind::ExpressibleByUnicodeScalarLiteral);
+          KnownProtocolKind::ExpressibleByUnicodeScalarLiteral,
+                                      useDC);
 
     if (SLE->isSingleExtendedGraphemeCluster())
       return getProtocol(
           Context, expr->getLoc(),
-          KnownProtocolKind::ExpressibleByExtendedGraphemeClusterLiteral);
+          KnownProtocolKind::ExpressibleByExtendedGraphemeClusterLiteral,
+                         useDC);
 
     return TypeChecker::getProtocol(
-        Context, expr->getLoc(), KnownProtocolKind::ExpressibleByStringLiteral);
+        Context, expr->getLoc(), KnownProtocolKind::ExpressibleByStringLiteral,
+                                    useDC);
   }
 
   if (isa<InterpolatedStringLiteralExpr>(expr))
     return TypeChecker::getProtocol(
         Context, expr->getLoc(),
-        KnownProtocolKind::ExpressibleByStringInterpolation);
+        KnownProtocolKind::ExpressibleByStringInterpolation, useDC);
 
   if (auto E = dyn_cast<MagicIdentifierLiteralExpr>(expr)) {
     switch (E->getKind()) {
@@ -135,13 +145,13 @@ ProtocolDecl *TypeChecker::getLiteralProtocol(ASTContext &Context, Expr *expr) {
     case MagicIdentifierLiteralExpr::Function:
       return TypeChecker::getProtocol(
           Context, expr->getLoc(),
-          KnownProtocolKind::ExpressibleByStringLiteral);
+          KnownProtocolKind::ExpressibleByStringLiteral, useDC);
 
     case MagicIdentifierLiteralExpr::Line:
     case MagicIdentifierLiteralExpr::Column:
       return TypeChecker::getProtocol(
           Context, expr->getLoc(),
-          KnownProtocolKind::ExpressibleByIntegerLiteral);
+          KnownProtocolKind::ExpressibleByIntegerLiteral, useDC);
 
     case MagicIdentifierLiteralExpr::DSOHandle:
       return nullptr;
@@ -153,7 +163,7 @@ ProtocolDecl *TypeChecker::getLiteralProtocol(ASTContext &Context, Expr *expr) {
 #define POUND_OBJECT_LITERAL(Name, Desc, Protocol)                             \
   case ObjectLiteralExpr::Name:                                                \
     return TypeChecker::getProtocol(Context, expr->getLoc(),                   \
-                                    KnownProtocolKind::Protocol);
+                                    KnownProtocolKind::Protocol, useDC);
 #include "swift/Syntax/TokenKinds.def"
     }
   }

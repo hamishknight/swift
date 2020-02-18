@@ -370,7 +370,7 @@ namespace {
         if (pointee && !pointee->getDecl()->isCompleteDefinition() &&
             pointee->getDecl()->getName() == "_NSZone") {
           Identifier Id_ObjectiveC = Impl.SwiftContext.Id_ObjectiveC;
-          ModuleDecl *objCModule = Impl.SwiftContext.getLoadedModule(Id_ObjectiveC);
+          ModuleDecl *objCModule = Impl.SwiftContext.getModule(Located<Identifier>(Id_ObjectiveC, SourceLoc()));
           Type wrapperTy = Impl.getNamedSwiftType(
                              objCModule,
                              Impl.SwiftContext.getSwiftName(
@@ -524,7 +524,7 @@ namespace {
       if (count == 1) { return element; }
       // Imported element type needs to conform to SIMDScalar.
       auto nominal = element->getAnyNominal();
-      auto simdscalar = Impl.SwiftContext.getProtocol(KnownProtocolKind::SIMDScalar);
+      auto simdscalar = Impl.SwiftContext.getProtocol(KnownProtocolKind::SIMDScalar, nominal->getDeclContext());
       SmallVector<ProtocolConformance *, 2> conformances;
       if (simdscalar && nominal->lookupConformance(nominal->getParentModule(),
                                                    simdscalar, conformances)) {
@@ -2085,7 +2085,7 @@ ImportedType ClangImporter::Implementation::importMethodParamsAndReturnType(
     bool paramIsIUO;
     if (kind == SpecialMethodKind::NSDictionarySubscriptGetter &&
         paramTy->isObjCIdType()) {
-      swiftParamTy = SwiftContext.getNSCopyingType();
+      swiftParamTy = SwiftContext.getNSCopyingType(/*useDC*/ nullptr);
       if (optionalityOfParam != OTK_None)
         swiftParamTy = OptionalType::get(swiftParamTy);
 
@@ -2292,8 +2292,8 @@ ModuleDecl *ClangImporter::Implementation::getStdlibModule() {
   return SwiftContext.getStdlibModule(true);
 }
 
-ModuleDecl *ClangImporter::Implementation::getNamedModule(StringRef name) {
-  return SwiftContext.getLoadedModule(SwiftContext.getIdentifier(name));
+ModuleDecl *ClangImporter::Implementation::getNamedModule(StringRef name, const ClangModuleUnit *mod) {
+  return SwiftContext.getLoadedModule(SwiftContext.getIdentifier(name), mod);
 }
 
 static ModuleDecl *tryLoadModule(ASTContext &C,
@@ -2311,7 +2311,7 @@ static ModuleDecl *tryLoadModule(ASTContext &C,
   // If we're synthesizing forward declarations, we don't want to pull in
   // the module too eagerly.
   if (importForwardDeclarations)
-    module = C.getLoadedModule(moduleName);
+    module = C.getLoadedModule(moduleName, /*useDC*/ nullptr);
   else
     module = C.getModule({ {moduleName, SourceLoc()} });
 
@@ -2439,7 +2439,7 @@ bool ClangImporter::Implementation::matchesHashableBound(Type type) {
   if (type->getStructOrBoundGenericStruct() ||
       type->getEnumOrBoundGenericEnum()) {
     auto nominal = type->getAnyNominal();
-    auto hashable = SwiftContext.getProtocol(KnownProtocolKind::Hashable);
+    auto hashable = SwiftContext.getProtocol(KnownProtocolKind::Hashable, nominal->getDeclContext());
     SmallVector<ProtocolConformance *, 2> conformances;
     return hashable &&
       nominal->lookupConformance(nominal->getParentModule(), hashable,

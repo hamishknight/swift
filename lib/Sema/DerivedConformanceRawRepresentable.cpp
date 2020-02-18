@@ -401,7 +401,8 @@ deriveRawRepresentable_init(DerivedConformance &derived) {
   auto rawType = parentDC->mapTypeIntoContext(rawInterfaceType);
 
   auto equatableProto = TypeChecker::getProtocol(C, enumDecl->getLoc(),
-                                                 KnownProtocolKind::Equatable);
+                                                 KnownProtocolKind::Equatable,
+                                                 enumDecl);
   assert(equatableProto);
   assert(
       TypeChecker::conformsToProtocol(rawType, equatableProto, enumDecl, None));
@@ -459,7 +460,7 @@ bool DerivedConformance::canDeriveRawRepresentable(DeclContext *DC,
   // synthesized switch statements.
   auto equatableProto =
       TypeChecker::getProtocol(enumDecl->getASTContext(), enumDecl->getLoc(),
-                               KnownProtocolKind::Equatable);
+                               KnownProtocolKind::Equatable, DC);
   if (!equatableProto)
     return false;
 

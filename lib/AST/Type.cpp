@@ -719,7 +719,7 @@ bool ExistentialLayout::isErrorExistential() const {
 }
 
 bool ExistentialLayout::isExistentialWithError(ASTContext &ctx) const {
-  auto errorProto = ctx.getProtocol(KnownProtocolKind::Error);
+  auto errorProto = ctx.getProtocol(KnownProtocolKind::Error, /*useDC*/ nullptr);
   if (!errorProto) return false;
 
   for (auto proto : getProtocols()) {
@@ -2307,7 +2307,7 @@ getForeignRepresentable(Type type, ForeignLanguage language,
         // and should be re-evaluated.
         if (auto nominal = typeArg->getAnyNominal()) {
           if (auto objcBridgeable
-                = ctx.getProtocol(KnownProtocolKind::ObjectiveCBridgeable)) {
+                = ctx.getProtocol(KnownProtocolKind::ObjectiveCBridgeable, nominal->getDeclContext())) {
             SmallVector<ProtocolConformance *, 1> conformances;
             if (nominal->lookupConformance(dc->getParentModule(),
                                            objcBridgeable,
@@ -4880,7 +4880,7 @@ TypeBase::getAutoDiffTangentSpace(LookupConformanceFn lookupConformance) {
   // For `Differentiable`-conforming types: the tangent space is the
   // `TangentVector` associated type.
   auto *differentiableProtocol =
-      ctx.getProtocol(KnownProtocolKind::Differentiable);
+      ctx.getProtocol(KnownProtocolKind::Differentiable, /*useDC*/ nullptr);
   assert(differentiableProtocol && "`Differentiable` protocol not found");
   auto associatedTypeLookup =
       differentiableProtocol->lookupDirect(ctx.Id_TangentVector);

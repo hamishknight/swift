@@ -504,7 +504,7 @@ deriveEquatable_eq(
 
   // Add the @_implements(Equatable, ==(_:_:)) attribute
   if (generatedIdentifier != C.Id_EqualsOperator) {
-    auto equatableProto = C.getProtocol(KnownProtocolKind::Equatable);
+    auto equatableProto = C.getProtocol(KnownProtocolKind::Equatable, parentDC);
     auto equatableTy = equatableProto->getDeclaredType();
     auto equatableTypeLoc = TypeLoc::withoutLoc(equatableTy);
     SmallVector<Identifier, 2> argumentLabels = { Identifier(), Identifier() };
@@ -535,7 +535,7 @@ deriveEquatable_eq(
 bool DerivedConformance::canDeriveEquatable(DeclContext *DC,
                                             NominalTypeDecl *type) {
   ASTContext &ctx = DC->getASTContext();
-  auto equatableProto = ctx.getProtocol(KnownProtocolKind::Equatable);
+  auto equatableProto = ctx.getProtocol(KnownProtocolKind::Equatable, DC);
   if (!equatableProto) return false;
   return canDeriveConformance(DC, type, equatableProto);
 }
@@ -566,7 +566,7 @@ ValueDecl *DerivedConformance::deriveEquatable(ValueDecl *requirement) {
 void DerivedConformance::tryDiagnoseFailedEquatableDerivation(
     DeclContext *DC, NominalTypeDecl *nominal) {
   ASTContext &ctx = DC->getASTContext();
-  auto *equatableProto = ctx.getProtocol(KnownProtocolKind::Equatable);
+  auto *equatableProto = ctx.getProtocol(KnownProtocolKind::Equatable, DC);
   diagnoseFailedDerivation(DC, nominal, equatableProto);
 }
 
@@ -611,7 +611,7 @@ deriveHashable_hashInto(
 
   auto hasherDecl = C.getHasherDecl();
   if (!hasherDecl) {
-    auto hashableProto = C.getProtocol(KnownProtocolKind::Hashable);
+    auto hashableProto = C.getProtocol(KnownProtocolKind::Hashable, parentDC);
     hashableProto->diagnose(diag::broken_hashable_no_hasher);
     return nullptr;
   }
@@ -951,14 +951,14 @@ static ValueDecl *deriveHashable_hashValue(DerivedConformance &derived) {
   // We can't form a Hashable conformance if Int isn't Hashable or
   // ExpressibleByIntegerLiteral.
   if (TypeChecker::conformsToProtocol(
-          intType, C.getProtocol(KnownProtocolKind::Hashable), parentDC, None)
+          intType, C.getProtocol(KnownProtocolKind::Hashable, parentDC), parentDC, None)
           .isInvalid()) {
     derived.ConformanceDecl->diagnose(diag::broken_int_hashable_conformance);
     return nullptr;
   }
 
   ProtocolDecl *intLiteralProto =
-      C.getProtocol(KnownProtocolKind::ExpressibleByIntegerLiteral);
+      C.getProtocol(KnownProtocolKind::ExpressibleByIntegerLiteral, parentDC);
   if (TypeChecker::conformsToProtocol(intType, intLiteralProto, parentDC, None)
           .isInvalid()) {
     derived.ConformanceDecl->diagnose(
@@ -1012,7 +1012,7 @@ static ValueDecl *deriveHashable_hashValue(DerivedConformance &derived) {
 
 static ValueDecl *
 getHashValueRequirement(ASTContext &C) {
-  auto hashableProto = C.getProtocol(KnownProtocolKind::Hashable);
+  auto hashableProto = C.getProtocol(KnownProtocolKind::Hashable, /*useDC*/ nullptr);
   for (auto member: hashableProto->getMembers()) {
     if (auto fd = dyn_cast<VarDecl>(member)) {
       if (fd->getBaseName() == C.Id_hashValue)
@@ -1026,7 +1026,7 @@ static ProtocolConformance *
 getHashableConformance(Decl *parentDecl) {
   ASTContext &C = parentDecl->getASTContext();
   auto DC = cast<DeclContext>(parentDecl);
-  auto hashableProto = C.getProtocol(KnownProtocolKind::Hashable);
+  auto hashableProto = C.getProtocol(KnownProtocolKind::Hashable, DC);
   for (auto conformance: DC->getLocalConformances()) {
     if (conformance->getProtocol() == hashableProto) {
       return conformance;
@@ -1049,7 +1049,7 @@ bool DerivedConformance::canDeriveHashable(NominalTypeDecl *type) {
 void DerivedConformance::tryDiagnoseFailedHashableDerivation(
     DeclContext *DC, NominalTypeDecl *nominal) {
   ASTContext &ctx = DC->getASTContext();
-  auto *hashableProto = ctx.getProtocol(KnownProtocolKind::Hashable);
+  auto *hashableProto = ctx.getProtocol(KnownProtocolKind::Hashable, DC);
   diagnoseFailedDerivation(DC, nominal, hashableProto);
 }
 
@@ -1080,7 +1080,7 @@ ValueDecl *DerivedConformance::deriveHashable(ValueDecl *requirement) {
       
       // Refuse to synthesize Hashable if type isn't a struct or enum, or if it
       // has non-Hashable stored properties/associated values.
-      auto hashableProto = C.getProtocol(KnownProtocolKind::Hashable);
+      auto hashableProto = C.getProtocol(KnownProtocolKind::Hashable, ConformanceDecl->getDeclContext());
       if (!canDeriveConformance(getConformanceContext(), Nominal,
                                 hashableProto)) {
         ConformanceDecl->diagnose(diag::type_does_not_conform,

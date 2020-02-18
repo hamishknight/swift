@@ -2667,9 +2667,9 @@ AvailabilityWalker::diagAvailability(ConcreteDeclRef declRef, SourceRange R,
 static bool isIntegerOrFloatingPointType(Type ty, DeclContext *DC,
                                          ASTContext &Context) {
   auto integerType =
-    Context.getProtocol(KnownProtocolKind::ExpressibleByIntegerLiteral);
+    Context.getProtocol(KnownProtocolKind::ExpressibleByIntegerLiteral, DC);
   auto floatingType =
-    Context.getProtocol(KnownProtocolKind::ExpressibleByFloatLiteral);
+    Context.getProtocol(KnownProtocolKind::ExpressibleByFloatLiteral, DC);
   if (!integerType || !floatingType) return false;
 
   return TypeChecker::conformsToProtocol(ty, integerType, DC,

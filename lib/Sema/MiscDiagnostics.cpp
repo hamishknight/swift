@@ -3776,7 +3776,7 @@ public:
 
 static void diagDeprecatedObjCSelectors(const DeclContext *dc,
                                         const Expr *expr) {
-  auto selectorTy = dc->getASTContext().getSelectorType();
+  auto selectorTy = dc->getASTContext().getSelectorType(dc);
   if (!selectorTy) return;
 
   const_cast<Expr *>(expr)->walk(ObjCSelectorWalker(dc, selectorTy));
@@ -4460,7 +4460,7 @@ void swift::fixItAccess(InFlightDiagnostic &diag, ValueDecl *VD,
 
 /// Retrieve the type name to be used for determining whether we can
 /// omit needless words.
-static OmissionTypeName getTypeNameForOmission(Type type) {
+static OmissionTypeName getTypeNameForOmission(Type type, const DeclContext *dc) {
   if (!type)
     return "";
 
@@ -4468,7 +4468,7 @@ static OmissionTypeName getTypeNameForOmission(Type type) {
   Type boolType;
   if (auto boolDecl = ctx.getBoolDecl())
     boolType = boolDecl->getDeclaredInterfaceType();
-  auto objcBoolType = ctx.getObjCBoolType();
+  auto objcBoolType = ctx.getObjCBoolType(dc);
 
   /// Determine the options associated with the given type.
   auto getOptions = [&](Type type) {
@@ -4531,7 +4531,7 @@ static OmissionTypeName getTypeNameForOmission(Type type) {
            bound->getDecl() == ctx.getSetDecl())) {
         return OmissionTypeName(nominal->getName().str(),
                                 getOptions(bound),
-                                getTypeNameForOmission(args[0]).Name);
+                                getTypeNameForOmission(args[0], dc).Name);
       }
     }
 
@@ -4595,7 +4595,7 @@ Optional<DeclName> TypeChecker::omitNeedlessWords(AbstractFunctionDecl *afd) {
 
   // Always look at the parameters in the last parameter list.
   for (auto param : *afd->getParameters()) {
-    paramTypes.push_back(getTypeNameForOmission(param->getInterfaceType())
+    paramTypes.push_back(getTypeNameForOmission(param->getInterfaceType(), afd->getDeclContext())
                          .withDefaultArgument(param->isDefaultArgument()));
   }
   
@@ -4619,8 +4619,8 @@ Optional<DeclName> TypeChecker::omitNeedlessWords(AbstractFunctionDecl *afd) {
 
   StringScratchSpace scratch;
   if (!swift::omitNeedlessWords(baseNameStr, argNameStrs, firstParamName,
-                                getTypeNameForOmission(resultType),
-                                getTypeNameForOmission(contextType),
+                                getTypeNameForOmission(resultType, afd->getDeclContext()),
+                                getTypeNameForOmission(contextType, afd->getDeclContext()),
                                 paramTypes, returnsSelf, false,
                                 /*allPropertyNames=*/nullptr, scratch))
     return None;
@@ -4673,8 +4673,8 @@ Optional<Identifier> TypeChecker::omitNeedlessWords(VarDecl *var) {
 
   // Omit needless words.
   StringScratchSpace scratch;
-  OmissionTypeName typeName = getTypeNameForOmission(var->getInterfaceType());
-  OmissionTypeName contextTypeName = getTypeNameForOmission(contextType);
+  OmissionTypeName typeName = getTypeNameForOmission(var->getInterfaceType(), var->getDeclContext());
+  OmissionTypeName contextTypeName = getTypeNameForOmission(contextType, var->getDeclContext());
   if (::omitNeedlessWords(name, { }, "", typeName, contextTypeName, { },
                           /*returnsSelf=*/false, true,
                           /*allPropertyNames=*/nullptr, scratch)) {

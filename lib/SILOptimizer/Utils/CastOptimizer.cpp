@@ -73,7 +73,7 @@ getObjCToSwiftBridgingFunction(SILOptFunctionBuilder &funcBuilder,
 static SubstitutionMap lookupBridgeToObjCProtocolSubs(SILModule &mod,
                                                       CanType target) {
   auto bridgedProto =
-      mod.getASTContext().getProtocol(KnownProtocolKind::ObjectiveCBridgeable);
+      mod.getASTContext().getProtocol(KnownProtocolKind::ObjectiveCBridgeable, mod.getSwiftModule());
   auto conf = mod.getSwiftModule()->lookupConformance(target, bridgedProto);
   return SubstitutionMap::getProtocolSubstitutions(conf.getRequirement(),
                                                    target, conf);
@@ -482,7 +482,8 @@ findBridgeToObjCFunc(SILOptFunctionBuilder &functionBuilder,
   auto loc = dynamicCast.getLocation();
   auto &mod = dynamicCast.getModule();
   auto bridgedProto =
-      mod.getASTContext().getProtocol(KnownProtocolKind::ObjectiveCBridgeable);
+      mod.getASTContext().getProtocol(KnownProtocolKind::ObjectiveCBridgeable,
+                                      mod.getSwiftModule());
 
   auto conf = mod.getSwiftModule()->lookupConformance(
     sourceFormalType, bridgedProto);
@@ -491,7 +492,8 @@ findBridgeToObjCFunc(SILOptFunctionBuilder &functionBuilder,
 
   // Generate code to invoke _bridgeToObjectiveC
   ModuleDecl *modDecl =
-      mod.getASTContext().getLoadedModule(mod.getASTContext().Id_Foundation);
+      mod.getASTContext().getLoadedModule(mod.getASTContext().Id_Foundation,
+                                          /*useDC*/ nullptr);
   if (!modDecl)
     return None;
   SmallVector<ValueDecl *, 2> results;
@@ -812,9 +814,9 @@ CastOptimizer::optimizeBridgedCasts(SILDynamicCastInst dynamicCast) {
   }
 
   if ((CanBridgedSourceTy && CanBridgedSourceTy->getAnyNominal() ==
-                                 M.getASTContext().getNSErrorDecl()) ||
+                                 M.getASTContext().getNSErrorDecl(M.getSwiftModule())) ||
       (CanBridgedTargetTy && CanBridgedTargetTy->getAnyNominal() ==
-                                 M.getASTContext().getNSErrorDecl())) {
+                                 M.getASTContext().getNSErrorDecl(M.getSwiftModule()))) {
     // FIXME: Can't optimize bridging with NSError.
     return nullptr;
   }

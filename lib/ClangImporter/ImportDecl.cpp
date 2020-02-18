@@ -431,7 +431,7 @@ getSwiftStdlibType(const clang::TypedefNameDecl *D,
   if (IsSwiftModule)
     M = Impl.getStdlibModule();
   else
-    M = Impl.getNamedModule(SwiftModuleName);
+    M = Impl.getNamedModule(SwiftModuleName, Impl.getClangModuleForDecl(D));
   if (!M) {
     // User did not import the library module that contains the type we want to
     // substitute.
@@ -2862,10 +2862,10 @@ namespace {
         ProtocolDecl *errorCodeProto = nullptr;
         if (enumInfo.isErrorEnum() && 
             (bridgedNSError =
-               C.getProtocol(KnownProtocolKind::BridgedStoredNSError)) &&
-            (nsErrorDecl = C.getNSErrorDecl()) &&
+               C.getProtocol(KnownProtocolKind::BridgedStoredNSError, dc)) &&
+            (nsErrorDecl = C.getNSErrorDecl(dc)) &&
             (errorCodeProto =
-               C.getProtocol(KnownProtocolKind::ErrorCodeProtocol))) {
+               C.getProtocol(KnownProtocolKind::ErrorCodeProtocol, dc))) {
           // Create the wrapper struct.
           errorWrapper = new (C) StructDecl(loc, name, loc, None, nullptr, dc);
           errorWrapper->setAccess(AccessLevel::Public);
@@ -5534,7 +5534,7 @@ static bool conformsToProtocolInOriginalModule(NominalTypeDecl *nominal,
     return true;
 
   for (auto attr : nominal->getAttrs().getAttributes<SynthesizedProtocolAttr>())
-    if (auto *otherProto = ctx.getProtocol(attr->getProtocolKind()))
+    if (auto *otherProto = ctx.getProtocol(attr->getProtocolKind(), nominal->getDeclContext()))
       if (otherProto == proto || otherProto->inheritsFrom(proto))
         return true;
 
@@ -5639,7 +5639,7 @@ SwiftDeclConverter::importSwiftNewtype(const clang::TypedefNameDecl *decl,
     if (!computedNominal)
       return false;
 
-    auto proto = ctx.getProtocol(kind);
+    auto proto = ctx.getProtocol(kind, computedNominal->getDeclContext());
     if (!proto)
       return false;
 

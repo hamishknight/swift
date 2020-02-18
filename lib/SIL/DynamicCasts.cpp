@@ -203,7 +203,7 @@ classifyDynamicCastFromProtocol(ModuleDecl *M, CanType source, CanType target,
 /// protocol, if it can be found.
 static CanType getHashableExistentialType(ModuleDecl *M) {
   auto hashable =
-    M->getASTContext().getProtocol(KnownProtocolKind::Hashable);
+    M->getASTContext().getProtocol(KnownProtocolKind::Hashable, M);
   if (!hashable) return CanType();
   return hashable->getDeclaredType()->getCanonicalType();
 }
@@ -212,7 +212,7 @@ static CanType getHashableExistentialType(ModuleDecl *M) {
 bool swift::isObjectiveCBridgeable(ModuleDecl *M, CanType Ty) {
   // Retrieve the _BridgedToObjectiveC protocol.
   auto bridgedProto =
-      M->getASTContext().getProtocol(KnownProtocolKind::ObjectiveCBridgeable);
+      M->getASTContext().getProtocol(KnownProtocolKind::ObjectiveCBridgeable, M);
 
   if (bridgedProto) {
     // Find the conformance of the value type to _BridgedToObjectiveC.
@@ -226,7 +226,7 @@ bool swift::isObjectiveCBridgeable(ModuleDecl *M, CanType Ty) {
 bool swift::isError(ModuleDecl *M, CanType Ty) {
   // Retrieve the Error protocol.
   auto errorTypeProto =
-      M->getASTContext().getProtocol(KnownProtocolKind::Error);
+      M->getASTContext().getProtocol(KnownProtocolKind::Error, M);
 
   if (errorTypeProto) {
     // Find the conformance of the value type to Error.

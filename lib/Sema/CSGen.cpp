@@ -478,7 +478,7 @@ namespace {
     
     if (lti.haveFloatLiteral) {
       if (auto floatProto = CS.getASTContext().getProtocol(
-              KnownProtocolKind::ExpressibleByFloatLiteral)) {
+              KnownProtocolKind::ExpressibleByFloatLiteral, CS.DC)) {
         if (auto defaultType = TypeChecker::getDefaultType(floatProto, CS.DC)) {
           if (!CS.getFavoredType(expr)) {
             CS.setFavoredType(expr, defaultType.getPointer());
@@ -490,7 +490,7 @@ namespace {
     
     if (lti.haveIntLiteral) {
       if (auto intProto = CS.getASTContext().getProtocol(
-              KnownProtocolKind::ExpressibleByIntegerLiteral)) {
+              KnownProtocolKind::ExpressibleByIntegerLiteral, CS.DC)) {
         if (auto defaultType = TypeChecker::getDefaultType(intProto, CS.DC)) {
           if (!CS.getFavoredType(expr)) {
             CS.setFavoredType(expr, defaultType.getPointer());
@@ -502,7 +502,7 @@ namespace {
     
     if (lti.haveStringLiteral) {
       if (auto stringProto = CS.getASTContext().getProtocol(
-              KnownProtocolKind::ExpressibleByStringLiteral)) {
+              KnownProtocolKind::ExpressibleByStringLiteral, CS.DC)) {
         if (auto defTy = TypeChecker::getDefaultType(stringProto, CS.DC)) {
           if (!CS.getFavoredType(expr)) {
             CS.setFavoredType(expr, defTy.getPointer());
@@ -1190,7 +1190,8 @@ namespace {
       if (expr->getType())
         return expr->getType();
 
-      auto protocol = TypeChecker::getLiteralProtocol(CS.getASTContext(), expr);
+      auto protocol = TypeChecker::getLiteralProtocol(CS.getASTContext(), expr,
+                                                      CS.DC);
       if (!protocol)
         return nullptr;
 
@@ -1209,7 +1210,7 @@ namespace {
       auto &ctx = CS.getASTContext();
       auto interpolationProto = TypeChecker::getProtocol(
           ctx, expr->getLoc(),
-          KnownProtocolKind::ExpressibleByStringInterpolation);
+          KnownProtocolKind::ExpressibleByStringInterpolation, CS.DC);
       if (!interpolationProto) {
         ctx.Diags.diagnose(expr->getStartLoc(),
                            diag::interpolation_missing_proto);
@@ -1282,7 +1283,8 @@ namespace {
         return expr->getType();
 
       auto &de = CS.getASTContext().Diags;
-      auto protocol = TypeChecker::getLiteralProtocol(CS.getASTContext(), expr);
+      auto protocol = TypeChecker::getLiteralProtocol(CS.getASTContext(), expr,
+                                                      CS.DC);
       if (!protocol) {
         de.diagnose(expr->getLoc(), diag::use_unknown_object_literal_protocol,
                     expr->getLiteralKindPlainName());
@@ -1818,7 +1820,7 @@ namespace {
       // ExpressibleByArrayLiteral protocol.
       ProtocolDecl *arrayProto = TypeChecker::getProtocol(
           CS.getASTContext(), expr->getLoc(),
-          KnownProtocolKind::ExpressibleByArrayLiteral);
+          KnownProtocolKind::ExpressibleByArrayLiteral, CS.DC);
       if (!arrayProto) {
         return Type();
       }
@@ -1947,7 +1949,7 @@ namespace {
       // ExpressibleByDictionaryLiteral protocol.
       // FIXME: This isn't actually used for anything at the moment.
       ProtocolDecl *dictionaryProto = TypeChecker::getProtocol(
-          C, expr->getLoc(), KnownProtocolKind::ExpressibleByDictionaryLiteral);
+          C, expr->getLoc(), KnownProtocolKind::ExpressibleByDictionaryLiteral, CS.DC);
       if (!dictionaryProto) {
         return Type();
       }
@@ -3098,7 +3100,7 @@ namespace {
       
       // Make sure we can reference ObjectiveC.Selector.
       // FIXME: Fix-It to add the import?
-      auto type = CS.getASTContext().getSelectorType();
+      auto type = CS.getASTContext().getSelectorType(CS.DC);
       if (!type) {
         ctx.Diags.diagnose(E->getLoc(), diag::expr_selector_module_missing);
         return nullptr;

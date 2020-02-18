@@ -908,9 +908,10 @@ public:
   /// Retrieve the named module.
   ///
   /// \param name The name of the module.
+  /// \param mod The ClangModuleUnit loading the module.
   ///
   /// \returns The named module, or null if the module has not been imported.
-  ModuleDecl *getNamedModule(StringRef name);
+  ModuleDecl *getNamedModule(StringRef name, const ClangModuleUnit *mod);
 
   /// Returns the "Foundation" module, if it can be loaded.
   ///

@@ -214,8 +214,7 @@ void NameBinder::addImport(
     topLevelModule = M;
   } else {
     // If we imported a submodule, import the top-level module as well.
-    Identifier topLevelName = ID->getModulePath().front().Item;
-    topLevelModule = Context.getLoadedModule(topLevelName);
+    topLevelModule = Context.getModule(ID->getModulePath().front());
     if (!topLevelModule) {
       // Clang can sometimes import top-level modules as if they were
       // submodules.

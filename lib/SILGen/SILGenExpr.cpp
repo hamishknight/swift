@@ -2989,7 +2989,7 @@ getOrCreateKeyPathEqualsAndHash(SILGenModule &SGM,
   auto boolTy = C.getBoolDecl()->getDeclaredType()->getCanonicalType();
   auto intTy = C.getIntDecl()->getDeclaredType()->getCanonicalType();
 
-  auto hashableProto = C.getProtocol(KnownProtocolKind::Hashable);
+  auto hashableProto = C.getProtocol(KnownProtocolKind::Hashable, SGM.SwiftModule);
 
   SmallVector<CanType, 4> indexTypes;
   indexTypes.reserve(indexes.size());
@@ -3064,7 +3064,7 @@ getOrCreateKeyPathEqualsAndHash(SILGenModule &SGM,
 
     // Compare each pair of index values using the == witness from the
     // conformance.
-    auto equatableProtocol = C.getProtocol(KnownProtocolKind::Equatable);
+    auto equatableProtocol = C.getProtocol(KnownProtocolKind::Equatable, SGM.SwiftModule);
     auto equalsMethod = equatableProtocol->getSingleRequirement(
       C.Id_EqualsOperator);
     auto equalsRef = SILDeclRef(equalsMethod);

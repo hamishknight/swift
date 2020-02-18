@@ -1676,7 +1676,7 @@ namespace {
     Expr *bridgeErrorToObjectiveC(Expr *value) {
       auto &ctx = cs.getASTContext();
 
-      auto nsErrorType = ctx.getNSErrorType();
+      auto nsErrorType = ctx.getNSErrorType(cs.DC);
       assert(nsErrorType && "Missing NSError?");
 
       auto result = new (ctx) BridgeToObjCExpr(value, nsErrorType);
@@ -1719,7 +1719,7 @@ namespace {
 
       // Find the _BridgedToObjectiveC protocol.
       auto bridgedProto =
-          ctx.getProtocol(KnownProtocolKind::ObjectiveCBridgeable);
+          ctx.getProtocol(KnownProtocolKind::ObjectiveCBridgeable, cs.DC);
 
       // Try to find the conformance of the value type to _BridgedToObjectiveC.
       auto bridgedToObjectiveCConformance
@@ -1830,10 +1830,10 @@ namespace {
       auto &ctx = cs.getASTContext();
       ProtocolDecl *protocol = TypeChecker::getProtocol(
           cs.getASTContext(), expr->getLoc(),
-          KnownProtocolKind::ExpressibleByIntegerLiteral);
+          KnownProtocolKind::ExpressibleByIntegerLiteral, cs.DC);
       ProtocolDecl *builtinProtocol = TypeChecker::getProtocol(
           cs.getASTContext(), expr->getLoc(),
-          KnownProtocolKind::ExpressibleByBuiltinIntegerLiteral);
+          KnownProtocolKind::ExpressibleByBuiltinIntegerLiteral, cs.DC);
 
       // For type-sugar reasons, prefer the spelling of the default literal
       // type.
@@ -1844,7 +1844,7 @@ namespace {
       }
       if (auto floatProtocol = TypeChecker::getProtocol(
               cs.getASTContext(), expr->getLoc(),
-              KnownProtocolKind::ExpressibleByFloatLiteral)) {
+              KnownProtocolKind::ExpressibleByFloatLiteral, cs.DC)) {
         if (auto defaultFloatType =
                 TypeChecker::getDefaultType(floatProtocol, dc)) {
           if (defaultFloatType->isEqual(type))
@@ -1881,7 +1881,7 @@ namespace {
 
       auto &ctx = cs.getASTContext();
       auto *protocol = TypeChecker::getProtocol(
-          ctx, expr->getLoc(), KnownProtocolKind::ExpressibleByNilLiteral);
+          ctx, expr->getLoc(), KnownProtocolKind::ExpressibleByNilLiteral, cs.DC);
 
       // For type-sugar reasons, prefer the spelling of the default literal
       // type.
@@ -1914,10 +1914,10 @@ namespace {
       auto &ctx = cs.getASTContext();
       ProtocolDecl *protocol = TypeChecker::getProtocol(
           cs.getASTContext(), expr->getLoc(),
-          KnownProtocolKind::ExpressibleByFloatLiteral);
+          KnownProtocolKind::ExpressibleByFloatLiteral, cs.DC);
       ProtocolDecl *builtinProtocol = TypeChecker::getProtocol(
           cs.getASTContext(), expr->getLoc(),
-          KnownProtocolKind::ExpressibleByBuiltinFloatLiteral);
+          KnownProtocolKind::ExpressibleByBuiltinFloatLiteral, cs.DC);
 
       // For type-sugar reasons, prefer the spelling of the default literal
       // type.
@@ -1953,10 +1953,10 @@ namespace {
       auto &ctx = cs.getASTContext();
       ProtocolDecl *protocol = TypeChecker::getProtocol(
           cs.getASTContext(), expr->getLoc(),
-          KnownProtocolKind::ExpressibleByBooleanLiteral);
+          KnownProtocolKind::ExpressibleByBooleanLiteral, cs.DC);
       ProtocolDecl *builtinProtocol = TypeChecker::getProtocol(
           cs.getASTContext(), expr->getLoc(),
-          KnownProtocolKind::ExpressibleByBuiltinBooleanLiteral);
+          KnownProtocolKind::ExpressibleByBuiltinBooleanLiteral, cs.DC);
       if (!protocol || !builtinProtocol)
         return nullptr;
 
@@ -1983,7 +1983,7 @@ namespace {
       bool isStringLiteral = true;
       bool isGraphemeClusterLiteral = false;
       ProtocolDecl *protocol = TypeChecker::getProtocol(
-          ctx, expr->getLoc(), KnownProtocolKind::ExpressibleByStringLiteral);
+          ctx, expr->getLoc(), KnownProtocolKind::ExpressibleByStringLiteral, cs.DC);
 
       if (!TypeChecker::conformsToProtocol(
               type, protocol, cs.DC, ConformanceCheckFlags::InExpression)) {
@@ -1991,7 +1991,7 @@ namespace {
         // be ExpressibleByExtendedGraphemeClusterLiteral.
         protocol = TypeChecker::getProtocol(
             cs.getASTContext(), expr->getLoc(),
-            KnownProtocolKind::ExpressibleByExtendedGraphemeClusterLiteral);
+            KnownProtocolKind::ExpressibleByExtendedGraphemeClusterLiteral, cs.DC);
         isStringLiteral = false;
         isGraphemeClusterLiteral = true;
       }
@@ -2000,7 +2000,7 @@ namespace {
         // ... or it should be ExpressibleByUnicodeScalarLiteral.
         protocol = TypeChecker::getProtocol(
             cs.getASTContext(), expr->getLoc(),
-            KnownProtocolKind::ExpressibleByUnicodeScalarLiteral);
+            KnownProtocolKind::ExpressibleByUnicodeScalarLiteral, cs.DC);
         isStringLiteral = false;
         isGraphemeClusterLiteral = false;
       }
@@ -2027,7 +2027,7 @@ namespace {
 
         builtinProtocol = TypeChecker::getProtocol(
             cs.getASTContext(), expr->getLoc(),
-            KnownProtocolKind::ExpressibleByBuiltinStringLiteral);
+            KnownProtocolKind::ExpressibleByBuiltinStringLiteral, cs.DC);
         builtinLiteralFuncName =
             DeclName(ctx, DeclBaseName::createConstructor(),
                      {ctx.Id_builtinStringLiteral,
@@ -2053,7 +2053,7 @@ namespace {
         builtinProtocol = TypeChecker::getProtocol(
             cs.getASTContext(), expr->getLoc(),
             KnownProtocolKind::
-                ExpressibleByBuiltinExtendedGraphemeClusterLiteral);
+                ExpressibleByBuiltinExtendedGraphemeClusterLiteral, cs.DC);
         brokenProtocolDiag =
             diag::extended_grapheme_cluster_literal_broken_proto;
         brokenBuiltinProtocolDiag =
@@ -2070,7 +2070,7 @@ namespace {
 
         builtinProtocol = TypeChecker::getProtocol(
             cs.getASTContext(), expr->getLoc(),
-            KnownProtocolKind::ExpressibleByBuiltinUnicodeScalarLiteral);
+            KnownProtocolKind::ExpressibleByBuiltinUnicodeScalarLiteral, cs.DC);
 
         brokenProtocolDiag = diag::unicode_scalar_literal_broken_proto;
         brokenBuiltinProtocolDiag =
@@ -2107,7 +2107,7 @@ namespace {
       auto fetchProtocolInitWitness =
           [&](KnownProtocolKind protocolKind, Type type,
               ArrayRef<Identifier> argLabels) -> ConcreteDeclRef {
-        auto proto = TypeChecker::getProtocol(ctx, loc, protocolKind);
+        auto proto = TypeChecker::getProtocol(ctx, loc, protocolKind, cs.DC);
         assert(proto && "Missing string interpolation protocol?");
 
         auto conformance =
@@ -2126,7 +2126,7 @@ namespace {
 
       auto *interpolationProto = TypeChecker::getProtocol(
           cs.getASTContext(), expr->getLoc(),
-          KnownProtocolKind::ExpressibleByStringInterpolation);
+          KnownProtocolKind::ExpressibleByStringInterpolation, cs.DC);
       auto associatedTypeDecl =
           interpolationProto->getAssociatedType(ctx.Id_StringInterpolation);
       if (associatedTypeDecl == nullptr) {
@@ -2215,7 +2215,8 @@ namespace {
       }
 
       // Find the appropriate object literal protocol.
-      auto proto = TypeChecker::getLiteralProtocol(cs.getASTContext(), expr);
+      auto proto = TypeChecker::getLiteralProtocol(cs.getASTContext(), expr,
+                                                   cs.DC);
       assert(proto && "Missing object literal protocol?");
       auto conformance =
         TypeChecker::conformsToProtocol(conformingType, proto, cs.DC,
@@ -2923,7 +2924,7 @@ namespace {
       auto &ctx = cs.getASTContext();
 
       ProtocolDecl *arrayProto = TypeChecker::getProtocol(
-          ctx, expr->getLoc(), KnownProtocolKind::ExpressibleByArrayLiteral);
+          ctx, expr->getLoc(), KnownProtocolKind::ExpressibleByArrayLiteral, cs.DC);
       assert(arrayProto && "type-checked array literal w/o protocol?!");
 
       auto conformance =
@@ -2969,7 +2970,7 @@ namespace {
       auto &ctx = cs.getASTContext();
       ProtocolDecl *dictionaryProto = TypeChecker::getProtocol(
           cs.getASTContext(), expr->getLoc(),
-          KnownProtocolKind::ExpressibleByDictionaryLiteral);
+          KnownProtocolKind::ExpressibleByDictionaryLiteral, cs.DC);
 
       auto conformance =
         TypeChecker::conformsToProtocol(dictionaryTy, dictionaryProto, cs.DC,
@@ -4552,7 +4553,7 @@ namespace {
       SmallVector<ProtocolConformanceRef, 4> conformances;
 
       auto hashable =
-          cs.getASTContext().getProtocol(KnownProtocolKind::Hashable);
+          cs.getASTContext().getProtocol(KnownProtocolKind::Hashable, cs.DC);
 
       auto fnType = overload.openedType->castTo<FunctionType>();
       SmallVector<Identifier, 4> newLabels;
@@ -5939,7 +5940,7 @@ Expr *ExprRewriter::coerceToType(Expr *expr, Type toType,
       expr = cs.coerceToRValue(expr);
 
       // Find the conformance of the source type to Hashable.
-      auto hashable = ctx.getProtocol(KnownProtocolKind::Hashable);
+      auto hashable = ctx.getProtocol(KnownProtocolKind::Hashable, cs.DC);
       auto conformance =
         TypeChecker::conformsToProtocol(
                         cs.getType(expr), hashable, cs.DC,
@@ -6570,7 +6571,7 @@ ExprRewriter::finishApplyDynamicCallable(ApplyExpr *apply,
     finishArrayExpr(cast<ArrayExpr>(argument));
   } else {
     auto dictLitProto =
-        ctx.getProtocol(KnownProtocolKind::ExpressibleByDictionaryLiteral);
+        ctx.getProtocol(KnownProtocolKind::ExpressibleByDictionaryLiteral, cs.DC);
     auto conformance =
         TypeChecker::conformsToProtocol(argumentType, dictLitProto, cs.DC,
                                         ConformanceCheckFlags::InExpression);

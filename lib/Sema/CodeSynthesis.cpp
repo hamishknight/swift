@@ -1129,8 +1129,8 @@ ResolveImplicitMemberRequest::evaluate(Evaluator &evaluator,
     // Try to synthesize Decodable first. If that fails, try to synthesize
     // Encodable. If either succeeds and CodingKeys should have been
     // synthesized, it will be synthesized.
-    auto *decodableProto = Context.getProtocol(KnownProtocolKind::Decodable);
-    auto *encodableProto = Context.getProtocol(KnownProtocolKind::Encodable);
+    auto *decodableProto = Context.getProtocol(KnownProtocolKind::Decodable, target->getDeclContext());
+    auto *encodableProto = Context.getProtocol(KnownProtocolKind::Encodable, target->getDeclContext());
     if (!evaluateTargetConformanceTo(decodableProto)) {
       (void)evaluateTargetConformanceTo(encodableProto);
     }
@@ -1141,7 +1141,7 @@ ResolveImplicitMemberRequest::evaluate(Evaluator &evaluator,
     // Encodable protocol.
     // If the target should conform to the Encodable protocol, check the
     // conformance here to attempt synthesis.
-    auto *encodableProto = Context.getProtocol(KnownProtocolKind::Encodable);
+    auto *encodableProto = Context.getProtocol(KnownProtocolKind::Encodable, target->getDeclContext());
     (void)evaluateTargetConformanceTo(encodableProto);
   }
     break;
@@ -1151,7 +1151,7 @@ ResolveImplicitMemberRequest::evaluate(Evaluator &evaluator,
     // If the target should conform to the Decodable protocol, check the
     // conformance here to attempt synthesis.
     TypeChecker::addImplicitConstructors(target);
-    auto *decodableProto = Context.getProtocol(KnownProtocolKind::Decodable);
+    auto *decodableProto = Context.getProtocol(KnownProtocolKind::Decodable, target->getDeclContext());
     (void)evaluateTargetConformanceTo(decodableProto);
   }
     break;

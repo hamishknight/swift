@@ -1106,7 +1106,7 @@ bool swift::isValidDynamicCallableMethod(FuncDecl *decl, DeclContext *DC,
   // `ExpressibleByArrayLiteral`.
   if (!hasKeywordArguments) {
     auto arrayLitProto =
-      ctx.getProtocol(KnownProtocolKind::ExpressibleByArrayLiteral);
+      ctx.getProtocol(KnownProtocolKind::ExpressibleByArrayLiteral, DC);
     return (bool)TypeChecker::conformsToProtocol(argType, arrayLitProto, DC,
                                                  ConformanceCheckOptions());
   }
@@ -1114,9 +1114,9 @@ bool swift::isValidDynamicCallableMethod(FuncDecl *decl, DeclContext *DC,
   // `ExpressibleByDictionaryLiteral` and that the `Key` associated type
   // conforms to `ExpressibleByStringLiteral`.
   auto stringLitProtocol =
-    ctx.getProtocol(KnownProtocolKind::ExpressibleByStringLiteral);
+    ctx.getProtocol(KnownProtocolKind::ExpressibleByStringLiteral, DC);
   auto dictLitProto =
-    ctx.getProtocol(KnownProtocolKind::ExpressibleByDictionaryLiteral);
+    ctx.getProtocol(KnownProtocolKind::ExpressibleByDictionaryLiteral, DC);
   auto dictConf = TypeChecker::conformsToProtocol(argType, dictLitProto, DC,
                                                   ConformanceCheckOptions());
   if (dictConf.isInvalid())
@@ -1213,7 +1213,7 @@ bool swift::isValidStringDynamicMemberLookup(SubscriptDecl *decl,
   auto paramType = param->getType();
 
   auto stringLitProto =
-    ctx.getProtocol(KnownProtocolKind::ExpressibleByStringLiteral);
+    ctx.getProtocol(KnownProtocolKind::ExpressibleByStringLiteral, DC);
 
   // If this is `subscript(dynamicMember: String*)`
   return (bool)TypeChecker::conformsToProtocol(paramType, stringLitProto, DC,
@@ -1638,7 +1638,7 @@ void AttributeChecker::checkApplicationMainAttribute(DeclAttribute *attr,
   auto *SF = cast<SourceFile>(CD->getModuleScopeContext());
   auto &C = SF->getASTContext();
 
-  auto KitModule = C.getLoadedModule(Id_Kit);
+  auto KitModule = C.getLoadedModule(Id_Kit, CD->getDeclContext());
   ProtocolDecl *ApplicationDelegateProto = nullptr;
   if (KitModule) {
     SmallVector<ValueDecl *, 1> decls;
@@ -2960,7 +2960,7 @@ DynamicallyReplacedDeclRequest::evaluate(Evaluator &evaluator,
 static bool conformsToDifferentiable(Type type, DeclContext *DC) {
   auto &ctx = type->getASTContext();
   auto *differentiableProto =
-      ctx.getProtocol(KnownProtocolKind::Differentiable);
+      ctx.getProtocol(KnownProtocolKind::Differentiable, DC);
   auto conf = TypeChecker::conformsToProtocol(
       type, differentiableProto, DC, ConformanceCheckFlags::InExpression);
   if (!conf)
@@ -3832,7 +3832,7 @@ llvm::Expected<IndexSubset *> DifferentiableAttributeTypeCheckRequest::evaluate(
     return nullptr;
   }
   // The `Differentiable` protocol must be available.
-  if (!ctx.getProtocol(KnownProtocolKind::Differentiable)) {
+  if (!ctx.getProtocol(KnownProtocolKind::Differentiable, D->getDeclContext())) {
     diags
         .diagnose(attr->getLocation(), diag::attr_used_without_required_module,
                   attr, ctx.Id_Differentiation)
@@ -4055,7 +4055,7 @@ static bool typeCheckDerivativeAttr(ASTContext &Ctx, Decl *D,
   }
   attr->setDerivativeKind(kind);
   // `value: R` result tuple element must conform to `Differentiable`.
-  auto diffableProto = Ctx.getProtocol(KnownProtocolKind::Differentiable);
+  auto diffableProto = Ctx.getProtocol(KnownProtocolKind::Differentiable, D->getDeclContext());
   auto valueResultType = valueResultElt.getType();
   if (valueResultType->hasTypeParameter())
     valueResultType = derivative->mapTypeIntoContext(valueResultType);

@@ -901,7 +901,7 @@ static ProtocolConformanceRef checkConformanceToNSCopying(VarDecl *var,
                                                           Type type) {
   auto dc = var->getDeclContext();
   auto &ctx = dc->getASTContext();
-  auto proto = ctx.getNSCopyingDecl();
+  auto proto = ctx.getNSCopyingDecl(dc);
 
   if (proto) {
     if (auto result = TypeChecker::conformsToProtocol(type, proto, dc, None))

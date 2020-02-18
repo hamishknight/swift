@@ -113,7 +113,7 @@ GenericSignature autodiff::getConstrainedDerivativeGenericSignature(
   if (!derivativeGenSig)
     return nullptr;
   auto &ctx = originalFnTy->getASTContext();
-  auto *diffableProto = ctx.getProtocol(KnownProtocolKind::Differentiable);
+  auto *diffableProto = ctx.getProtocol(KnownProtocolKind::Differentiable, /*useDC*/ nullptr);
   SmallVector<Requirement, 4> requirements;
   for (unsigned paramIdx : diffParamIndices->getIndices()) {
     // Require differentiability parameters to conform to `Differentiable`.

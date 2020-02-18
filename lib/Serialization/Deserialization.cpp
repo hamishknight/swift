@@ -2010,7 +2010,7 @@ ModuleDecl *ModuleFile::getModule(ArrayRef<Identifier> name,
 
   if (allowLoading)
     return getContext().getModule(importPath);
-  return getContext().getLoadedModule(importPath);
+  return getContext().getLoadedModule(importPath, FileContext);
 }
 
 

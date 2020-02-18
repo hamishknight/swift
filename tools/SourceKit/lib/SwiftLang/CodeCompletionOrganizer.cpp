@@ -327,7 +327,7 @@ ImportDepth::ImportDepth(ASTContext &context,
   std::deque<std::pair<ModuleDecl *, uint8_t>> worklist;
 
   StringRef mainModule = invocation.getModuleName();
-  auto *main = context.getLoadedModule(context.getIdentifier(mainModule));
+  auto *main = context.getLoadedModule(context.getIdentifier(mainModule), /*useDC*/ nullptr);
   assert(main && "missing main module");
   worklist.emplace_back(main, uint8_t(0));
 

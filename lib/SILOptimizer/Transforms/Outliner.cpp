@@ -142,7 +142,7 @@ public:
 static SILDeclRef getBridgeToObjectiveC(CanType NativeType,
                                         ModuleDecl *SwiftModule) {
   auto &Ctx = SwiftModule->getASTContext();
-  auto Proto = Ctx.getProtocol(KnownProtocolKind::ObjectiveCBridgeable);
+  auto Proto = Ctx.getProtocol(KnownProtocolKind::ObjectiveCBridgeable, SwiftModule);
   if (!Proto)
     return SILDeclRef();
   auto ConformanceRef =
@@ -166,7 +166,7 @@ static SILDeclRef getBridgeToObjectiveC(CanType NativeType,
 SILDeclRef getBridgeFromObjectiveC(CanType NativeType,
                                    ModuleDecl *SwiftModule) {
   auto &Ctx = SwiftModule->getASTContext();
-  auto Proto = Ctx.getProtocol(KnownProtocolKind::ObjectiveCBridgeable);
+  auto Proto = Ctx.getProtocol(KnownProtocolKind::ObjectiveCBridgeable, SwiftModule);
   if (!Proto)
     return SILDeclRef();
   auto ConformanceRef =

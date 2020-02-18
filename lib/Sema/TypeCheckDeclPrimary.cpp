@@ -353,7 +353,7 @@ static void checkForEmptyOptionSet(const VarDecl *VD) {
     return;
   
   // Make sure this type conforms to OptionSet
-  auto *optionSetProto = VD->getASTContext().getProtocol(KnownProtocolKind::OptionSet);
+  auto *optionSetProto = VD->getASTContext().getProtocol(KnownProtocolKind::OptionSet, DC);
   bool conformsToOptionSet = (bool)TypeChecker::containsProtocol(
                                                   DC->getSelfTypeInContext(),
                                                   optionSetProto,
@@ -870,7 +870,7 @@ static Optional<std::string> buildDefaultInitializerString(DeclContext *dc,
     // For literal-convertible types, form the corresponding literal.
 #define CHECK_LITERAL_PROTOCOL(Kind, String)                                   \
   if (auto proto = TypeChecker::getProtocol(                                   \
-          type->getASTContext(), SourceLoc(), KnownProtocolKind::Kind)) {      \
+          type->getASTContext(), SourceLoc(), KnownProtocolKind::Kind, dc)) {      \
     if (TypeChecker::conformsToProtocol(type, proto, dc,                       \
                                         ConformanceCheckFlags::InExpression))  \
       return std::string(String);                                              \
@@ -990,7 +990,7 @@ static void diagnoseClassWithoutInitializers(ClassDecl *classDecl) {
   // init(from:) (and encode(to:), if applicable) in a note, before we start
   // listing the members that prevented initializer synthesis.
   if (auto *superclassDecl = classDecl->getSuperclassDecl()) {
-    auto *decodableProto = C.getProtocol(KnownProtocolKind::Decodable);
+    auto *decodableProto = C.getProtocol(KnownProtocolKind::Decodable, superclassDecl);
     auto superclassType = superclassDecl->getDeclaredInterfaceType();
     auto ref = TypeChecker::conformsToProtocol(
         superclassType, decodableProto, superclassDecl,
@@ -1021,7 +1021,7 @@ static void diagnoseClassWithoutInitializers(ClassDecl *classDecl) {
       // If the superclass also conforms to Encodable, it's quite
       // likely that the user forgot to override its encode(to:). In this case,
       // we can produce a slightly different diagnostic to suggest doing so.
-      auto *encodableProto = C.getProtocol(KnownProtocolKind::Encodable);
+      auto *encodableProto = C.getProtocol(KnownProtocolKind::Encodable, superclassDecl);
       auto ref = TypeChecker::conformsToProtocol(
           superclassType, encodableProto, superclassDecl,
           ConformanceCheckOptions(), SourceLoc());

@@ -850,7 +850,7 @@ ConstraintSystem::getPotentialBindings(TypeVariableType *typeVar) const {
           conformsToExprByNilLiteral = nominalBindingDecl->lookupConformance(
               DC->getParentModule(),
               getASTContext().getProtocol(
-                  KnownProtocolKind::ExpressibleByNilLiteral),
+                  KnownProtocolKind::ExpressibleByNilLiteral, DC),
               conformances);
         }
         wrapInOptional = !conformsToExprByNilLiteral;

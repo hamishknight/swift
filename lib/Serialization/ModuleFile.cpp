@@ -2216,7 +2216,7 @@ void ModuleFile::getImportDecls(SmallVectorImpl<Decl *> &Results) {
       if (AccessPath.size() == 1 && AccessPath[0].Item == Ctx.StdlibModuleName)
         continue;
 
-      ModuleDecl *M = Ctx.getLoadedModule(AccessPath);
+      ModuleDecl *M = Ctx.getModule(AccessPath);
 
       auto Kind = ImportKind::Module;
       if (!ScopePath.empty()) {
@@ -2232,7 +2232,7 @@ void ModuleFile::getImportDecls(SmallVectorImpl<Decl *> &Results) {
           // Lookup the decl in the top-level module.
           ModuleDecl *TopLevelModule = M;
           if (AccessPath.size() > 1)
-            TopLevelModule = Ctx.getLoadedModule(AccessPath.front().Item);
+            TopLevelModule = Ctx.getModule(AccessPath.front());
 
           SmallVector<ValueDecl *, 8> Decls;
           TopLevelModule->lookupQualified(

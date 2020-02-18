@@ -4208,7 +4208,7 @@ static void diagnoseConformanceFailure(Type T,
 
       // If the reason is that the raw type does not conform to
       // Equatable, say so.
-      auto equatableProto = ctx.getProtocol(KnownProtocolKind::Equatable);
+      auto equatableProto = ctx.getProtocol(KnownProtocolKind::Equatable, enumDecl);
       if (!equatableProto)
         return;
 

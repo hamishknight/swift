@@ -81,7 +81,7 @@ getBridgingFn(Optional<SILDeclRef> &cacheSlot,
 
   if (!cacheSlot) {
     ASTContext &ctx = SGM.M.getASTContext();
-    ModuleDecl *mod = ctx.getLoadedModule(moduleName);
+    ModuleDecl *mod = ctx.getLoadedModule(moduleName, /*useDC*/ nullptr);
     if (!mod) {
       SGM.diagnose(SourceLoc(), diag::bridging_module_missing,
                    moduleName.str(), functionName);
@@ -200,7 +200,7 @@ ProtocolDecl *SILGenModule::getObjectiveCBridgeable(SILLocation loc) {
 
   // Find the _ObjectiveCBridgeable protocol.
   auto &ctx = getASTContext();
-  auto proto = ctx.getProtocol(KnownProtocolKind::ObjectiveCBridgeable);
+  auto proto = ctx.getProtocol(KnownProtocolKind::ObjectiveCBridgeable, SwiftModule);
   if (!proto)
     diagnose(loc, diag::bridging_objcbridgeable_missing);
 
@@ -299,7 +299,7 @@ ProtocolDecl *SILGenModule::getBridgedStoredNSError(SILLocation loc) {
 
   // Find the _BridgedStoredNSError protocol.
   auto &ctx = getASTContext();
-  auto proto = ctx.getProtocol(KnownProtocolKind::BridgedStoredNSError);
+  auto proto = ctx.getProtocol(KnownProtocolKind::BridgedStoredNSError, SwiftModule);
   BridgedStoredNSError = proto;
   return proto;
 }
@@ -339,7 +339,7 @@ ProtocolConformance *SILGenModule::getNSErrorConformanceToError() {
     return *NSErrorConformanceToError;
 
   auto &ctx = getASTContext();
-  auto nsErrorTy = ctx.getNSErrorType();
+  auto nsErrorTy = ctx.getNSErrorType(SwiftModule);
   if (!nsErrorTy) {
     NSErrorConformanceToError = nullptr;
     return nullptr;

@@ -720,12 +720,12 @@ FuncDecl *ASTContext::getPlusFunctionOnString() const {
   return getImpl().PlusFunctionOnString;
 }
 
-FuncDecl *ASTContext::getSequenceMakeIterator() const {
+FuncDecl *ASTContext::getSequenceMakeIterator(DeclContext *useDC) const {
   if (getImpl().MakeIterator) {
     return getImpl().MakeIterator;
   }
 
-  auto proto = getProtocol(KnownProtocolKind::Sequence);
+  auto proto = getProtocol(KnownProtocolKind::Sequence, useDC);
   if (!proto)
     return nullptr;
 
@@ -774,7 +774,7 @@ CanType ASTContext::getExceptionType() const {
 }
 
 ProtocolDecl *ASTContext::getErrorDecl() const {
-  return getProtocol(KnownProtocolKind::Error);
+  return getProtocol(KnownProtocolKind::Error, /*useDC*/ nullptr);
 }
 
 EnumElementDecl *ASTContext::getOptionalSomeDecl() const {
@@ -862,14 +862,14 @@ CanType ASTContext::getNeverType() const {
 }
 
 #define KNOWN_OBJC_TYPE_DECL(MODULE, NAME, DECLTYPE) \
-DECLTYPE *ASTContext::get##NAME##Decl() const { \
+DECLTYPE *ASTContext::get##NAME##Decl(const DeclContext *useDC) const { \
   if (!getImpl().NAME##Decl) { \
-    if (ModuleDecl *M = getLoadedModule(Id_##MODULE)) { \
+    if (ModuleDecl *M = getLoadedModule(Id_##MODULE, useDC)) { \
       /* Note: lookupQualified() will search both the Swift overlay \
        * and the Clang module it imports. */ \
       SmallVector<ValueDecl *, 1> decls; \
-      M->lookupQualified(M, DeclNameRef(getIdentifier(#NAME)), NL_OnlyTypes, \
-                         decls); \
+      M->lookupQualified(M, DeclNameRef(getIdentifier(#NAME)), \
+                         NL_OnlyTypes, decls); \
       if (decls.size() == 1 && isa<DECLTYPE>(decls[0])) { \
         auto decl = cast<DECLTYPE>(decls[0]); \
         if (isa<ProtocolDecl>(decl) || decl->getGenericParams() == nullptr) { \
@@ -882,8 +882,8 @@ DECLTYPE *ASTContext::get##NAME##Decl() const { \
   return getImpl().NAME##Decl; \
 } \
 \
-Type ASTContext::get##NAME##Type() const { \
-  auto *decl = get##NAME##Decl(); \
+Type ASTContext::get##NAME##Type(const DeclContext *useDC) const { \
+  auto *decl = get##NAME##Decl(useDC); \
   if (!decl) \
     return Type(); \
   return decl->getDeclaredInterfaceType(); \
@@ -891,7 +891,7 @@ Type ASTContext::get##NAME##Type() const { \
 
 #include "swift/AST/KnownObjCTypes.def"
 
-ProtocolDecl *ASTContext::getProtocol(KnownProtocolKind kind) const {
+ProtocolDecl *ASTContext::getProtocol(KnownProtocolKind kind, const DeclContext *useDC) const {
   // Check whether we've already looked for and cached this protocol.
   unsigned index = (unsigned)kind;
   assert(index < NumKnownProtocols && "Number of known protocols is wrong");
@@ -906,13 +906,13 @@ ProtocolDecl *ASTContext::getProtocol(KnownProtocolKind kind) const {
   case KnownProtocolKind::BridgedNSError:
   case KnownProtocolKind::BridgedStoredNSError:
   case KnownProtocolKind::ErrorCodeProtocol:
-    M = getLoadedModule(Id_Foundation);
+    M = getLoadedModule(Id_Foundation, useDC);
     break;
   case KnownProtocolKind::CFObject:
-    M = getLoadedModule(Id_CoreFoundation);
+    M = getLoadedModule(Id_CoreFoundation, useDC);
     break;
   case KnownProtocolKind::Differentiable:
-    M = getLoadedModule(Id_Differentiation);
+    M = getLoadedModule(Id_Differentiation, useDC);
     break;
   default:
     M = getStdlibModule();
@@ -1068,7 +1068,7 @@ ASTContext::getBuiltinInitDecl(NominalTypeDecl *decl,
     return witness;
 
   auto type = decl->getDeclaredType();
-  auto builtinProtocol = getProtocol(builtinProtocolKind);
+  auto builtinProtocol = getProtocol(builtinProtocolKind, getStdlibModule());
   auto builtinConformance = getStdlibModule()->lookupConformance(
       type, builtinProtocol);
   if (builtinConformance.isInvalid()) {
@@ -1510,17 +1510,20 @@ ClangModuleLoader *ASTContext::getDWARFModuleLoader() const {
 }
 
 ModuleDecl *ASTContext::getLoadedModule(
-    ArrayRef<Located<Identifier>> ModulePath) const {
+    ArrayRef<Located<Identifier>> ModulePath, const DeclContext *useDC) const {
   assert(!ModulePath.empty());
 
   // TODO: Swift submodules.
   if (ModulePath.size() == 1) {
-    return getLoadedModule(ModulePath[0].Item);
+    return getLoadedModule(ModulePath[0].Item, useDC);
   }
   return nullptr;
 }
 
-ModuleDecl *ASTContext::getLoadedModule(Identifier ModuleName) const {
+ModuleDecl *ASTContext::getLoadedModule(Identifier ModuleName, const DeclContext *useDC) const {
+  if (useDC) {
+    (void)namelookup::getAllImports(useDC);
+  }
   return LoadedModules.lookup(ModuleName);
 }
 
@@ -1767,7 +1770,7 @@ bool ASTContext::shouldPerformTypoCorrection() {
 
 bool ASTContext::canImportModule(Located<Identifier> ModulePath) {
   // If this module has already been successfully imported, it is importable.
-  if (getLoadedModule(ModulePath) != nullptr)
+  if (getLoadedModule(ModulePath, /*useDC*/ nullptr) != nullptr)
     return true;
 
   // If we've failed loading this module before, don't look for it again.
@@ -1789,7 +1792,7 @@ ModuleDecl *
 ASTContext::getModule(ArrayRef<Located<Identifier>> ModulePath) {
   assert(!ModulePath.empty());
 
-  if (auto *M = getLoadedModule(ModulePath))
+  if (auto *M = getLoadedModule(ModulePath, /*useDC*/ nullptr))
     return M;
 
   auto moduleID = ModulePath[0];
@@ -1822,7 +1825,7 @@ ModuleDecl *ASTContext::getStdlibModule(bool loadIfAbsent) {
     TheStdlibModule =
       mutableThis->getModule({ Located<Identifier>(StdlibModuleName, SourceLoc()) });
   } else {
-    TheStdlibModule = getLoadedModule(StdlibModuleName);
+    TheStdlibModule = getLoadedModule(StdlibModuleName, /*useDC*/ nullptr);
   }
   return TheStdlibModule;
 }
@@ -4111,19 +4114,19 @@ ASTContext::getForeignRepresentationInfo(NominalTypeDecl *nominal,
       addTrivial(getIdentifier("UInt"), stdlib);
     }
 
-    if (auto darwin = getLoadedModule(Id_Darwin)) {
+    if (auto darwin = getLoadedModule(Id_Darwin, dc)) {
       // Note: DarwinBoolean is odd because it's bridged to Bool in APIs,
       // but can also be trivially bridged.
       addTrivial(getIdentifier("DarwinBoolean"), darwin);
     }
 
-    if (auto winsdk = getLoadedModule(Id_WinSDK)) {
+    if (auto winsdk = getLoadedModule(Id_WinSDK, dc)) {
       // NOTE: WindowsBool is odd because it is bridged to Bool in APIs, but can
       // also be trivially bridged.
       addTrivial(getIdentifier("WindowsBool"), winsdk);
     }
 
-    if (auto objectiveC = getLoadedModule(Id_ObjectiveC)) {
+    if (auto objectiveC = getLoadedModule(Id_ObjectiveC, dc)) {
       addTrivial(Id_Selector, objectiveC, true);
 
       // Note: ObjCBool is odd because it's bridged to Bool in APIs,
@@ -4133,14 +4136,14 @@ ASTContext::getForeignRepresentationInfo(NominalTypeDecl *nominal,
       addTrivial(getSwiftId(KnownFoundationEntity::NSZone), objectiveC, true);
     }
 
-    if (auto coreGraphics = getLoadedModule(getIdentifier("CoreGraphics"))) {
+    if (auto coreGraphics = getLoadedModule(getIdentifier("CoreGraphics"), dc)) {
       addTrivial(Id_CGFloat, coreGraphics);
     }
 
     // Pull SIMD types of size 2...4 from the SIMD module, if it exists.
     // FIXME: Layering violation to use the ClangImporter's define.
     const unsigned SWIFT_MAX_IMPORTED_SIMD_ELEMENTS = 4;
-    if (auto simd = getLoadedModule(Id_simd)) {
+    if (auto simd = getLoadedModule(Id_simd, dc)) {
 #define MAP_SIMD_TYPE(BASENAME, _, __)                                  \
       {                                                                 \
         char name[] = #BASENAME "0";                                    \
@@ -4172,7 +4175,7 @@ ASTContext::getForeignRepresentationInfo(NominalTypeDecl *nominal,
                                      Identifier typeName, Identifier moduleName,
                                      bool allowOptional = false) {
     if (nominal->getName() == typeName && wasNotFoundInCache) {
-      if (auto module = getLoadedModule(moduleName)) {
+      if (auto module = getLoadedModule(moduleName, dc)) {
         addTrivial(typeName, module, allowOptional);
         known = getImpl().ForeignRepresentableCache.find(nominal);
         wasNotFoundInCache = known == getImpl().ForeignRepresentableCache.end();
@@ -4209,7 +4212,7 @@ ASTContext::getForeignRepresentationInfo(NominalTypeDecl *nominal,
     // is global, ignoring the module we provide for it.
     if (nominal != dc->getASTContext().getOptionalDecl()) {
       if (auto objcBridgeable
-            = getProtocol(KnownProtocolKind::ObjectiveCBridgeable)) {
+            = getProtocol(KnownProtocolKind::ObjectiveCBridgeable, dc)) {
         auto conformance = dc->getParentModule()->lookupConformance(
             nominal->getDeclaredType(), objcBridgeable);
         if (conformance) {
@@ -4220,7 +4223,7 @@ ASTContext::getForeignRepresentationInfo(NominalTypeDecl *nominal,
     }
 
     // Error is bridged to NSError, when it's available.
-    if (nominal == getErrorDecl() && getNSErrorDecl())
+    if (nominal == getErrorDecl() && getNSErrorDecl(dc))
       result = ForeignRepresentationInfo::forBridgedError();
 
     // If we didn't find anything, mark the result as "None".
@@ -4310,11 +4313,11 @@ bool ASTContext::isObjCClassWithMultipleSwiftBridgedTypes(Type t) {
   if (!clas)
     return false;
   
-  if (clas == getNSErrorDecl())
+  if (clas == getNSErrorDecl(/*useDC*/ nullptr))
     return true;
-  if (clas == getNSNumberDecl())
+  if (clas == getNSNumberDecl(/*useDC*/ nullptr))
     return true;
-  if (clas == getNSValueDecl())
+  if (clas == getNSValueDecl(/*useDC*/ nullptr))
     return true;
   
   return false;
@@ -4339,7 +4342,7 @@ Type ASTContext::getBridgedToObjC(const DeclContext *dc, Type type,
   // Check whether the type is an existential that contains
   // Error. If so, it's bridged to NSError.
   if (type->isExistentialWithError()) {
-    if (auto nsErrorTy = getNSErrorType()) {
+    if (auto nsErrorTy = getNSErrorType(dc)) {
       // The corresponding value type is Error.
       if (bridgedValueType)
         *bridgedValueType = getErrorDecl()->getDeclaredInterfaceType();
@@ -4357,7 +4360,7 @@ Type ASTContext::getBridgedToObjC(const DeclContext *dc, Type type,
       return ProtocolConformanceRef::forInvalid();
 
     // Find the protocol.
-    auto proto = getProtocol(known);
+    auto proto = getProtocol(known, dc);
     if (!proto)
       return ProtocolConformanceRef::forInvalid();
 
@@ -4382,7 +4385,7 @@ Type ASTContext::getBridgedToObjC(const DeclContext *dc, Type type,
       *bridgedValueType = getErrorDecl()->getDeclaredInterfaceType();
 
     // Bridge to NSError.
-    if (auto nsErrorTy = getNSErrorType())
+    if (auto nsErrorTy = getNSErrorType(dc))
       return nsErrorTy;
   }
 

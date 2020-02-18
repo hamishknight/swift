@@ -2416,7 +2416,7 @@ bool ContextualFailure::diagnoseThrowsTypeMismatch() const {
   // construction.
   auto &Ctx = getASTContext();
   if (auto errorCodeProtocol =
-          Ctx.getProtocol(KnownProtocolKind::ErrorCodeProtocol)) {
+          Ctx.getProtocol(KnownProtocolKind::ErrorCodeProtocol, getDC())) {
     Type errorCodeType = getFromType();
     auto conformance = TypeChecker::conformsToProtocol(
         errorCodeType, errorCodeProtocol, getDC(),

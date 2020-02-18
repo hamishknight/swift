@@ -94,9 +94,9 @@ void SILGenModule::useConformancesFromObjectiveCType(CanType type) {
 
   auto &ctx = getASTContext();
   auto objectiveCBridgeable = ctx.getProtocol(
-      KnownProtocolKind::ObjectiveCBridgeable);
+      KnownProtocolKind::ObjectiveCBridgeable, SwiftModule);
   auto bridgedStoredNSError = ctx.getProtocol(
-      KnownProtocolKind::BridgedStoredNSError);
+      KnownProtocolKind::BridgedStoredNSError, SwiftModule);
   if (!objectiveCBridgeable && !bridgedStoredNSError)
     return;
 

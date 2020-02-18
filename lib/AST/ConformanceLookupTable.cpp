@@ -498,7 +498,7 @@ void ConformanceLookupTable::expandImpliedConformances(NominalTypeDecl *nominal,
         cast<EnumDecl>(nominal)->hasOnlyCasesWithoutAssociatedValues()) {
       ASTContext &ctx = nominal->getASTContext();
       if (auto bridgedNSError
-            = ctx.getProtocol(KnownProtocolKind::BridgedNSError)) {
+            = ctx.getProtocol(KnownProtocolKind::BridgedNSError, nominal->getDeclContext())) {
         addProtocol(bridgedNSError, SourceLoc(),
                     ConformanceSource::forImplied(conformanceEntry));
       }
@@ -861,7 +861,7 @@ ConformanceLookupTable::getConformance(NominalTypeDecl *nominal,
       // Find a SynthesizedProtocolAttr corresponding to the protocol.
       for (auto attr : conformingNominal->getAttrs()
              .getAttributes<SynthesizedProtocolAttr>()) {
-        auto otherProto = ctx.getProtocol(attr->getProtocolKind());
+        auto otherProto = ctx.getProtocol(attr->getProtocolKind(), conformingNominal->getDeclContext());
         if (otherProto == impliedProto) {
           // Set the conformance loader to the loader stashed inside
           // the attribute.

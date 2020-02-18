@@ -949,7 +949,8 @@ swift::computeAutomaticEnumValueKind(EnumDecl *ED) {
   // Swift enums require that the raw type is convertible from one of the
   // primitive literal protocols.
   auto conformsToProtocol = [&](KnownProtocolKind protoKind) {
-    ProtocolDecl *proto = ED->getASTContext().getProtocol(protoKind);
+    ProtocolDecl *proto = ED->getASTContext().getProtocol(protoKind,
+                                                          ED->getDeclContext());
     return TypeChecker::conformsToProtocol(rawTy, proto, ED->getDeclContext(),
                                            None);
   };
@@ -2363,9 +2364,9 @@ EmittedMembersRequest::evaluate(Evaluator &evaluator,
   //
   // FIXME: Generalize this to other protocols for which
   // we can derive conformances.
-  forceConformance(Context.getProtocol(KnownProtocolKind::Decodable));
-  forceConformance(Context.getProtocol(KnownProtocolKind::Encodable));
-  forceConformance(Context.getProtocol(KnownProtocolKind::Hashable));
+  forceConformance(Context.getProtocol(KnownProtocolKind::Decodable, CD));
+  forceConformance(Context.getProtocol(KnownProtocolKind::Encodable, CD));
+  forceConformance(Context.getProtocol(KnownProtocolKind::Hashable, CD));
 
   return CD->getMembers();
 }

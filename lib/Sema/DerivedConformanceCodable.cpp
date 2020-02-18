@@ -49,7 +49,7 @@ static bool inheritsConformanceTo(ClassDecl *target, ProtocolDecl *proto) {
 static bool superclassIsEncodable(ClassDecl *target) {
   auto &C = target->getASTContext();
   return inheritsConformanceTo(target,
-                               C.getProtocol(KnownProtocolKind::Encodable));
+                               C.getProtocol(KnownProtocolKind::Encodable, target->getDeclContext()));
 }
 
 /// Returns whether the superclass of the given class conforms to Decodable.
@@ -58,7 +58,7 @@ static bool superclassIsEncodable(ClassDecl *target) {
 static bool superclassIsDecodable(ClassDecl *target) {
   auto &C = target->getASTContext();
   return inheritsConformanceTo(target,
-                               C.getProtocol(KnownProtocolKind::Decodable));
+                               C.getProtocol(KnownProtocolKind::Decodable, target->getDeclContext()));
 }
 
 /// Represents the possible outcomes of checking whether a decl conforms to
@@ -260,7 +260,7 @@ static CodingKeysValidity hasValidCodingKeysEnum(DerivedConformance &derived) {
     codingKeysTypeDecl = codingKeysType->getAnyNominal();
 
   // Ensure that the type we found conforms to the CodingKey protocol.
-  auto *codingKeyProto = C.getProtocol(KnownProtocolKind::CodingKey);
+  auto *codingKeyProto = C.getProtocol(KnownProtocolKind::CodingKey, derived.getConformanceContext());
   if (!TypeChecker::conformsToProtocol(codingKeysType, codingKeyProto,
                                        derived.getConformanceContext(), None)) {
     // If CodingKeys is a typealias which doesn't point to a valid nominal type,
@@ -304,7 +304,7 @@ static EnumDecl *synthesizeCodingKeysEnum(DerivedConformance &derived) {
 
   // We want to look through all the var declarations of this type to create
   // enum cases based on those var names.
-  auto *codingKeyProto = C.getProtocol(KnownProtocolKind::CodingKey);
+  auto *codingKeyProto = C.getProtocol(KnownProtocolKind::CodingKey, derived.getConformanceContext());
   auto *codingKeyType = codingKeyProto->getDeclaredType();
   TypeLoc protoTypeLoc[1] = {TypeLoc::withoutLoc(codingKeyType)};
   MutableArrayRef<TypeLoc> inherited = C.AllocateCopy(protoTypeLoc);

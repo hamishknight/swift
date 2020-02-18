@@ -624,10 +624,10 @@ ManagedValue SILGenFunction::emitExistentialErasure(
   auto &ctx = getASTContext();
   if (ctx.LangOpts.EnableObjCInterop && conformances.size() == 1 &&
       conformances[0].getRequirement() == ctx.getErrorDecl() &&
-      ctx.getNSErrorDecl()) {
+      ctx.getNSErrorDecl(getFunction().getDeclContext())) {
     // If the concrete type is NSError or a subclass thereof, just erase it
     // directly.
-    auto nsErrorType = ctx.getNSErrorType()->getCanonicalType();
+    auto nsErrorType = ctx.getNSErrorType(getFunction().getDeclContext())->getCanonicalType();
     if (nsErrorType->isExactSuperclassOf(concreteFormalType)) {
       ManagedValue nsError =  F(SGFContext());
       if (nsErrorType != concreteFormalType) {

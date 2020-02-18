@@ -109,7 +109,7 @@ bool ASTScript::execute() const {
   // Hardcode the actual query we want to execute here.
 
   auto &ctx = Config.Compiler.getASTContext();
-  auto swiftUI = ctx.getLoadedModule(ctx.getIdentifier("SwiftUI"));
+  auto swiftUI = ctx.getModule({{ctx.getIdentifier("SwiftUI"), SourceLoc()}});
   if (!swiftUI) {
     llvm::errs() << "error: SwiftUI module not loaded\n";
     return true;

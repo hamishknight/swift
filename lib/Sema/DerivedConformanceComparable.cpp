@@ -287,7 +287,7 @@ deriveComparable_lt(
 
   // Add the @_implements(Comparable, < (_:_:)) attribute
   if (generatedIdentifier != C.Id_LessThanOperator) {
-    auto comparable = C.getProtocol(KnownProtocolKind::Comparable);
+    auto comparable = C.getProtocol(KnownProtocolKind::Comparable, parentDC);
     auto comparableType = comparable->getDeclaredType();
     auto comparableTypeLoc = TypeLoc::withoutLoc(comparableType);
     SmallVector<Identifier, 2> argumentLabels = { Identifier(), Identifier() };
@@ -323,7 +323,7 @@ DerivedConformance::canDeriveComparable(DeclContext *context, EnumDecl *enumerat
   if (!enumeration) {
       return false;
   }
-  auto comparable = context->getASTContext().getProtocol(KnownProtocolKind::Comparable);
+  auto comparable = context->getASTContext().getProtocol(KnownProtocolKind::Comparable, context);
   if (!comparable) {
       return false; // not sure what should be done here instead
   }

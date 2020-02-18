@@ -1641,7 +1641,7 @@ public:
         abort();
       }
 
-      auto hashableDecl = Ctx.getProtocol(KnownProtocolKind::Hashable);
+      auto hashableDecl = Ctx.getProtocol(KnownProtocolKind::Hashable, /*useDC*/ nullptr);
       if (!hashableDecl) {
         Out << "Hashable declaration could not be found\n";
         abort();

@@ -635,7 +635,7 @@ bool swift::isRepresentableInObjC(
       // Functions that return nothing (void) can be throwing; they indicate
       // failure with a 'false' result.
       kind = ForeignErrorConvention::ZeroResult;
-      NominalTypeDecl *boolDecl = ctx.getObjCBoolDecl();
+      NominalTypeDecl *boolDecl = ctx.getObjCBoolDecl(AFD->getDeclContext());
       // On Linux, we might still run @objc tests even though there's
       // no ObjectiveC Foundation, so use Swift.Bool instead of crapping
       // out.
@@ -678,7 +678,7 @@ bool swift::isRepresentableInObjC(
     }
 
     // The error type is always 'AutoreleasingUnsafeMutablePointer<NSError?>?'.
-    auto nsErrorTy = ctx.getNSErrorType();
+    auto nsErrorTy = ctx.getNSErrorType(AFD->getDeclContext());
     Type errorParameterType;
     if (nsErrorTy) {
       errorParameterType = OptionalType::get(nsErrorTy);

@@ -907,7 +907,7 @@ void StmtEmitter::visitForEachStmt(ForEachStmt *S) {
   auto sequenceConformance = S->getSequenceConformance();
   Type sequenceType = S->getSequence()->getType();
   auto sequenceProto =
-      SGF.getASTContext().getProtocol(KnownProtocolKind::Sequence);
+      SGF.getASTContext().getProtocol(KnownProtocolKind::Sequence, SGF.F.getDeclContext());
   auto sequenceSubs = SubstitutionMap::getProtocolSubstitutions(
       sequenceProto, sequenceType, sequenceConformance);
 
@@ -919,7 +919,7 @@ void StmtEmitter::visitForEachStmt(ForEachStmt *S) {
     SILLocation loc = SILLocation(S->getSequence());
 
     // Compute the reference to the Sequence's makeIterator().
-    FuncDecl *makeIteratorReq = SGF.getASTContext().getSequenceMakeIterator();
+    FuncDecl *makeIteratorReq = SGF.getASTContext().getSequenceMakeIterator(SGF.F.getDeclContext());
     ConcreteDeclRef makeIteratorRef(makeIteratorReq, sequenceSubs);
 
     // Call makeIterator().
@@ -968,7 +968,7 @@ void StmtEmitter::visitForEachStmt(ForEachStmt *S) {
 
   // Compute the reference to the the iterator's next().
   auto iteratorProto =
-      SGF.getASTContext().getProtocol(KnownProtocolKind::IteratorProtocol);
+      SGF.getASTContext().getProtocol(KnownProtocolKind::IteratorProtocol, SGF.F.getDeclContext());
   ValueDecl *iteratorNextReq = iteratorProto->getSingleRequirement(
       DeclName(SGF.getASTContext(), SGF.getASTContext().Id_next,
                ArrayRef<Identifier>()));

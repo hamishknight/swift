@@ -5165,7 +5165,7 @@ ConstraintSystem::SolutionKind ConstraintSystem::simplifyConformsToConstraint(
     if (loc->isResultOfKeyPathDynamicMemberLookup() ||
         loc->isKeyPathSubscriptComponent()) {
       if (protocol ==
-          getASTContext().getProtocol(KnownProtocolKind::Hashable)) {
+          getASTContext().getProtocol(KnownProtocolKind::Hashable, DC)) {
         auto *fix =
             TreatKeyPathSubscriptIndexAsHashable::create(*this, type, loc);
         if (!recordFix(fix))
@@ -7086,7 +7086,7 @@ ConstraintSystem::simplifyBridgingConstraint(Type type1,
                             LocatorPathElt::GenericArgument(0))));
         } else if (fromBGT->getDecl() == ctx.getDictionaryDecl()) {
           // [NSObject : AnyObject]
-          auto nsObjectType = ctx.getNSObjectType();
+          auto nsObjectType = ctx.getNSObjectType(DC);
           if (!nsObjectType) {
             // Not a bridging case. Should we detect this earlier?
             return SolutionKind::Error;
@@ -7104,7 +7104,7 @@ ConstraintSystem::simplifyBridgingConstraint(Type type1,
                           locator.withPathElement(
                             LocatorPathElt::GenericArgument(1))));
         } else if (fromBGT->getDecl() == ctx.getSetDecl()) {
-          auto nsObjectType = ctx.getNSObjectType();
+          auto nsObjectType = ctx.getNSObjectType(DC);
           if (!nsObjectType) {
             // Not a bridging case. Should we detect this earlier?
             return SolutionKind::Error;
@@ -8296,7 +8296,7 @@ ConstraintSystem::simplifyDynamicCallableApplicableFnConstraint(
   Type argumentType;
   if (!useKwargsMethod) {
     auto arrayLitProto =
-      ctx.getProtocol(KnownProtocolKind::ExpressibleByArrayLiteral);
+      ctx.getProtocol(KnownProtocolKind::ExpressibleByArrayLiteral, DC);
     addConstraint(ConstraintKind::ConformsTo, tvParam,
                   arrayLitProto->getDeclaredType(), locator);
     auto elementAssocType = arrayLitProto->getAssociatedType(
@@ -8304,7 +8304,7 @@ ConstraintSystem::simplifyDynamicCallableApplicableFnConstraint(
     argumentType = DependentMemberType::get(tvParam, elementAssocType);
   } else {
     auto dictLitProto =
-      ctx.getProtocol(KnownProtocolKind::ExpressibleByDictionaryLiteral);
+      ctx.getProtocol(KnownProtocolKind::ExpressibleByDictionaryLiteral, DC);
     addConstraint(ConstraintKind::ConformsTo, tvParam,
                   dictLitProto->getDeclaredType(), locator);
     auto valueAssocType = dictLitProto->getAssociatedType(ctx.Id_Value);
@@ -8752,7 +8752,7 @@ ConstraintSystem::simplifyRestrictedConstraintImpl(
     }
 
     auto hashableProtocol =
-      getASTContext().getProtocol(KnownProtocolKind::Hashable);
+      getASTContext().getProtocol(KnownProtocolKind::Hashable, DC);
     if (!hashableProtocol)
       return SolutionKind::Error;
 

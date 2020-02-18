@@ -640,11 +640,11 @@ static Type lookupDefaultLiteralType(const DeclContext *dc,
 }
 
 static Optional<KnownProtocolKind>
-getKnownProtocolKindIfAny(const ProtocolDecl *protocol) {
+getKnownProtocolKindIfAny(const ProtocolDecl *protocol, const DeclContext *dc) {
 #define EXPRESSIBLE_BY_LITERAL_PROTOCOL_WITH_NAME(Id, _, __, ___)              \
   if (protocol == TypeChecker::getProtocol(protocol->getASTContext(),          \
                                            SourceLoc(),                        \
-                                           KnownProtocolKind::Id))             \
+                                           KnownProtocolKind::Id, dc))             \
     return KnownProtocolKind::Id;
 #include "swift/AST/KnownProtocols.def"
 #undef EXPRESSIBLE_BY_LITERAL_PROTOCOL_WITH_NAME
@@ -653,7 +653,7 @@ getKnownProtocolKindIfAny(const ProtocolDecl *protocol) {
 }
 
 Type TypeChecker::getDefaultType(ProtocolDecl *protocol, DeclContext *dc) {
-  if (auto knownProtocolKindIfAny = getKnownProtocolKindIfAny(protocol)) {
+  if (auto knownProtocolKindIfAny = getKnownProtocolKindIfAny(protocol, dc)) {
     return evaluateOrDefault(
         protocol->getASTContext().evaluator,
         DefaultTypeRequest{knownProtocolKindIfAny.getValue(), dc}, nullptr);

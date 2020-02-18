@@ -1099,7 +1099,7 @@ void UnqualifiedLookupFactory::lookForAModuleWithTheGivenName(
 #endif
     return;
   }
-  ModuleDecl *desiredModule = Ctx.getLoadedModule(Name.getBaseIdentifier());
+  ModuleDecl *desiredModule = Ctx.getLoadedModule(Name.getBaseIdentifier(), dc);
   if (!desiredModule && Name.getFullName() == Ctx.TheBuiltinModule->getName())
     desiredModule = Ctx.TheBuiltinModule;
   if (desiredModule) {

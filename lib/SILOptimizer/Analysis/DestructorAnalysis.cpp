@@ -96,7 +96,7 @@ bool DestructorAnalysis::isSafeType(CanType Ty) {
 bool DestructorAnalysis::implementsDestructorSafeContainerProtocol(
     NominalTypeDecl *NomDecl) {
   ProtocolDecl *DestructorSafeContainer =
-      getASTContext().getProtocol(KnownProtocolKind::DestructorSafeContainer);
+      getASTContext().getProtocol(KnownProtocolKind::DestructorSafeContainer, NomDecl->getDeclContext());
 
   for (auto Proto : NomDecl->getAllProtocols())
     if (Proto == DestructorSafeContainer)

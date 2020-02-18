@@ -493,7 +493,7 @@ static CanType getKnownType(Optional<CanType> &cacheSlot, ASTContext &C,
                             StringRef moduleName, StringRef typeName) {
   if (!cacheSlot) {
     cacheSlot = ([&] {
-      ModuleDecl *mod = C.getLoadedModule(C.getIdentifier(moduleName));
+      ModuleDecl *mod = C.getLoadedModule(C.getIdentifier(moduleName), /*useDC*/ nullptr);
       if (!mod)
         return CanType();
 

@@ -482,10 +482,10 @@ public:
 
 #define KNOWN_OBJC_TYPE_DECL(MODULE, NAME, DECL_CLASS) \
   /** Retrieve the declaration of MODULE.NAME. */ \
-  DECL_CLASS *get##NAME##Decl() const; \
+  DECL_CLASS *get##NAME##Decl(const DeclContext *useDC) const; \
 \
   /** Retrieve the type of MODULE.NAME. */ \
-  Type get##NAME##Type() const;
+  Type get##NAME##Type(const DeclContext *useDC) const;
 #include "swift/AST/KnownObjCTypes.def"
 
   // Declare accessors for the known declarations.
@@ -500,7 +500,7 @@ public:
   FuncDecl *getPlusFunctionOnString() const;
 
   /// Get Sequence.makeIterator().
-  FuncDecl *getSequenceMakeIterator() const;
+  FuncDecl *getSequenceMakeIterator(DeclContext *useDC) const;
 
   /// Check whether the standard library provides all the correct
   /// intrinsic support for Optional<T>.
@@ -564,7 +564,7 @@ public:
                            SmallVectorImpl<ValueDecl *> &results) const;
 
   /// Retrieve a specific, known protocol.
-  ProtocolDecl *getProtocol(KnownProtocolKind kind) const;
+  ProtocolDecl *getProtocol(KnownProtocolKind kind, const DeclContext *useDC) const;
   
   /// Determine whether the given nominal type is one of the standard
   /// library or Cocoa framework types that is known to be bridged by another
@@ -759,9 +759,9 @@ public:
   /// \returns a module with a given name that was already loaded.  If the
   /// module was not loaded, returns nullptr.
   ModuleDecl *getLoadedModule(
-      ArrayRef<Located<Identifier>> ModulePath) const;
+      ArrayRef<Located<Identifier>> ModulePath, const DeclContext *useDC) const;
 
-  ModuleDecl *getLoadedModule(Identifier ModuleName) const;
+  ModuleDecl *getLoadedModule(Identifier ModuleName, const DeclContext *useDC) const;
 
   /// Attempts to load a module into this ASTContext.
   ///

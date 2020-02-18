@@ -1242,7 +1242,7 @@ void NominalTypeDecl::prepareConformanceTable() const {
   SmallPtrSet<ProtocolDecl *, 2> protocols;
 
   auto addSynthesized = [&](KnownProtocolKind kind) {
-    if (auto *proto = getASTContext().getProtocol(kind)) {
+    if (auto *proto = getASTContext().getProtocol(kind, getDeclContext())) {
       if (protocols.count(proto) == 0) {
         ConformanceTable->addSynthesizedConformance(mutableThis, proto);
         protocols.insert(proto);
