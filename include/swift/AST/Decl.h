@@ -3278,7 +3278,7 @@ class NominalTypeDecl : public GenericTypeDecl, public IterableDeclContext {
   unsigned ExtensionGeneration;
   
   /// Prepare to traverse the list of extensions.
-  void prepareExtensions();
+  void prepareExtensions(const DeclContext *useDC);
 
   /// Retrieve the conformance loader (if any), and removing it in the
   /// same operation. The caller is responsible for loading the
@@ -3397,7 +3397,7 @@ public:
   void addExtension(ExtensionDecl *extension);
 
   /// Retrieve the set of extensions of this type.
-  ExtensionRange getExtensions();
+  ExtensionRange getExtensions(const DeclContext *useDC);
 
   /// Special-behaviour flags passed to lookupDirect()
   enum class LookupDirectFlags {
@@ -3443,10 +3443,10 @@ public:
          SmallVectorImpl<ProtocolConformance *> &conformances) const;
 
   /// Retrieve all of the protocols that this nominal type conforms to.
-  SmallVector<ProtocolDecl *, 2> getAllProtocols() const;
+  SmallVector<ProtocolDecl *, 2> getAllProtocols(const DeclContext *useDC) const;
 
   /// Retrieve all of the protocol conformances for this nominal type.
-  SmallVector<ProtocolConformance *, 2> getAllConformances(
+  SmallVector<ProtocolConformance *, 2> getAllConformances(const DeclContext *useDC,
                                           bool sorted = false) const;
 
   /// Register an externally-created protocol conformance in the

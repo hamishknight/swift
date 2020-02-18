@@ -1979,13 +1979,13 @@ void PrintAST::printMembersOfDecl(Decl *D, bool needComma,
     AddDeclFunc(Ext->getMembers());
   } else if (auto NTD = dyn_cast<NominalTypeDecl>(D)) {
     AddDeclFunc(NTD->getMembers());
-    for (auto Ext : NTD->getExtensions()) {
+    for (auto Ext : NTD->getExtensions(NTD)) {
       if (Options.printExtensionContentAsMembers(Ext))
         AddDeclFunc(Ext->getMembers());
     }
     if (Options.PrintExtensionFromConformingProtocols) {
       for (auto Conf : NTD->getAllConformances()) {
-        for (auto Ext : Conf->getProtocol()->getExtensions()) {
+        for (auto Ext : Conf->getProtocol()->getExtensions(Conf->getProtocol())) {
           if (Options.printExtensionContentAsMembers(Ext))
             AddDeclFunc(Ext->getMembers());
         }

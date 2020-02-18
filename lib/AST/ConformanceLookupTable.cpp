@@ -146,6 +146,7 @@ namespace {
 template<typename NominalFunc, typename ExtensionFunc>
 void ConformanceLookupTable::forEachInStage(ConformanceStage stage,
                                             NominalTypeDecl *nominal,
+                                            const DeclContext *useDC,
                                             NominalFunc nominalFunc,
                                             ExtensionFunc extensionFunc) {
   assert(static_cast<unsigned>(stage) < NumConformanceStages &&
@@ -178,7 +179,7 @@ void ConformanceLookupTable::forEachInStage(ConformanceStage stage,
     return;
 
   // Handle the extensions that we have not yet visited.
-  nominal->prepareExtensions();
+  nominal->prepareExtensions(useDC);
   while (auto next = lastProcessed.getPointer()
                        ? lastProcessed.getPointer()->NextExtension.getPointer()
                        : nominal->FirstExtension) {
@@ -265,12 +266,13 @@ void ConformanceLookupTable::inheritConformances(ClassDecl *classDecl,
 }
 
 void ConformanceLookupTable::updateLookupTable(NominalTypeDecl *nominal,
+                                               const DeclContext *useDC,
                                                ConformanceStage stage) {
   switch (stage) {
   case ConformanceStage::RecordedExplicit:
     // Record all of the explicit conformances.
     forEachInStage(
-        stage, nominal,
+        stage, nominal, useDC,
         [&](NominalTypeDecl *nominal) {
           addInheritedProtocols(nominal,
                                 ConformanceSource::forExplicit(nominal));
@@ -286,7 +288,7 @@ void ConformanceLookupTable::updateLookupTable(NominalTypeDecl *nominal,
     break;
 
   case ConformanceStage::Inherited:
-    updateLookupTable(nominal, ConformanceStage::RecordedExplicit);
+    updateLookupTable(nominal, useDC, ConformanceStage::RecordedExplicit);
 
     // For classes, expand implied conformances of the superclass,
     // because an implied conformance in the superclass is considered
@@ -306,7 +308,7 @@ void ConformanceLookupTable::updateLookupTable(NominalTypeDecl *nominal,
         // Resolve the conformances of the superclass.
         superclassDecl->prepareConformanceTable();
         superclassDecl->ConformanceTable->updateLookupTable(
-          superclassDecl,
+          superclassDecl, useDC,
           ConformanceStage::Resolved);
         
         // Expand inherited conformances from all superclasses.
@@ -316,7 +318,7 @@ void ConformanceLookupTable::updateLookupTable(NominalTypeDecl *nominal,
         
         do {
           forEachInStage(
-              stage, superclassDecl,
+              stage, superclassDecl, useDC,
               [&](NominalTypeDecl *superclass) {
                 inheritConformances(classDecl, superclassDecl, nullptr);
               },
@@ -338,11 +340,11 @@ void ConformanceLookupTable::updateLookupTable(NominalTypeDecl *nominal,
   case ConformanceStage::ExpandedImplied:
     // Record explicit conformances and import inherited conformances
     // before expanding.
-    updateLookupTable(nominal, ConformanceStage::Inherited);
+    updateLookupTable(nominal, useDC, ConformanceStage::Inherited);
 
     // Expand inherited conformances.
     forEachInStage(
-        stage, nominal,
+        stage, nominal, useDC,
         [&](NominalTypeDecl *nominal) {
           expandImpliedConformances(nominal, nominal);
         },
@@ -356,12 +358,12 @@ void ConformanceLookupTable::updateLookupTable(NominalTypeDecl *nominal,
   case ConformanceStage::Resolved:
     // Expand inherited conformances so we have the complete set of
     // conformances.
-    updateLookupTable(nominal, ConformanceStage::ExpandedImplied);
+    updateLookupTable(nominal, useDC, ConformanceStage::ExpandedImplied);
     
     /// Determine whether any extensions were added that might require
     /// us to compute conformances again.
     bool anyChanged = false;
-    forEachInStage(stage, nominal,
+    forEachInStage(stage, nominal, useDC,
                    [&](NominalTypeDecl *nominal) { anyChanged = true; },
                    [&](ExtensionDecl *ext,
                        ArrayRef<ConformanceConstructionInfo>) {
@@ -927,13 +929,13 @@ bool ConformanceLookupTable::lookupConformance(
        ProtocolDecl *protocol, 
        SmallVectorImpl<ProtocolConformance *> &conformances) {
   // Update to record all explicit and inherited conformances.
-  updateLookupTable(nominal, ConformanceStage::Inherited);
+  updateLookupTable(nominal, module, ConformanceStage::Inherited);
 
   // Look for conformances to this protocol.
   auto known = Conformances.find(protocol);
   if (known == Conformances.end()) {
     // If we didn't find anything, expand implied conformances.
-    updateLookupTable(nominal, ConformanceStage::ExpandedImplied);
+    updateLookupTable(nominal, module, ConformanceStage::ExpandedImplied);
     known = Conformances.find(protocol);
 
     // We didn't find anything.
@@ -960,7 +962,7 @@ void ConformanceLookupTable::lookupConformances(
        SmallVectorImpl<ConformanceDiagnostic> *diagnostics) {
   // We need to expand all implied conformances before we can find
   // those conformances that pertain to this declaration context.
-  updateLookupTable(nominal, ConformanceStage::ExpandedImplied);
+  updateLookupTable(nominal, dc, ConformanceStage::ExpandedImplied);
 
   /// Resolve conformances for each of the protocols to which this
   /// declaration may provide a conformance. Only some of these will
@@ -1043,10 +1045,11 @@ void ConformanceLookupTable::lookupConformances(
 
 void ConformanceLookupTable::getAllProtocols(
        NominalTypeDecl *nominal,
+       const DeclContext *useDC,
        SmallVectorImpl<ProtocolDecl *> &scratch) {
   // We need to expand all implied conformances to find the complete
   // set of protocols to which this nominal type conforms.
-  updateLookupTable(nominal, ConformanceStage::ExpandedImplied);
+  updateLookupTable(nominal, useDC, ConformanceStage::ExpandedImplied);
 
   // Gather all of the protocols.
   for (const auto &conformance : Conformances) {
@@ -1096,11 +1099,11 @@ int ConformanceLookupTable::compareProtocolConformances(
 }
 
 void ConformanceLookupTable::getAllConformances(
-       NominalTypeDecl *nominal,
+       NominalTypeDecl *nominal, const DeclContext *useDC,
        bool sorted,
        SmallVectorImpl<ProtocolConformance *> &scratch) {
   // We need to expand and resolve all conformances to enumerate them.
-  updateLookupTable(nominal, ConformanceStage::Resolved);
+  updateLookupTable(nominal, useDC, ConformanceStage::Resolved);
 
   // Gather all of the protocols.
   for (const auto &conformance : AllConformances) {
@@ -1137,7 +1140,7 @@ ConformanceLookupTable::getSatisfiedProtocolRequirementsForMember(
     return It->second;
 
   SmallVector<ProtocolConformance *, 4> result;
-  getAllConformances(nominal, sorted, result);
+  getAllConformances(nominal, sorted, member->getDeclContext(), result);
 
   auto &reqs = ConformingDeclMap[member];
   if (isa<TypeDecl>(member)) {

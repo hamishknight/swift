@@ -382,6 +382,7 @@ class ConformanceLookupTable {
   template<typename NominalFunc, typename ExtensionFunc>
   void forEachInStage(ConformanceStage stage,
                       NominalTypeDecl *nominal,
+                      const DeclContext *useDC,
                       NominalFunc nominalFunc,
                       ExtensionFunc extensionFunc);
 
@@ -402,7 +403,7 @@ class ConformanceLookupTable {
                            ExtensionDecl *superclassExt);
 
   /// Update a lookup table with conformances from newly-added extensions.
-  void updateLookupTable(NominalTypeDecl *nominal, ConformanceStage stage);
+  void updateLookupTable(NominalTypeDecl *nominal, const DeclContext *useDC, ConformanceStage stage);
 
   /// Load all of the protocol conformances for the given (serialized)
   /// declaration context.
@@ -445,13 +446,13 @@ public:
 
   /// Retrieve the complete set of protocols to which this nominal
   /// type conforms.
-  void getAllProtocols(NominalTypeDecl *nominal,
+  void getAllProtocols(NominalTypeDecl *nominal, const DeclContext *useDC,
                        SmallVectorImpl<ProtocolDecl *> &scratch);
 
   /// Retrieve the complete set of protocol conformances for this
   /// nominal type.
   void getAllConformances(NominalTypeDecl *nominal,
-                          bool sorted,
+                          bool sorted, const DeclContext *useDC,
                           SmallVectorImpl<ProtocolConformance *> &scratch);
 
   /// Retrieve the protocols that would be implicitly synthesized.

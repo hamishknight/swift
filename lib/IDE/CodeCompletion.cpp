@@ -4156,7 +4156,7 @@ public:
     //   }
     if (Access < AccessLevel::Public &&
         !isa<ProtocolDecl>(VD->getDeclContext())) {
-      for (auto Conformance : CurrentNominal->getAllConformances()) {
+      for (auto Conformance : CurrentNominal->getAllConformances(CurrDeclContext)) {
         Conformance->getRootConformance()->forEachValueWitness(
             [&](ValueDecl *req, Witness witness) {
               if (witness.getDecl() == VD)
@@ -4507,7 +4507,7 @@ public:
          hasOverride || hasOverridabilityModifier || hasStaticOrClass))
       return;
 
-    for (auto Conformance : NTD->getAllConformances()) {
+    for (auto Conformance : NTD->getAllConformances(CurrDeclContext)) {
       auto Proto = Conformance->getProtocol();
       if (!Proto->isAccessibleFrom(CurrDeclContext))
         continue;

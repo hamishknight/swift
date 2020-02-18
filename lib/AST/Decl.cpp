@@ -26,6 +26,7 @@
 #include "swift/AST/ForeignErrorConvention.h"
 #include "swift/AST/GenericEnvironment.h"
 #include "swift/AST/GenericSignature.h"
+#include "swift/AST/ImportCache.h"
 #include "swift/AST/Initializer.h"
 #include "swift/AST/LazyResolver.h"
 #include "swift/AST/ASTMangler.h"
@@ -3671,7 +3672,7 @@ Type NominalTypeDecl::getDeclaredInterfaceType() const {
   return DeclaredInterfaceTy;
 }
 
-void NominalTypeDecl::prepareExtensions() {
+void NominalTypeDecl::prepareExtensions(const DeclContext *useDC) {
   // Types in local contexts can't have extensions
   if (getLocalContext() != nullptr) {
     return;
@@ -3681,13 +3682,16 @@ void NominalTypeDecl::prepareExtensions() {
 
   // If our list of extensions is out of date, update it now.
   if (context.getCurrentGeneration() > ExtensionGeneration) {
+    // Make sure to load in any dependency modules.
+    namelookup::getAllImports(useDC);
+
     unsigned previousGeneration = ExtensionGeneration;
     ExtensionGeneration = context.getCurrentGeneration();
     context.loadExtensions(this, previousGeneration);
   }
 }
 
-ExtensionRange NominalTypeDecl::getExtensions() {
+ExtensionRange NominalTypeDecl::getExtensions(const DeclContext *useDC) {
   prepareExtensions();
   return ExtensionRange(ExtensionIterator(FirstExtension), ExtensionIterator());
 }

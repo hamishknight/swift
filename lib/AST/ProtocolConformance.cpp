@@ -1283,21 +1283,21 @@ bool NominalTypeDecl::lookupConformance(
            conformances);
 }
 
-SmallVector<ProtocolDecl *, 2> NominalTypeDecl::getAllProtocols() const {
+SmallVector<ProtocolDecl *, 2> NominalTypeDecl::getAllProtocols(const DeclContext *useDC) const {
   prepareConformanceTable();
   SmallVector<ProtocolDecl *, 2> result;
   ConformanceTable->getAllProtocols(const_cast<NominalTypeDecl *>(this),
-                                    result);
+                                    useDC, result);
   return result;
 }
 
-SmallVector<ProtocolConformance *, 2> NominalTypeDecl::getAllConformances(
+SmallVector<ProtocolConformance *, 2> NominalTypeDecl::getAllConformances(const DeclContext *useDC,
                                         bool sorted) const
 {
   prepareConformanceTable();
   SmallVector<ProtocolConformance *, 2> result;
   ConformanceTable->getAllConformances(const_cast<NominalTypeDecl *>(this),
-                                       sorted,
+                                       sorted, useDC,
                                        result);
   return result;
 }

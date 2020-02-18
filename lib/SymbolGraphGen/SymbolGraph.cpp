@@ -232,7 +232,7 @@ void SymbolGraph::recordOptionalRequirementRelationships(
 void
 SymbolGraph::recordConformanceRelationships(const ValueDecl *VD) {
   if (const auto *NTD = dyn_cast<NominalTypeDecl>(VD)) {
-    for (const auto *Conformance : NTD->getAllConformances()) {
+    for (const auto *Conformance : NTD->getAllConformances(NTD)) {
       recordEdge(VD, Conformance->getProtocol(),
                  RelationshipKind::ConformsTo());
     }

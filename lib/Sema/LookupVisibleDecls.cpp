@@ -399,7 +399,7 @@ static void lookupDeclsFromProtocolsBeingConformedTo(
     return;
   ModuleDecl *Module = FromContext->getParentModule();
 
-  for (auto Conformance : CurrNominal->getAllConformances()) {
+  for (auto Conformance : CurrNominal->getAllConformances(FromContext)) {
     auto Proto = Conformance->getProtocol();
     if (!Proto->isAccessibleFrom(FromContext))
       continue;
@@ -506,7 +506,7 @@ static void synthesizeMemberDeclsForLookup(NominalTypeDecl *NTD,
 
   // Check all conformances to trigger the synthesized decl generation.
   // e.g. init(rawValue:) for RawRepresentable.
-  for (auto Conformance : NTD->getAllConformances()) {
+  for (auto Conformance : NTD->getAllConformances(DC)) {
     auto Proto = Conformance->getProtocol();
     if (!Proto->isAccessibleFrom(DC))
       continue;
