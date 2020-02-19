@@ -474,20 +474,22 @@ class DirectLookupDescriptor final {
 public:
   NominalTypeDecl *DC;
   DeclName Name;
+  const DeclContext *UseDC;
   LookupOptions Options;
 
   DirectLookupDescriptor(NominalTypeDecl *dc, DeclName name,
-                         LookupOptions options = {})
-      : DC(dc), Name(name), Options(options) {}
+                         const DeclContext *useDC, LookupOptions options = {})
+      : DC(dc), Name(name), UseDC(useDC), Options(options) {}
 
   friend llvm::hash_code hash_value(const DirectLookupDescriptor &desc) {
-    return llvm::hash_combine(desc.Name, desc.DC, desc.Options.toRaw());
+    return llvm::hash_combine(desc.Name, desc.DC, desc.useDC,
+                              desc.Options.toRaw());
   }
 
   friend bool operator==(const DirectLookupDescriptor &lhs,
                          const DirectLookupDescriptor &rhs) {
     return lhs.Name == rhs.Name && lhs.DC == rhs.DC &&
-           lhs.Options.toRaw() == rhs.Options.toRaw();
+           lhs.UseDC == rhs.UseDC && lhs.Options.toRaw() == rhs.Options.toRaw();
   }
 
   friend bool operator!=(const DirectLookupDescriptor &lhs,

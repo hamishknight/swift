@@ -1147,6 +1147,7 @@ static void
 populateLookupTableEntryFromLazyIDCLoader(ASTContext &ctx,
                                           MemberLookupTable &LookupTable,
                                           DeclBaseName name,
+
                                           IterableDeclContext *IDC) {
   auto ci = ctx.getOrCreateLazyIterableContextData(IDC,
                                                    /*lazyLoader=*/nullptr);
@@ -1163,11 +1164,12 @@ static void
 populateLookupTableEntryFromExtensions(ASTContext &ctx,
                                        MemberLookupTable &table,
                                        DeclBaseName name,
+                                       ModuleDecl *useModule,
                                        NominalTypeDecl *nominal) {
   assert(!table.isLazilyComplete(name) &&
          "Should not be searching extensions for complete name!");
 
-  for (auto e : nominal->getExtensions()) {
+  for (auto e : nominal->getExtensions(useModule)) {
     // If there's no lazy members to look at, all the members of this extension
     // are present in the lookup table.
     if (!e->hasLazyMembers()) {
@@ -1182,7 +1184,7 @@ populateLookupTableEntryFromExtensions(ASTContext &ctx,
   }
 }
 
-void NominalTypeDecl::prepareLookupTable() {
+void NominalTypeDecl::prepareLookupTable(const ModuleDecl *M) {
   // If we have already allocated the lookup table, then there's nothing further
   // to do.
   if (LookupTable) {
@@ -1200,7 +1202,7 @@ void NominalTypeDecl::prepareLookupTable() {
     LookupTable->addMembers(getMembers());
   }
 
-  for (auto e : getExtensions()) {
+  for (auto e : getExtensions(M)) {
     // If we can lazy-load this extension, only take the members we've loaded
     // so far.
     if (e->wasDeserialized() || e->hasClangNode()) {
@@ -1236,10 +1238,10 @@ maybeFilterOutAttrImplements(TinyPtrVector<ValueDecl *> decls,
 }
 
 TinyPtrVector<ValueDecl *>
-NominalTypeDecl::lookupDirect(DeclName name,
+NominalTypeDecl::lookupDirect(DeclName name, const DeclContext *useDC,
                               OptionSet<LookupDirectFlags> flags) {
   return evaluateOrDefault(getASTContext().evaluator,
-                           DirectLookupRequest({this, name, flags}), {});
+                           DirectLookupRequest({this, name, useDC, flags}), {});
 }
 
 llvm::Expected<TinyPtrVector<ValueDecl *>>
@@ -1248,6 +1250,7 @@ DirectLookupRequest::evaluate(Evaluator &evaluator,
   const auto &name = desc.Name;
   const auto flags = desc.Options;
   auto *decl = desc.DC;
+  auto *M = desc.UseDC->getParentModule();
 
   // We only use NamedLazyMemberLoading when a user opts-in and we have
   // not yet loaded all the members into the IDC list in the first place.
@@ -1266,7 +1269,7 @@ DirectLookupRequest::evaluate(Evaluator &evaluator,
                           << useNamedLazyMemberLoading
                           << "\n");
 
-  decl->prepareLookupTable();
+  decl->prepareLookupTable(M);
 
   auto &Table = *decl->LookupTable;
   if (!useNamedLazyMemberLoading) {
@@ -1275,7 +1278,7 @@ DirectLookupRequest::evaluate(Evaluator &evaluator,
     (void)decl->getMembers();
 
     if (!disableAdditionalExtensionLoading) {
-      for (auto E : decl->getExtensions())
+      for (auto E : decl->getExtensions(M))
         (void)E->getMembers();
 
       Table.updateLookupTable(decl);
@@ -1289,7 +1292,7 @@ DirectLookupRequest::evaluate(Evaluator &evaluator,
     populateLookupTableEntryFromLazyIDCLoader(ctx, Table, baseName, decl);
 
     if (!disableAdditionalExtensionLoading) {
-      populateLookupTableEntryFromExtensions(ctx, Table, baseName, decl);
+      populateLookupTableEntryFromExtensions(ctx, Table, baseName, M, decl);
     }
 
     // FIXME: If disableAdditionalExtensionLoading is true, we should
@@ -1650,7 +1653,7 @@ QualifiedLookupRequest::evaluate(Evaluator &eval, const DeclContext *DC,
       }
     } else {
       // Collect the protocols to which the nominal type conforms.
-      for (auto proto : current->getAllProtocols()) {
+      for (auto proto : current->getAllProtocols(DC)) {
         if (visited.insert(proto).second) {
           stack.push_back(proto);
         }

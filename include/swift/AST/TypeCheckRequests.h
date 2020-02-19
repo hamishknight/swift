@@ -1980,7 +1980,7 @@ public:
 /// @dynamicMemberLookup attribute on it.
 class HasDynamicMemberLookupAttributeRequest
     : public SimpleRequest<HasDynamicMemberLookupAttributeRequest,
-                           bool(CanType), CacheKind::Cached> {
+                           bool(CanType, const ModuleDecl *), CacheKind::Cached> {
 public:
   using SimpleRequest::SimpleRequest;
 
@@ -1988,7 +1988,8 @@ private:
   friend SimpleRequest;
 
   // Evaluation.
-  llvm::Expected<bool> evaluate(Evaluator &evaluator, CanType ty) const;
+  llvm::Expected<bool> evaluate(Evaluator &evaluator, CanType ty,
+                                const ModuleDecl *mod) const;
 
 public:
   bool isCached() const {

@@ -4264,16 +4264,17 @@ IsCallableNominalTypeRequest::evaluate(Evaluator &evaluator, CanType ty,
 
 llvm::Expected<bool>
 HasDynamicMemberLookupAttributeRequest::evaluate(Evaluator &evaluator,
-                                                 CanType ty) const {
+                                                 CanType ty,
+                                                 const ModuleDecl *mod) const {
   // If this is an archetype type, check if any types it conforms to
   // (superclass or protocols) have the attribute.
   if (auto archetype = dyn_cast<ArchetypeType>(ty)) {
     for (auto proto : archetype->getConformsTo()) {
-      if (proto->getDeclaredType()->hasDynamicMemberLookupAttribute())
+      if (proto->getDeclaredType()->hasDynamicMemberLookupAttribute(mod))
         return true;
     }
     if (auto superclass = archetype->getSuperclass()) {
-      if (superclass->hasDynamicMemberLookupAttribute())
+      if (superclass->hasDynamicMemberLookupAttribute(mod))
         return true;
     }
   }
@@ -4282,7 +4283,7 @@ HasDynamicMemberLookupAttributeRequest::evaluate(Evaluator &evaluator,
   // attribute.
   if (auto protocolComp = dyn_cast<ProtocolCompositionType>(ty)) {
     for (auto member : protocolComp->getMembers()) {
-      if (member->hasDynamicMemberLookupAttribute())
+      if (member->hasDynamicMemberLookupAttribute(mod))
         return true;
     }
   }
@@ -4298,15 +4299,15 @@ HasDynamicMemberLookupAttributeRequest::evaluate(Evaluator &evaluator,
     return true;
 
   // Check the protocols the type conforms to.
-  for (auto proto : nominal->getAllProtocols()) {
-    if (proto->getDeclaredType()->hasDynamicMemberLookupAttribute())
+  for (auto proto : nominal->getAllProtocols(mod)) {
+    if (proto->getDeclaredType()->hasDynamicMemberLookupAttribute(mod))
       return true;
   }
 
   // Check the superclass if present.
   if (auto classDecl = dyn_cast<ClassDecl>(nominal)) {
     if (auto superclass = classDecl->getSuperclass()) {
-      if (superclass->hasDynamicMemberLookupAttribute())
+      if (superclass->hasDynamicMemberLookupAttribute(mod))
         return true;
     }
   }

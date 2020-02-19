@@ -588,7 +588,7 @@ ConformanceLookupTable::Ordering ConformanceLookupTable::compareConformances(
     // If the explicit protocol for the left-hand side is implied by
     // the explicit protocol for the right-hand side, the left-hand
     // side supersedes the right-hand side.
-    for (auto rhsProtocol : rhsExplicitProtocol->getAllProtocols()) {
+    for (auto rhsProtocol : rhsExplicitProtocol->getAllProtocols(rhsExplicit->getDeclContext())) {
       if (rhsProtocol == lhsExplicitProtocol) {
         return Ordering::Before;
       }
@@ -597,7 +597,7 @@ ConformanceLookupTable::Ordering ConformanceLookupTable::compareConformances(
     // If the explicit protocol for the right-hand side is implied by
     // the explicit protocol for the left-hand side, the right-hand
     // side supersedes the left-hand side.
-    for (auto lhsProtocol : lhsExplicitProtocol->getAllProtocols()) {
+    for (auto lhsProtocol : lhsExplicitProtocol->getAllProtocols(lhsExplicit->getDeclContext())) {
       if (lhsProtocol == rhsExplicitProtocol) {
         return Ordering::After;
       }

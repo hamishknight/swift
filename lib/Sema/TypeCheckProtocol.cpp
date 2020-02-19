@@ -5342,7 +5342,7 @@ swift::findWitnessedObjCRequirements(const ValueDecl *witness,
 
   WitnessChecker::RequirementEnvironmentCache reqEnvCache;
   ASTContext &ctx = nominal->getASTContext();
-  for (auto proto : nominal->getAllProtocols()) {
+  for (auto proto : nominal->getAllProtocols(dc)) {
     // We only care about Objective-C protocols.
     if (!proto->isObjC()) continue;
 

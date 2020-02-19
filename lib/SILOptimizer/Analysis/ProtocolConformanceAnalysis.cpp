@@ -37,7 +37,7 @@ public:
   bool walkToDeclPre(Decl *D) override {
     /// (1) Walk over all NominalTypeDecls to determine conformances.
     if (auto *NTD = dyn_cast<NominalTypeDecl>(D)) {
-      auto Protocols = NTD->getAllProtocols();
+      auto Protocols = NTD->getAllProtocols(NTD);
       for (auto &Protocol : Protocols) {
         if (Protocol->getEffectiveAccess() <= AccessLevel::Internal) {
           ProtocolConformanceCache[Protocol].push_back(NTD);

@@ -729,7 +729,7 @@ FuncDecl *ASTContext::getSequenceMakeIterator(DeclContext *useDC) const {
   if (!proto)
     return nullptr;
 
-  for (auto result : proto->lookupDirect(Id_makeIterator)) {
+  for (auto result : proto->lookupDirect(Id_makeIterator, useDC)) {
     if (result->getDeclContext() != proto)
       continue;
 

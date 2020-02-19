@@ -934,7 +934,7 @@ getPrivateDeclContext(const DeclContext *DC, const SourceFile *useSF) {
 
   // Otherwise use the last extension declaration in the same file.
   const DeclContext *lastExtension = nullptr;
-  for (ExtensionDecl *ED : NTD->getExtensions())
+  for (ExtensionDecl *ED : NTD->getExtensions(useSF))
     if (ED->getParentSourceFile() == useSF)
       lastExtension = ED;
 

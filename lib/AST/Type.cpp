@@ -1483,11 +1483,12 @@ bool TypeBase::isCallableNominalType(DeclContext *dc) {
                            IsCallableNominalTypeRequest{canTy, dc}, false);
 }
 
-bool TypeBase::hasDynamicMemberLookupAttribute() {
+bool TypeBase::hasDynamicMemberLookupAttribute(const DeclContext *dc) {
   auto canTy = getCanonicalType();
   auto &ctx = canTy->getASTContext();
+  auto *mod = dc->getParentModule();
   return evaluateOrDefault(
-      ctx.evaluator, HasDynamicMemberLookupAttributeRequest{canTy}, false);
+      ctx.evaluator, HasDynamicMemberLookupAttributeRequest{canTy, mod}, false);
 }
 
 Type TypeBase::getSuperclass(bool useArchetypes) {

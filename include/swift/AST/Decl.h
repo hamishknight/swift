@@ -3301,7 +3301,7 @@ class NominalTypeDecl : public GenericTypeDecl, public IterableDeclContext {
   MemberLookupTable *LookupTable = nullptr;
 
   /// Prepare the lookup table to make it ready for lookups.
-  void prepareLookupTable();
+  void prepareLookupTable(const ModuleDecl *useModule);
 
   /// Note that we have added a member into the iterable declaration context,
   /// so that it can also be added to the lookup table (if needed).
@@ -3420,6 +3420,7 @@ public:
   /// set of declarations has not been filtered for visibility, nor have
   /// overridden declarations been removed.
   TinyPtrVector<ValueDecl *> lookupDirect(DeclName name,
+                                          const DeclContext *useDC,
                                           OptionSet<LookupDirectFlags> flags =
                                           OptionSet<LookupDirectFlags>());
 

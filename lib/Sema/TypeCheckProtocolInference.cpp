@@ -787,7 +787,7 @@ Type AssociatedTypeInference::computeFixedTypeWitness(
   // require a fixed type for this associated type.
   Type dependentType = assocType->getDeclaredInterfaceType();
   Type resultType;
-  for (auto conformedProto : adoptee->getAnyNominal()->getAllProtocols()) {
+  for (auto conformedProto : adoptee->getAnyNominal()->getAllProtocols(dc)) {
     if (!conformedProto->inheritsFrom(assocType->getProtocol()))
       continue;
 

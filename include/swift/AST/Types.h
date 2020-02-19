@@ -832,7 +832,7 @@ public:
 
   /// Return true if the specified type or a super-class/super-protocol has the
   /// @dynamicMemberLookup attribute on it.
-  bool hasDynamicMemberLookupAttribute();
+  bool hasDynamicMemberLookupAttribute(const DeclContext *dc);
 
   /// Retrieve the superclass of this type.
   ///

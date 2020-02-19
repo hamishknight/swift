@@ -5913,7 +5913,7 @@ performMemberLookup(ConstraintKind constraintKind, DeclNameRef memberName,
     // as representing "dynamic lookup" unless it's a direct call
     // to such subscript (in that case label is expected to match).
     if (auto *subscript = dyn_cast<SubscriptDecl>(cand)) {
-      if (memberLocator && instanceTy->hasDynamicMemberLookupAttribute() &&
+      if (memberLocator && instanceTy->hasDynamicMemberLookupAttribute(DC) &&
           isValidKeyPathDynamicMemberLookup(subscript)) {
         auto info = getArgumentInfo(memberLocator);
 
@@ -6002,7 +6002,7 @@ performMemberLookup(ConstraintKind constraintKind, DeclNameRef memberName,
   // parameter.
   if (constraintKind == ConstraintKind::ValueMember &&
       memberName.isSimpleName() && !memberName.isSpecial() &&
-      instanceTy->hasDynamicMemberLookupAttribute()) {
+      instanceTy->hasDynamicMemberLookupAttribute(DC)) {
     const auto &candidates = result.ViableCandidates;
 
     if ((candidates.empty() ||
@@ -8120,7 +8120,7 @@ getDynamicCallableMethods(Type type, ConstraintSystem &CS,
 
     // If this type conforms to a protocol which has the attribute, then
     // look up the methods.
-    for (auto p : nominal->getAllProtocols())
+    for (auto p : nominal->getAllProtocols(CS.DC))
       if (p->getAttrs().hasAttribute<DynamicCallableAttr>())
         return lookupDynamicCallableMethods(type, CS, locator);
 
