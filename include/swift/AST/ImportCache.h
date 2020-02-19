@@ -24,6 +24,7 @@
 
 namespace swift {
 class DeclContext;
+class LoadedModulesRequest;
 
 namespace namelookup {
 
@@ -101,6 +102,8 @@ public:
 };
 
 class alignas(ModuleDecl::ImportedModule) ImportCache {
+  friend class swift::LoadedModulesRequest;
+
   ImportCache(const ImportCache &) = delete;
   void operator=(const ImportCache &) = delete;
 

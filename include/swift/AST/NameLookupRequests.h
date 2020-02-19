@@ -42,6 +42,7 @@ class ASTScopeImpl;
 class ScopeCreator;
 } // namespace ast_scope
 namespace namelookup {
+class ImportSet;
 enum class ResolutionKind;
 } // namespace namelookup
 
@@ -513,6 +514,23 @@ private:
   // Evaluation.
   llvm::Expected<TinyPtrVector<ValueDecl *>>
   evaluate(Evaluator &evaluator, DirectLookupDescriptor desc) const;
+};
+
+class LoadedModulesRequest : public SimpleRequest<LoadedModulesRequest,
+                                                  bool(const ModuleDecl *), CacheKind::Cached> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  // Evaluation.
+  llvm::Expected<bool>
+  evaluate(Evaluator &evaluator, const ModuleDecl *mod) const;
+
+public:
+  // Cached.
+  bool isCached() const { return true; }
 };
 
 #define SWIFT_TYPEID_ZONE NameLookup

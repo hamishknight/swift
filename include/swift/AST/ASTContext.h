@@ -327,6 +327,8 @@ private:
 
   /// Cache of module names that fail the 'canImport' test in this context.
   llvm::SmallPtrSet<Identifier, 8> FailedModuleImportNames;
+
+  ModuleDecl *MainModule = nullptr;
   
   /// Retrieve the allocator for the given arena.
   llvm::BumpPtrAllocator &
@@ -440,6 +442,14 @@ public:
 
   /// Set a new stats reporter.
   void setStatsReporter(UnifiedStatsReporter *stats);
+
+  void setMainModule(ModuleDecl *mod) {
+    assert(!MainModule);
+    MainModule = mod;
+  }
+  ModuleDecl *getMainModule() const {
+    return MainModule;
+  }
 
 private:
   friend class TypeChecker;
@@ -764,9 +774,9 @@ public:
   /// \returns a module with a given name that was already loaded.  If the
   /// module was not loaded, returns nullptr.
   ModuleDecl *getLoadedModule(
-      ArrayRef<Located<Identifier>> ModulePath) const;
+      ArrayRef<Located<Identifier>> ModulePath, bool canLoad = true) const;
 
-  ModuleDecl *getLoadedModule(Identifier ModuleName) const;
+  ModuleDecl *getLoadedModule(Identifier ModuleName, bool canLoad = true) const;
 
   /// Attempts to load a module into this ASTContext.
   ///

@@ -3704,8 +3704,12 @@ void NominalTypeDecl::prepareExtensions() {
   if (getLocalContext() != nullptr) {
     return;
   }
-  
+
   auto &context = Decl::getASTContext();
+      if (auto *main = context.getMainModule()) {
+  (void)evaluateOrDefault(context.evaluator,
+                          LoadedModulesRequest{main}, false);
+      }
 
   // If our list of extensions is out of date, update it now.
   if (context.getCurrentGeneration() > ExtensionGeneration) {

@@ -71,3 +71,6 @@ SWIFT_REQUEST(NameLookup, UnderlyingTypeDeclsReferencedRequest,
 SWIFT_REQUEST(NameLookup, UnqualifiedLookupRequest,
               LookupResult(UnqualifiedLookupDescriptor), Uncached,
               NoLocationInfo)
+SWIFT_REQUEST(NameLookup, LoadedModulesRequest,
+              namelookup::ImportSet *(const ModuleDecl *), SeparatelyCached,
+              NoLocationInfo)

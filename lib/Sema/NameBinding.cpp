@@ -473,7 +473,7 @@ UnboundImport::getTopLevelModule(ModuleDecl *M, SourceFile &SF) {
 
   // If we imported a submodule, import the top-level module as well.
   Identifier topLevelName = modulePath.front().Item;
-  ModuleDecl *topLevelModule = SF.getASTContext().getLoadedModule(topLevelName);
+  ModuleDecl *topLevelModule = SF.getASTContext().getLoadedModule(topLevelName, /*canLoad*/ false);
 
   if (!topLevelModule) {
     // Clang can sometimes import top-level modules as if they were
@@ -996,6 +996,9 @@ static bool isSubmodule(ModuleDecl* M) {
 }
 
 void NameBinder::addVisibleModules(ImportedModuleDesc importDesc) {
+  if (!SF.shouldCrossImport())
+    return;
+
   // FIXME: namelookup::getAllImports() doesn't quite do what we need (mainly
   // w.r.t. scoped imports), but it seems like we could extend it to do so, and
   // then eliminate most of this.

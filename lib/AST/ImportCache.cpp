@@ -21,6 +21,7 @@
 #include "swift/AST/FileUnit.h"
 #include "swift/AST/ImportCache.h"
 #include "swift/AST/Module.h"
+#include "swift/AST/NameLookupRequests.h"
 
 using namespace swift;
 using namespace namelookup;
@@ -187,6 +188,20 @@ ImportSet &ImportCache::getImportSet(const DeclContext *dc) {
   ImportSetForDC[dc] = &result;
 
   return result;
+}
+
+llvm::Expected<bool> LoadedModulesRequest::evaluate(Evaluator &evaluator, const ModuleDecl *mod) const {
+  auto &ctx = mod->getASTContext();
+  auto &cache = ctx.getImportCache();
+  for (auto *fu : mod->getFiles())
+    (void)cache.getImportSet(fu);
+
+  if (auto *clangLoader = ctx.getClangModuleLoader())
+    if (auto *header = clangLoader->getImportedHeaderModule())
+      for (auto *fu : header->getFiles())
+        (void)cache.getImportSet(fu);
+
+  return true;
 }
 
 ArrayRef<ModuleDecl::AccessPathTy> ImportCache::allocateArray(

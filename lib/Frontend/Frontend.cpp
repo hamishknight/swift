@@ -636,6 +636,8 @@ ModuleDecl *CompilerInstance::getMainModule() const {
 
     if (Invocation.getFrontendOptions().EnableLibraryEvolution)
       MainModule->setResilienceStrategy(ResilienceStrategy::Resilient);
+
+    Context->setMainModule(MainModule);
   }
   return MainModule;
 }

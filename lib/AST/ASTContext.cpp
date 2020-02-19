@@ -34,6 +34,7 @@
 #include "swift/AST/LazyResolver.h"
 #include "swift/AST/ModuleLoader.h"
 #include "swift/AST/NameLookup.h"
+#include "swift/AST/NameLookupRequests.h"
 #include "swift/AST/ParameterList.h"
 #include "swift/AST/PrettyStackTrace.h"
 #include "swift/AST/PropertyWrappers.h"
@@ -1510,17 +1511,22 @@ ClangModuleLoader *ASTContext::getDWARFModuleLoader() const {
 }
 
 ModuleDecl *ASTContext::getLoadedModule(
-    ArrayRef<Located<Identifier>> ModulePath) const {
+    ArrayRef<Located<Identifier>> ModulePath, bool canLoad) const {
   assert(!ModulePath.empty());
 
   // TODO: Swift submodules.
   if (ModulePath.size() == 1) {
-    return getLoadedModule(ModulePath[0].Item);
+    return getLoadedModule(ModulePath[0].Item, canLoad);
   }
   return nullptr;
 }
 
-ModuleDecl *ASTContext::getLoadedModule(Identifier ModuleName) const {
+ModuleDecl *ASTContext::getLoadedModule(Identifier ModuleName, bool canLoad) const {
+  if (canLoad && getMainModule()) {
+    auto *mutableThis = const_cast<ASTContext *>(this);
+    (void)evaluateOrDefault(mutableThis->evaluator,
+                            LoadedModulesRequest{getMainModule()}, false);
+  }
   return LoadedModules.lookup(ModuleName);
 }
 
@@ -1767,7 +1773,7 @@ bool ASTContext::shouldPerformTypoCorrection() {
 
 bool ASTContext::canImportModule(Located<Identifier> ModulePath) {
   // If this module has already been successfully imported, it is importable.
-  if (getLoadedModule(ModulePath) != nullptr)
+  if (getLoadedModule(ModulePath, /*canLoad*/ false) != nullptr)
     return true;
 
   // If we've failed loading this module before, don't look for it again.
@@ -1789,7 +1795,7 @@ ModuleDecl *
 ASTContext::getModule(ArrayRef<Located<Identifier>> ModulePath) {
   assert(!ModulePath.empty());
 
-  if (auto *M = getLoadedModule(ModulePath))
+  if (auto *M = getLoadedModule(ModulePath, /*canLoad*/ false))
     return M;
 
   auto moduleID = ModulePath[0];
@@ -1822,7 +1828,7 @@ ModuleDecl *ASTContext::getStdlibModule(bool loadIfAbsent) {
     TheStdlibModule =
       mutableThis->getModule({ Located<Identifier>(StdlibModuleName, SourceLoc()) });
   } else {
-    TheStdlibModule = getLoadedModule(StdlibModuleName);
+    TheStdlibModule = getLoadedModule(StdlibModuleName, /*canLoad*/ false);
   }
   return TheStdlibModule;
 }
