@@ -26,6 +26,7 @@
 #include "swift/AST/LinkLibrary.h"
 #include "swift/AST/Module.h"
 #include "swift/AST/NameLookup.h"
+#include "swift/AST/NameLookupRequests.h"
 #include "swift/AST/Types.h"
 #include "swift/Basic/Defer.h"
 #include "swift/Basic/Platform.h"
@@ -1789,6 +1790,7 @@ ModuleDecl *ClangImporter::Implementation::finishLoadingClangModule(
     if (!loaded)
       loaded = result;
   }
+  evaluateOrDefault(SwiftContext.evaluator, LoadedModulesRequest{result}, false);
   return result;
 }
 
@@ -1961,7 +1963,8 @@ ClangModuleUnit *ClangImporter::Implementation::getWrapperForModule(
   auto file = new (SwiftContext) ClangModuleUnit(*wrapper, *this,
                                                  underlying);
   wrapper->addFile(*file);
-  SwiftContext.getClangModuleLoader()->findOverlayFiles(importLoc, wrapper, file);
+  SwiftContext.getClangModuleLoader()->findOverlayFiles(importLoc, wrapper,
+                                                        file);
   cacheEntry = file;
 
   return file;

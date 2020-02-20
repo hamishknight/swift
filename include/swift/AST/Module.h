@@ -496,6 +496,9 @@ public:
   void
   getImportedModulesForLookup(SmallVectorImpl<ImportedModule> &imports) const;
 
+  void
+  getImportedModulesForLoading(SmallVectorImpl<ImportedModule> &imports) const;
+
   /// Uniques the items in \p imports, ignoring the source locations of the
   /// access paths.
   ///

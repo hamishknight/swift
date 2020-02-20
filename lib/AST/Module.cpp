@@ -1185,9 +1185,19 @@ SourceFile::getImportedModules(SmallVectorImpl<ModuleDecl::ImportedModule> &modu
   }
 }
 
+void SourceFile::getImportedModulesForLoading(SmallVectorImpl<ModuleDecl::ImportedModule> &modules) const {
+  assert(ASTStage >= NameBound);
+  for (auto &desc : Imports) 
+    modules.push_back(desc.module);
+}
+
 void ModuleDecl::getImportedModulesForLookup(
     SmallVectorImpl<ImportedModule> &modules) const {
   FORWARD(getImportedModulesForLookup, (modules));
+}
+
+void ModuleDecl::getImportedModulesForLoading(SmallVectorImpl<ImportedModule> &modules) const {
+  FORWARD(getImportedModulesForLoading, (modules));
 }
 
 bool ModuleDecl::isSameAccessPath(AccessPathTy lhs, AccessPathTy rhs) {

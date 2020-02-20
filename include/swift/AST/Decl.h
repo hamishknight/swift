@@ -3000,6 +3000,10 @@ public:
   Type getUnderlyingType() const;
   void setUnderlyingType(Type type);
 
+  Type getCachedUnderlyingType() const {
+    return UnderlyingTy.getType();
+  }
+
   /// For generic typealiases, return the unbound generic type.
   UnboundGenericType *getUnboundGenericType() const;
 

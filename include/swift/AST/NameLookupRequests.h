@@ -517,7 +517,8 @@ private:
 };
 
 class LoadedModulesRequest : public SimpleRequest<LoadedModulesRequest,
-                                                  bool(const ModuleDecl *), CacheKind::Cached> {
+                                                  bool(const ModuleDecl *),
+                                                  CacheKind::Cached> {
 public:
   using SimpleRequest::SimpleRequest;
 

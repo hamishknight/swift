@@ -1022,6 +1022,12 @@ void SerializedASTFile::getImportedModules(
   File.getImportedModules(imports, filter);
 }
 
+void SerializedASTFile::getImportedModulesForLoading(SmallVectorImpl<ModuleDecl::ImportedModule> &imports) const {
+  for (auto &dep : File.Dependencies)
+    if (dep.isLoaded())
+      imports.push_back(dep.Import);
+}
+
 void SerializedASTFile::collectLinkLibrariesFromImports(
     ModuleDecl::LinkLibraryCallback callback) const {
   ModuleDecl::ImportFilter ImportFilter;

@@ -391,6 +391,9 @@ public:
                      ModuleDecl::ImportFilter filter) const override;
 
   virtual void
+  getImportedModulesForLoading(SmallVectorImpl<ModuleDecl::ImportedModule> &imports) const override;
+
+  virtual void
   collectLinkLibraries(ModuleDecl::LinkLibraryCallback callback) const override;
 
   Identifier getDiscriminatorForPrivateValue(const ValueDecl *D) const override;

@@ -191,16 +191,18 @@ ImportSet &ImportCache::getImportSet(const DeclContext *dc) {
 }
 
 llvm::Expected<bool> LoadedModulesRequest::evaluate(Evaluator &evaluator, const ModuleDecl *mod) const {
-  auto &ctx = mod->getASTContext();
-  auto &cache = ctx.getImportCache();
-  for (auto *fu : mod->getFiles())
-    (void)cache.getImportSet(fu);
+  llvm::SmallDenseSet<ModuleDecl::ImportedModule, 32> visited;
 
-  if (auto *clangLoader = ctx.getClangModuleLoader())
-    if (auto *header = clangLoader->getImportedHeaderModule())
-      for (auto *fu : header->getFiles())
-        (void)cache.getImportSet(fu);
+  SmallVector<ModuleDecl::ImportedModule, 4> stack;
+  stack.push_back({/*accessPath*/ {}, const_cast<ModuleDecl *>(mod)});
 
+  while (!stack.empty()) {
+    auto next = stack.pop_back_val();
+    if (!visited.insert(next).second)
+      continue;
+
+    next.second->getImportedModulesForLoading(stack);
+  }
   return true;
 }
 
