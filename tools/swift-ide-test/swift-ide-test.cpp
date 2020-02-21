@@ -2184,9 +2184,6 @@ static int doPrintModules(const CompilerInvocation &InitInvok,
       GroupNames.push_back(G);
     }
 
-    // Make sure to load in the modules we need to load in.
-    evaluateOrDefault(Context.evaluator, LoadedModulesRequest{M}, false);
-
     printSubmoduleInterface(M, ModuleName, GroupNames, TraversalOptions,
                             *Printer, Options, SynthesizeExtensions);
   }

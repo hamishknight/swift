@@ -353,8 +353,7 @@ public:
   getImportedModules(SmallVectorImpl<ModuleDecl::ImportedModule> &imports,
                      ModuleDecl::ImportFilter filter) const override;
 
-  virtual void
-  getImportedModulesForLoading(SmallVectorImpl<ModuleDecl::ImportedModule> &imports) const override;
+  virtual void loadImportedModules() const override;
 
   virtual void
   collectLinkLibraries(ModuleDecl::LinkLibraryCallback callback) const override;

@@ -14,6 +14,7 @@
 #include "ModuleFile.h"
 #include "swift/AST/ASTContext.h"
 #include "swift/AST/DiagnosticsSema.h"
+#include "swift/AST/NameLookupRequests.h"
 #include "swift/Basic/Defer.h"
 #include "swift/Basic/FileTypes.h"
 #include "swift/Basic/Platform.h"
@@ -1022,10 +1023,14 @@ void SerializedASTFile::getImportedModules(
   File.getImportedModules(imports, filter);
 }
 
-void SerializedASTFile::getImportedModulesForLoading(SmallVectorImpl<ModuleDecl::ImportedModule> &imports) const {
-  for (auto &dep : File.Dependencies)
-    if (dep.isLoaded())
-      imports.push_back(dep.Import);
+void SerializedASTFile::loadImportedModules() const {
+  auto &ctx = getASTContext();
+  for (auto &dep : File.Dependencies) {
+    if (dep.isLoaded()) {
+      evaluateOrDefault(ctx.evaluator, LoadedModulesRequest{dep.Import.second},
+                        false);
+    }
+  }
 }
 
 void SerializedASTFile::collectLinkLibrariesFromImports(

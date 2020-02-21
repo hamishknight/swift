@@ -30,6 +30,7 @@
 #include "swift/AST/LinkLibrary.h"
 #include "swift/AST/ModuleLoader.h"
 #include "swift/AST/NameLookup.h"
+#include "swift/AST/NameLookupRequests.h"
 #include "swift/AST/ReferencedNameTracker.h"
 #include "swift/AST/PrettyStackTrace.h"
 #include "swift/AST/PrintOptions.h"
@@ -1185,19 +1186,29 @@ SourceFile::getImportedModules(SmallVectorImpl<ModuleDecl::ImportedModule> &modu
   }
 }
 
-void SourceFile::getImportedModulesForLoading(SmallVectorImpl<ModuleDecl::ImportedModule> &modules) const {
+void SourceFile::loadImportedModules() const {
   assert(ASTStage >= NameBound);
-  for (auto &desc : Imports) 
-    modules.push_back(desc.module);
+  auto &ctx = getASTContext();
+  for (auto &desc : Imports)  {
+    evaluateOrDefault(ctx.evaluator, LoadedModulesRequest{desc.module.second},
+                      false);
+  }
+}
+
+void FileUnit::loadImportedModules() const {
+  SmallVector<ModuleDecl::ImportedModule, 32> imports;
+  getImportedModulesForLookup(imports);
+
+  auto &ctx = getASTContext();
+  for (auto &import : imports) {
+    evaluateOrDefault(ctx.evaluator, LoadedModulesRequest{import.second},
+                      false);
+  }
 }
 
 void ModuleDecl::getImportedModulesForLookup(
     SmallVectorImpl<ImportedModule> &modules) const {
   FORWARD(getImportedModulesForLookup, (modules));
-}
-
-void ModuleDecl::getImportedModulesForLoading(SmallVectorImpl<ImportedModule> &modules) const {
-  FORWARD(getImportedModulesForLoading, (modules));
 }
 
 bool ModuleDecl::isSameAccessPath(AccessPathTy lhs, AccessPathTy rhs) {

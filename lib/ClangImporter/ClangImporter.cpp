@@ -1790,7 +1790,6 @@ ModuleDecl *ClangImporter::Implementation::finishLoadingClangModule(
     if (!loaded)
       loaded = result;
   }
-  evaluateOrDefault(SwiftContext.evaluator, LoadedModulesRequest{result}, false);
   return result;
 }
 

@@ -215,9 +215,7 @@ public:
     return getImportedModules(imports, ModuleDecl::ImportFilterKind::Public);
   }
 
-  virtual void getImportedModulesForLoading(SmallVectorImpl<ModuleDecl::ImportedModule> &imports) const {
-    getImportedModulesForLookup(imports);
-  }
+  virtual void loadImportedModules() const;
 
   /// Generates the list of libraries needed to link this file, based on its
   /// imports.

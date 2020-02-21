@@ -191,18 +191,9 @@ ImportSet &ImportCache::getImportSet(const DeclContext *dc) {
 }
 
 llvm::Expected<bool> LoadedModulesRequest::evaluate(Evaluator &evaluator, const ModuleDecl *mod) const {
-  llvm::SmallDenseSet<ModuleDecl::ImportedModule, 32> visited;
-
-  SmallVector<ModuleDecl::ImportedModule, 4> stack;
-  stack.push_back({/*accessPath*/ {}, const_cast<ModuleDecl *>(mod)});
-
-  while (!stack.empty()) {
-    auto next = stack.pop_back_val();
-    if (!visited.insert(next).second)
-      continue;
-
-    next.second->getImportedModulesForLoading(stack);
-  }
+  assert(mod);
+  for (auto *fu : mod->getFiles())
+    fu->loadImportedModules();
   return true;
 }
 
