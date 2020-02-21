@@ -71,3 +71,12 @@ SWIFT_REQUEST(NameLookup, UnderlyingTypeDeclsReferencedRequest,
 SWIFT_REQUEST(NameLookup, UnqualifiedLookupRequest,
               LookupResult(UnqualifiedLookupDescriptor), Uncached,
               NoLocationInfo)
+SWIFT_REQUEST(NameLookup, GetModuleRequest,
+              ModuleDecl *(const ASTContext *, ArrayRef<Located<Identifier>>, bool), SeparatelyCached,
+              NoLocationInfo)
+SWIFT_REQUEST(NameLookup, ModuleDependencyGraphRequest,
+              ArrayRef<ModuleDecl::ImportedModule>(ModuleDecl *), Cached,
+              NoLocationInfo)
+SWIFT_REQUEST(NameLookup, ModuleDependencyGraphRequest,
+              llvm::DenseMap<ModuleDecl *, ArrayRef<ModuleDecl::ImportedModule>>(ModuleDecl *), Cached,
+              NoLocationInfo)

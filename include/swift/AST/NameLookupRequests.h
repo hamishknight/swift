@@ -515,6 +515,62 @@ private:
   evaluate(Evaluator &evaluator, DirectLookupDescriptor desc) const;
 };
 
+class GetModuleRequest : public SimpleRequest<GetModuleRequest, ModuleDecl *(const ASTContext *, ArrayRef<Located<Identifier>>, /*preferClang*/ bool), CacheKind::SeparatelyCached> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  // Evaluation.
+  llvm::Expected<ModuleDecl *> evaluate(Evaluator &evaluator,
+                                        const ASTContext *ctx,
+                                        ArrayRef<Located<Identifier>> modulePath,
+                                        bool preferClang) const;
+
+public:
+  // Separate caching.
+  bool isCached() const { return true; }
+  Optional<ModuleDecl *> getCachedResult() const;
+
+  // Caching currently handled by the module loaders.
+  void cacheResult(ModuleDecl *module) const {}
+};
+
+class ImportedModulesRequest : public SimpleRequest<ImportedModulesRequest, ArrayRef<ModuleDecl::ImportedModule>(ModuleDecl *), CacheKind::Cached> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  // Evaluation.
+  llvm::Expected<ArrayRef<ModuleDecl::ImportedModule>>
+  evaluate(Evaluator &evaluator, ModuleDecl *mod) const;
+
+public:
+  // Cached.
+  bool isCached() const { return true; }
+};
+
+class ModuleDependencyGraphRequest : public SimpleRequest<ModuleDependencyGraphRequest, llvm::DenseMap<ModuleDecl *, ArrayRef<ModuleDecl::ImportedModule>>(ModuleDecl *), CacheKind::Cached> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  // Evaluation.
+  llvm::Expected<llvm::DenseMap<ModuleDecl *, ArrayRef<ModuleDecl::ImportedModule>>>
+  evaluate(Evaluator &evaluator, ModuleDecl *mod) const;
+
+public:
+  // Cached.
+  bool isCached() const { return true; }
+};
+
+SourceLoc extractNearestSourceLoc(ArrayRef<Located<Identifier>> modulePath);
+
 #define SWIFT_TYPEID_ZONE NameLookup
 #define SWIFT_TYPEID_HEADER "swift/AST/NameLookupTypeIDZone.def"
 #include "swift/Basic/DefineTypeIDZone.h"

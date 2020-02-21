@@ -1995,19 +1995,6 @@ ModuleDecl *ModuleFile::getModule(ArrayRef<Identifier> name,
   if (name.empty() || name.front().empty())
     return getContext().TheBuiltinModule;
 
-  // FIXME: duplicated from NameBinder::getModule
-  if (name.size() == 1 &&
-      name.front() == FileContext->getParentModule()->getName()) {
-    if (!UnderlyingModule && allowLoading) {
-      auto importer = getContext().getClangModuleLoader();
-      assert(importer && "no way to import shadowed module");
-      UnderlyingModule = importer->loadModule(SourceLoc(),
-                                              {{name.front(), SourceLoc()}});
-    }
-
-    return UnderlyingModule;
-  }
-
   SmallVector<ImportDecl::AccessPathElement, 4> importPath;
   for (auto pathElem : name)
     importPath.push_back({ pathElem, SourceLoc() });

@@ -51,6 +51,16 @@ bool operator ==(const Located<T> &lhs, const Located<T> &rhs) {
   return lhs.Item == rhs.Item && lhs.Loc == rhs.Loc;
 }
 
+template<typename T>
+void simple_display(llvm::raw_ostream &out, const Located<T> &val) {
+  simple_display(out, val.Item);
+}
+
+template<typename T>
+llvm::hash_code hash_value(const Located<T> &val) {
+  return llvm::hash_combine(val.Item, val.Loc);
+}
+
 } // end namespace swift
 
 namespace llvm {

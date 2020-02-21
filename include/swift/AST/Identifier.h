@@ -183,6 +183,10 @@ public:
     return Identifier((const char*)Val);
   }
 
+  friend llvm::hash_code hash_value(Identifier identifier) {
+    return llvm::hash_value(identifier.getAsOpaquePointer());
+  }
+
 private:
   bool isOperatorSlow() const;
 };

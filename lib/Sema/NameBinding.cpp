@@ -21,6 +21,7 @@
 #include "swift/AST/ModuleLoader.h"
 #include "swift/AST/ModuleNameLookup.h"
 #include "swift/AST/NameLookup.h"
+#include "swift/AST/NameLookupRequests.h"
 #include "swift/AST/SourceFile.h"
 #include "swift/AST/SubstitutionMap.h"
 #include "swift/Basic/Statistic.h"
@@ -449,19 +450,6 @@ ModuleDecl *NameBinder::getModule(ArrayRef<Located<Identifier>> modulePath) {
   if ((SF.Kind == SourceFileKind::SIL || SF.Kind == SourceFileKind::REPL) &&
       moduleID.Item == ctx.TheBuiltinModule->getName())
     return ctx.TheBuiltinModule;
-
-  // If the imported module name is the same as the current module,
-  // skip the Swift module loader and use the Clang module loader instead.
-  // This allows a Swift module to extend a Clang module of the same name.
-  //
-  // FIXME: We'd like to only use this in SIL mode, but unfortunately we use it
-  // for clang overlays as well.
-  if (moduleID.Item == SF.getParentModule()->getName() &&
-      modulePath.size() == 1) {
-    if (auto importer = ctx.getClangModuleLoader())
-      return importer->loadModule(moduleID.Loc, modulePath);
-    return nullptr;
-  }
 
   return ctx.getModule(modulePath);
 }
@@ -999,6 +987,8 @@ void NameBinder::addVisibleModules(ImportedModuleDesc importDesc) {
   // FIXME: namelookup::getAllImports() doesn't quite do what we need (mainly
   // w.r.t. scoped imports), but it seems like we could extend it to do so, and
   // then eliminate most of this.
+  if (!SF.shouldCrossImport())
+    return;
 
   SmallVector<ImportedModule, 16> importsWorklist = { importDesc.module };
 
@@ -1040,4 +1030,15 @@ LLVM_ATTRIBUTE_USED static void dumpCrossImportOverlays(ModuleDecl* M) {
 
   for (auto secondary : secondaries)
     llvm::dbgs() << "  " << secondary << "\n";
+}
+
+llvm::Expected<ArrayRef<ModuleDecl::ImportedModule>>
+ImportedModulesRequest::evaluate(Evaluator &evaluator, ModuleDecl *mod) const {
+
+}
+
+llvm::Expected<llvm::DenseMap<ModuleDecl *, ArrayRef<ModuleDecl::ImportedModule>>>
+ModuleDependencyGraphRequest::evaluate(Evaluator &evaluator, ModuleDecl *mod) const {
+//  SmallVector<ModuleDecl::ImportedModule, 64> stack;
+//  while (!stack.emp)
 }

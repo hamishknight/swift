@@ -979,7 +979,7 @@ namespace {
       if (P->isAutoClosure())
         OS << " autoclosure";
 
-      if (P->isNonEphemeral())
+      if (P->getAttrs().hasAttribute<NonEphemeralAttr>())
         OS << " nonEphemeral";
 
       if (P->getDefaultArgumentKind() != DefaultArgumentKind::None) {

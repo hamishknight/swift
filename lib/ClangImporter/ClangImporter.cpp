@@ -1752,8 +1752,7 @@ ModuleDecl *ClangImporter::Implementation::loadModuleClang(
   if (!clangModule)
     return nullptr;
 
-  return finishLoadingClangModule(importLoc, clangModule,
-                                  /*preferOverlay=*/false);
+  return finishLoadingClangModule(importLoc, clangModule);
 }
 
 ModuleDecl *
@@ -1773,59 +1772,28 @@ ModuleDecl *ClangImporter::Implementation::loadModule(
 }
 
 ModuleDecl *ClangImporter::Implementation::finishLoadingClangModule(
-    SourceLoc importLoc, const clang::Module *clangModule, bool findOverlay) {
+    SourceLoc importLoc, const clang::Module *clangModule) {
   assert(clangModule);
 
   // Bump the generation count.
   bumpGeneration();
 
-  auto &cacheEntry = ModuleWrappers[clangModule];
-  ModuleDecl *result;
-  ClangModuleUnit *wrapperUnit;
-  if ((wrapperUnit = cacheEntry.getPointer())) {
-    result = wrapperUnit->getParentModule();
-    if (!cacheEntry.getInt()) {
-      // Force load overlays for all imported modules.
-      // FIXME: This forces the creation of wrapper modules for all imports as
-      // well, and may do unnecessary work.
-      cacheEntry.setInt(true);
-      (void) namelookup::getAllImports(result);
-    }
-  } else {
-    // Build the representation of the Clang module in Swift.
-    // FIXME: The name of this module could end up as a key in the ASTContext,
-    // but that's not correct for submodules.
-    Identifier name = SwiftContext.getIdentifier((*clangModule).Name);
-    result = ModuleDecl::create(name, SwiftContext);
-    result->setIsSystemModule(clangModule->IsSystem);
-    result->setIsNonSwiftModule();
-    result->setHasResolvedImports();
-
-    wrapperUnit =
-      new (SwiftContext) ClangModuleUnit(*result, *this, clangModule);
-    result->addFile(*wrapperUnit);
-    SwiftContext.getClangModuleLoader()
-        ->findOverlayFiles(importLoc, result, wrapperUnit);
-    cacheEntry.setPointerAndInt(wrapperUnit, true);
-
-    // Force load overlays for all imported modules.
-    // FIXME: This forces the creation of wrapper modules for all imports as
-    // well, and may do unnecessary work.
-    (void) namelookup::getAllImports(result);
-  }
+  auto *wrapperUnit = getWrapperForModule(clangModule, importLoc);
+  ModuleDecl *result = wrapperUnit->getParentModule();
 
   if (clangModule->isSubModule()) {
-    finishLoadingClangModule(importLoc, clangModule->getTopLevelModule(), true);
+    auto *topLevel = clangModule->getTopLevelModule();
+    (void)getWrapperForModule(topLevel, importLoc)->getOverlayModule();
+    return finishLoadingClangModule(importLoc, topLevel);
   } else {
     ModuleDecl *&loaded = SwiftContext.LoadedModules[result->getName()];
     if (!loaded)
       loaded = result;
   }
-
-  if (findOverlay)
-    if (ModuleDecl *overlay = wrapperUnit->getOverlayModule())
-      result = overlay;
-
+  // Make sure to load any dependencies.
+//  SmallVector<ModuleDecl::ImportedModule, 32> imports;
+//  result->getImportedModulesForLookup(imports);
+  (void)namelookup::getAllImports(result);
   return result;
 }
 
@@ -1849,8 +1817,9 @@ void ClangImporter::Implementation::handleDeferredImports(SourceLoc diagLoc) {
   // officially supported with bridging headers: app targets and unit tests
   // only. Unfortunately that's not enforced.
   for (size_t i = 0; i < ImportedHeaderExports.size(); ++i) {
-    (void)finishLoadingClangModule(diagLoc, ImportedHeaderExports[i],
-                                   /*preferOverlay=*/true);
+    auto *module = ImportedHeaderExports[i];
+    (void)getWrapperForModule(module)->getOverlayModule();
+    (void)finishLoadingClangModule(diagLoc, module);
   }
 }
 
@@ -1982,9 +1951,9 @@ ClangImporter::Implementation::~Implementation() {
 }
 
 ClangModuleUnit *ClangImporter::Implementation::getWrapperForModule(
-    const clang::Module *underlying) {
-  auto &cacheEntry = ModuleWrappers[underlying];
-  if (ClangModuleUnit *cached = cacheEntry.getPointer())
+    const clang::Module *underlying, SourceLoc importLoc) {
+  auto *&cacheEntry = ModuleWrappers[underlying];
+  if (auto *cached = cacheEntry)
     return cached;
 
   // FIXME: Handle hierarchical names better.
@@ -1997,8 +1966,8 @@ ClangModuleUnit *ClangImporter::Implementation::getWrapperForModule(
   auto file = new (SwiftContext) ClangModuleUnit(*wrapper, *this,
                                                  underlying);
   wrapper->addFile(*file);
-  SwiftContext.getClangModuleLoader()->findOverlayFiles(SourceLoc(), wrapper, file);
-  cacheEntry.setPointer(file);
+  SwiftContext.getClangModuleLoader()->findOverlayFiles(importLoc, wrapper, file);
+  cacheEntry = file;
 
   return file;
 }

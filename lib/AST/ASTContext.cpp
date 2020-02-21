@@ -34,6 +34,7 @@
 #include "swift/AST/LazyResolver.h"
 #include "swift/AST/ModuleLoader.h"
 #include "swift/AST/NameLookup.h"
+#include "swift/AST/NameLookupRequests.h"
 #include "swift/AST/ParameterList.h"
 #include "swift/AST/PrettyStackTrace.h"
 #include "swift/AST/PropertyWrappers.h"
@@ -1788,18 +1789,15 @@ bool ASTContext::canImportModule(Located<Identifier> ModulePath) {
 ModuleDecl *
 ASTContext::getModule(ArrayRef<Located<Identifier>> ModulePath) {
   assert(!ModulePath.empty());
-
-  if (auto *M = getLoadedModule(ModulePath))
-    return M;
-
   auto moduleID = ModulePath[0];
-  for (auto &importer : getImpl().ModuleLoaders) {
-    if (ModuleDecl *M = importer->loadModule(moduleID.Loc, ModulePath)) {
-      return M;
-    }
-  }
 
-  return nullptr;
+  // If we're currently loading a Swift module with this path, then try looking
+  // for a Clang module first.
+  auto req = GetModuleRequest{this, moduleID, /*preferClang*/ false};
+  if (evaluator.hasActiveRequest(req))
+    return evaluateOrDefault(evaluator, GetModuleRequest{this, moduleID, /*preferClang*/ true}, nullptr);
+
+  return evaluateOrDefault(evaluator, req, nullptr);
 }
 
 ModuleDecl *ASTContext::getModuleByName(StringRef ModuleName) {
@@ -1811,6 +1809,31 @@ ModuleDecl *ASTContext::getModuleByName(StringRef ModuleName) {
     AccessPath.push_back({ getIdentifier(SubModuleName), SourceLoc() });
   }
   return getModule(AccessPath);
+}
+
+llvm::Expected<ModuleDecl *> GetModuleRequest::evaluate(Evaluator &evaluator, const ASTContext *ctx, ArrayRef<Located<Identifier>> modulePath, bool preferClang) const {
+  assert(!modulePath.empty());
+  auto moduleID = modulePath[0];
+
+  // If we've been asked to prefer a Clang module, try the Clang importer first.
+  auto *clangLoader = ctx->getClangModuleLoader();
+  if (preferClang && clangLoader) {
+    if (auto *mod = clangLoader->loadModule(moduleID.Loc, modulePath))
+      return mod;
+  }
+
+  // Otherwise check each loader in turn.
+  for (auto &importer : ctx->getImpl().ModuleLoaders) {
+    // If this is the Clang importer, and we've already checked it, don't bother
+    // checking again.
+    if (preferClang && importer.get() == clangLoader)
+      continue;
+
+    if (auto *mod = importer->loadModule(moduleID.Loc, modulePath)) {
+      return mod;
+    }
+  }
+  return nullptr;
 }
 
 ModuleDecl *ASTContext::getStdlibModule(bool loadIfAbsent) {

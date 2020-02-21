@@ -206,6 +206,23 @@ SourceLoc swift::extractNearestSourceLoc(const DirectLookupDescriptor &desc) {
   return extractNearestSourceLoc(desc.DC);
 }
 
+//----------------------------------------------------------------------------//
+// GetModuleRequest computation.
+//----------------------------------------------------------------------------//
+
+Optional<ModuleDecl *> GetModuleRequest::getCachedResult() const {
+  auto *ctx = std::get<0>(getStorage());
+  auto modulePath = std::get<1>(getStorage());
+  if (auto *mod = ctx->getLoadedModule(modulePath))
+    return mod;
+  return None;
+}
+
+SourceLoc swift::extractNearestSourceLoc(ArrayRef<Located<Identifier>> modulePath) {
+  assert(!modulePath.empty());
+  return modulePath[0].Loc;
+}
+
 // Define request evaluation functions for each of the name lookup requests.
 static AbstractRequestFunction *nameLookupRequestFunctions[] = {
 #define SWIFT_REQUEST(Zone, Name, Sig, Caching, LocOptions)                    \

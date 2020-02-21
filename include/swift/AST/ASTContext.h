@@ -995,6 +995,10 @@ private:
   friend SILBoxType;
 };
 
+inline void simple_display(llvm::raw_ostream &out, const ASTContext *ctx) {
+  // Nothing meaningful to print.
+}
+
 } // end namespace swift
 
 #endif
