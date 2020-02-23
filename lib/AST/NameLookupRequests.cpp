@@ -223,6 +223,18 @@ SourceLoc swift::extractNearestSourceLoc(ArrayRef<Located<Identifier>> modulePat
   return modulePath[0].Loc;
 }
 
+//----------------------------------------------------------------------------//
+// ModuleDependencyGraphRequest computation.
+//----------------------------------------------------------------------------//
+
+bool ModuleDependencyGraphRequest::isCached() const {
+  // Only cache the entire graph for the root module.
+  auto *mod = std::get<0>(getStorage());
+  auto &ctx = mod->getASTContext();
+  return mod == ctx.getRootModule();
+}
+
+
 // Define request evaluation functions for each of the name lookup requests.
 static AbstractRequestFunction *nameLookupRequestFunctions[] = {
 #define SWIFT_REQUEST(Zone, Name, Sig, Caching, LocOptions)                    \

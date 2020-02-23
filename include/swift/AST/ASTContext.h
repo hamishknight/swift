@@ -327,6 +327,8 @@ private:
 
   /// Cache of module names that fail the 'canImport' test in this context.
   llvm::SmallPtrSet<Identifier, 8> FailedModuleImportNames;
+
+  ModuleDecl *RootModule = nullptr;
   
   /// Retrieve the allocator for the given arena.
   llvm::BumpPtrAllocator &
@@ -440,6 +442,14 @@ public:
 
   /// Set a new stats reporter.
   void setStatsReporter(UnifiedStatsReporter *stats);
+
+  void setRootModule(ModuleDecl *mod) {
+    assert(!RootModule);
+    RootModule = mod;
+  }
+  ModuleDecl *getRootModule() const {
+    return RootModule;
+  }
 
 private:
   friend class TypeChecker;

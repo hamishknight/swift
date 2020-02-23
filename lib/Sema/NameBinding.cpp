@@ -1034,7 +1034,7 @@ LLVM_ATTRIBUTE_USED static void dumpCrossImportOverlays(ModuleDecl* M) {
 
 llvm::Expected<ArrayRef<ModuleDecl::ImportedModule>>
 ImportedModulesRequest::evaluate(Evaluator &evaluator, ModuleDecl *mod) const {
-
+  
 }
 
 llvm::Expected<llvm::DenseMap<ModuleDecl *, ArrayRef<ModuleDecl::ImportedModule>>>

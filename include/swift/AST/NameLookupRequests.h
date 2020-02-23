@@ -566,7 +566,7 @@ private:
 
 public:
   // Cached.
-  bool isCached() const { return true; }
+  bool isCached() const;
 };
 
 SourceLoc extractNearestSourceLoc(ArrayRef<Located<Identifier>> modulePath);
