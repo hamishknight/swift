@@ -377,7 +377,6 @@ void swift::performWholeModuleTypeChecking(SourceFile &SF) {
   FrontendStatsTracer tracer(Ctx.Stats,
                              "perform-whole-module-type-checking");
   diagnoseObjCMethodConflicts(SF);
-  diagnoseObjCUnsatisfiedOptReqConflicts(SF);
   diagnoseUnintendedObjCMethodOverrides(SF);
 
   // In whole-module mode, import verification is deferred until all files have
