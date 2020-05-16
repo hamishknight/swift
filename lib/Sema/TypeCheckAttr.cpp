@@ -1034,12 +1034,6 @@ void AttributeChecker::visitObjCAttr(ObjCAttr *attr) {
     } else {
       auto func = cast<AbstractFunctionDecl>(D);
 
-      // Trigger lazy loading of any imported members with the same selector.
-      // This ensures we correctly diagnose selector conflicts.
-      if (auto *CD = D->getDeclContext()->getSelfClassDecl()) {
-        (void) CD->lookupDirect(*objcName, !func->isStatic());
-      }
-
       // We have a function. Make sure that the number of parameters
       // matches the "number of colons" in the name.
       auto params = func->getParameters();

@@ -4133,17 +4133,6 @@ namespace {
       }
       decl->setIsObjC(true);
       decl->setIsDynamic(true);
-
-      // If the declaration we attached the 'objc' attribute to is within a
-      // class, record it in the class.
-      if (auto contextTy = decl->getDeclContext()->getDeclaredInterfaceType()) {
-        if (auto classDecl = contextTy->getClassOrBoundGenericClass()) {
-          if (auto method = dyn_cast<AbstractFunctionDecl>(decl)) {
-            if (name)
-              classDecl->recordObjCMethod(method, *name);
-          }
-        }
-      }
     }
 
     /// Add an @objc(name) attribute with the given, optional name expressed as

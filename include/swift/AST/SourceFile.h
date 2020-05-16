@@ -263,15 +263,6 @@ public:
   llvm::DenseMap<ObjCSelector, llvm::TinyPtrVector<AbstractFunctionDecl *>>
     ObjCMethods;
 
-  /// List of Objective-C methods, which is used for checking unintended
-  /// Objective-C overrides.
-  std::vector<AbstractFunctionDecl *> ObjCMethodList;
-
-  using ObjCMethodConflict = std::tuple<ClassDecl *, ObjCSelector, bool>;
-
-  /// List of Objective-C member conflicts we have found during type checking.
-  std::vector<ObjCMethodConflict> ObjCMethodConflicts;
-
   /// Describes what kind of file this is, which can affect some type checking
   /// and other behavior.
   const SourceFileKind Kind;

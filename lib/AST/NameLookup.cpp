@@ -1413,34 +1413,6 @@ ClassDecl::lookupDirect(ObjCSelector selector, bool isInstance) const {
       ObjCMethodDirectLookupRequest{mutableThis, selector, isInstance}, {});
 }
 
-void ClassDecl::recordObjCMethod(AbstractFunctionDecl *method,
-                                 ObjCSelector selector) {
-  if (!ObjCMethodLookup) {
-    prepareObjCMethodLookup();
-  }
-
-  // Record the method.
-  bool isInstanceMethod = method->isObjCInstanceMethod();
-  auto &vec = (*ObjCMethodLookup)[{selector, isInstanceMethod}].Methods;
-
-  // Check whether we have a duplicate. This only checks more than one
-  // element in ill-formed code, so the linear search is acceptable.
-  if (std::find(vec.begin(), vec.end(), method) != vec.end())
-    return;
-
-  if (auto *sf = method->getParentSourceFile()) {
-    if (vec.size() == 1) {
-      // We have a conflict.
-      sf->ObjCMethodConflicts.push_back(std::make_tuple(this, selector,
-                                                        isInstanceMethod));
-    } if (vec.empty()) {
-      sf->ObjCMethodList.push_back(method);
-    }
-  }
-
-  vec.push_back(method);
-}
-
 /// Determine whether the given declaration is an acceptable lookup
 /// result when searching from the given DeclContext.
 static bool isAcceptableLookupResult(const DeclContext *dc,

@@ -1990,27 +1990,6 @@ public:
     if (CD->requiresStoredPropertyInits())
       checkRequiredInClassInits(CD);
 
-    // Compute @objc for each superclass member, to catch selector
-    // conflicts resulting from unintended overrides.
-    //
-    // FIXME: This should be a request so we can measure how much work
-    // we're doing here.
-    CD->walkSuperclasses(
-      [&](ClassDecl *superclass) {
-        if (!superclass->getParentSourceFile())
-          return TypeWalker::Action::Stop;
-
-        for (auto *member : superclass->getMembers()) {
-          if (auto *vd = dyn_cast<ValueDecl>(member)) {
-            if (vd->isPotentiallyOverridable()) {
-              (void) vd->isObjC();
-            }
-          }
-        }
-
-        return TypeWalker::Action::Continue;
-      });
-
     if (auto superclassTy = CD->getSuperclass()) {
       ClassDecl *Super = superclassTy->getClassOrBoundGenericClass();
       bool isInvalidSuperclass = false;

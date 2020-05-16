@@ -4123,9 +4123,6 @@ public:
   TinyPtrVector<AbstractFunctionDecl *> lookupDirect(ObjCSelector selector,
                                                      bool isInstance) const;
 
-  /// Record the presence of an @objc method with the given selector.
-  void recordObjCMethod(AbstractFunctionDecl *method, ObjCSelector selector);
-
   /// Get all the members of this class, synthesizing any implicit members
   /// that appear in the vtable if needed.
   DeclRange getEmittedMembers() const;

@@ -1662,11 +1662,6 @@ void markAsObjC(ValueDecl *D, ObjCReason reason,
       }
     }
 
-    // Record the method in the class, if it's a member of one.
-    if (auto classDecl = D->getDeclContext()->getSelfClassDecl()) {
-      classDecl->recordObjCMethod(method, selector);
-    }
-
     // Record the method in the source file.
     if (auto sourceFile = method->getParentSourceFile()) {
       sourceFile->ObjCMethods[selector].push_back(method);
