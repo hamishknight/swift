@@ -1308,6 +1308,15 @@ public:
       (void) evaluateOrDefault(decl->getASTContext().evaluator,
                                CheckRedeclarationRequest{VD}, {});
 
+      // For an @objc method, also check to see if there are any selector
+      // conflicts.
+      if (auto *afd = dyn_cast<AbstractFunctionDecl>(VD)) {
+        if (afd->isObjC() && afd->getDeclContext()->getSelfClassDecl()) {
+          (void)evaluateOrDefault(Context.evaluator,
+                                  CheckObjCSelectorConflictsRequest{afd}, {});
+        }
+      }
+
       // Compute access level.
       (void) VD->getFormalAccess();
 

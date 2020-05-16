@@ -2456,6 +2456,24 @@ public:
   bool isCached() const { return true; }
 };
 
+class CheckObjCSelectorConflictsRequest
+    : public SimpleRequest<CheckObjCSelectorConflictsRequest,
+                           evaluator::SideEffect(AbstractFunctionDecl *),
+                           RequestFlags::Cached> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  evaluator::SideEffect
+  evaluate(Evaluator &evaluator, AbstractFunctionDecl *method) const;
+
+public:
+  // Cached.
+  bool isCached() const { return true; }
+};
+
 // Allow AnyValue to compare two Type values, even though Type doesn't
 // support ==.
 template<>

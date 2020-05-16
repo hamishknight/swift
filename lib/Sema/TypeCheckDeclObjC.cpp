@@ -1889,40 +1889,55 @@ bool swift::fixDeclarationObjCName(InFlightDiagnostic &diag, const ValueDecl *de
   return false;
 }
 
-namespace {
-  /// Produce a deterministic ordering of the given declarations.
-  struct OrderDeclarations {
-    bool operator()(ValueDecl *lhs, ValueDecl *rhs) const {
-      // If the declarations come from different modules, order based on the
-      // module.
-      ModuleDecl *lhsModule = lhs->getDeclContext()->getParentModule();
-      ModuleDecl *rhsModule = rhs->getDeclContext()->getParentModule();
-      if (lhsModule != rhsModule) {
-        return lhsModule->getName().str() < rhsModule->getName().str();
-      }
+/// Finds the "original" decl for a selector conflict. This is the decl that
+/// we'll emit a note on, with every other decl producing an error.
+static AbstractFunctionDecl *findOriginalForObjCSelectorConflict(
+    const TinyPtrVector<AbstractFunctionDecl *> &methods) {
+  return *std::min_element(
+      methods.begin(), methods.end(),
+      [](AbstractFunctionDecl *lhs, AbstractFunctionDecl *rhs) -> bool {
+        auto *lhsDC = lhs->getDeclContext();
+        auto *rhsDC = rhs->getDeclContext();
 
-      // If the two declarations are in the same source file, order based on
-      // location within that source file.
-      SourceFile *lhsSF = lhs->getDeclContext()->getParentSourceFile();
-      SourceFile *rhsSF = rhs->getDeclContext()->getParentSourceFile();
-      if (lhsSF == rhsSF) {
-        // If only one location is valid, the valid location comes first.
-        if (lhs->getLoc().isValid() != rhs->getLoc().isValid()) {
-          return lhs->getLoc().isValid();
+        auto *lhsSF = lhsDC->getParentSourceFile();
+        auto *rhsSF = rhsDC->getParentSourceFile();
+
+        // Prefer an original decl that isn't in a source file.
+        if (static_cast<bool>(lhsSF) != static_cast<bool>(rhsSF))
+          return static_cast<bool>(rhsSF);
+
+        // Prefer an original decl in a class decl rather than an extension.
+        if (isa<ExtensionDecl>(lhsDC) != isa<ExtensionDecl>(rhsDC))
+          return isa<ExtensionDecl>(rhsDC);
+
+        // If the two declarations are in the same source file, order based on
+        // location within that source file such that the original is the one
+        // defined first.
+        if (lhsSF == rhsSF) {
+          // If only one location is valid, the valid location comes first.
+          if (lhs->getLoc().isValid() != rhs->getLoc().isValid()) {
+            return lhs->getLoc().isValid();
+          }
+
+          // Prefer the declaration that comes first in the source file.
+          const auto &SrcMgr = lhsSF->getASTContext().SourceMgr;
+          return SrcMgr.isBeforeInBuffer(lhs->getLoc(), rhs->getLoc());
         }
 
-        // Prefer the declaration that comes first in the source file.
-        const auto &SrcMgr = lhsSF->getASTContext().SourceMgr;
-        return SrcMgr.isBeforeInBuffer(lhs->getLoc(), rhs->getLoc());
-      }
+        // If the declarations come from different modules, order based on the
+        // module name.
+        auto *lhsModule = lhsDC->getParentModule();
+        auto *rhsModule = rhsDC->getParentModule();
+        if (lhsModule != rhsModule) {
+          return lhsModule->getName().str() < rhsModule->getName().str();
+        }
 
-      // The declarations are in different source files (or unknown source
-      // files) of the same module. Order based on name.
-      // FIXME: This isn't a total ordering.
-      return lhs->getName() < rhs->getName();
-    }
-  };
-} // end anonymous namespace
+        // The declarations are in different source files (or unknown source
+        // files) of the same module. Order based on name.
+        // FIXME: This isn't a total ordering.
+        return lhs->getName() < rhs->getName();
+      });
+}
 
 /// Lookup for an Objective-C method with the given selector in the
 /// given class or any of its superclasses. We intentionally don't respect
@@ -1945,8 +1960,7 @@ lookupOverridenObjCMethod(ClassDecl *classDecl, AbstractFunctionDecl *method,
       if (methods.empty())
         return nullptr;
     }
-    return *std::min_element(methods.begin(), methods.end(),
-                             OrderDeclarations());
+    return findOriginalForObjCSelectorConflict(methods);
   }
 
   // If we've reached the bottom of the inheritance heirarchy, we're done.
@@ -1964,198 +1978,167 @@ lookupOverridenObjCMethod(ClassDecl *classDecl, AbstractFunctionDecl *method,
                                    inheritingInits);
 }
 
-bool swift::diagnoseUnintendedObjCMethodOverrides(SourceFile &sf) {
-  auto &Ctx = sf.getASTContext();
-  auto &methods = sf.ObjCMethodList;
+/// Diagnose any Objective-C method overrides that aren't reflected as overrides
+/// in Swift.
+static void
+diagnoseUnintendedObjCMethodOverrides(ClassDecl *CD,
+                                      AbstractFunctionDecl *method) {
+  auto &ctx = method->getASTContext();
 
-  // If no Objective-C methods were defined in this file, we're done.
-  if (methods.empty())
-    return false;
-
-  // Sort the methods by declaration order.
-  std::sort(methods.begin(), methods.end(), OrderDeclarations());
-
-  // For each Objective-C method declared in this file, check whether
-  // it overrides something in one of its superclasses. We
-  // intentionally don't respect access control here, since everything
-  // is visible to the Objective-C runtime.
-  bool diagnosedAny = false;
-  for (auto method : methods) {
-    // If the method has an @objc override, we don't need to do any
-    // more checking.
-    if (auto overridden = method->getOverriddenDecl()) {
-      if (overridden->isObjC())
-        continue;
-    }
-
-    // Skip deinitializers.
-    if (isa<DestructorDecl>(method))
-      continue;
-
-    // Skip invalid declarations.
-    if (method->isInvalid())
-      continue;
-
-    // Skip declarations with an invalid 'override' attribute on them.
-    if (auto attr = method->getAttrs().getAttribute<OverrideAttr>(true)) {
-      if (attr->isInvalid())
-        continue;
-    }
-
-    auto classDecl = method->getDeclContext()->getSelfClassDecl();
-    if (!classDecl)
-      continue; // error-recovery path, only
-
-    if (!classDecl->hasSuperclass())
-      continue;
-
-    // Look for a method that we have overridden in one of our superclasses by
-    // virtue of having the same selector.
-    // Note: This should be treated as a lookup for intra-module dependency
-    // purposes, but a subclass already depends on its superclasses and any
-    // extensions for many other reasons.
-    auto *overriddenMethod =
-        lookupOverridenObjCMethod(classDecl->getSuperclassDecl(), method);
-    if (!overriddenMethod)
-      continue;
-
-    // Ignore stub implementations.
-    if (auto overriddenCtor = dyn_cast<ConstructorDecl>(overriddenMethod)) {
-      if (overriddenCtor->hasStubImplementation())
-        continue;
-    }
-
-    // Require the declaration to actually come from a class. Selectors that
-    // come from protocol requirements are not actually overrides.
-    if (!overriddenMethod->getDeclContext()->getSelfClassDecl())
-      continue;
-
-    // Diagnose the override.
-    auto methodDiagInfo = getObjCMethodDiagInfo(method);
-    auto overriddenDiagInfo = getObjCMethodDiagInfo(overriddenMethod);
-
-    Ctx.Diags.diagnose(
-        method, diag::objc_override_other, methodDiagInfo.first,
-        methodDiagInfo.second, overriddenDiagInfo.first,
-        overriddenDiagInfo.second, method->getObjCSelector(),
-        overriddenMethod->getDeclContext()->getDeclaredInterfaceType());
-
-    const ValueDecl *overriddenDecl = overriddenMethod;
-    if (overriddenMethod->isImplicit())
-      if (auto accessor = dyn_cast<AccessorDecl>(overriddenMethod))
-        overriddenDecl = accessor->getStorage();
-
-    Ctx.Diags.diagnose(overriddenDecl, diag::objc_declared_here,
-                       overriddenDiagInfo.first, overriddenDiagInfo.second);
-
-    diagnosedAny = true;
+  // Skip declarations with an invalid 'override' attribute on them.
+  if (auto attr = method->getAttrs().getAttribute<OverrideAttr>(true)) {
+    if (attr->isInvalid())
+      return;
   }
 
-  return diagnosedAny;
+  // If the method is an override of an @objc method, we don't need to do any
+  // more checking.
+  if (auto overridden = method->getOverriddenDecl()) {
+    if (overridden->isObjC())
+      return;
+  }
+
+  if (!CD->hasSuperclass())
+    return;
+
+  // Look for a method that we have overridden in one of our superclasses by
+  // virtue of having the same selector.
+  // Note: This should be treated as a lookup for intra-module dependency
+  // purposes, but a subclass already depends on its superclasses and any
+  // extensions for many other reasons.
+  auto *overriddenMethod = lookupOverridenObjCMethod(CD->getSuperclassDecl(),
+                                                     method);
+  if (!overriddenMethod)
+    return;
+
+  // Ignore stub implementations.
+  if (auto overriddenCtor = dyn_cast<ConstructorDecl>(overriddenMethod)) {
+    if (overriddenCtor->hasStubImplementation())
+      return;
+  }
+
+  // Require the declaration to actually come from a class. Selectors that
+  // come from protocol requirements are not actually overrides.
+  if (!overriddenMethod->getDeclContext()->getSelfClassDecl())
+    return;
+
+  // Diagnose the override.
+  auto methodDiagInfo = getObjCMethodDiagInfo(method);
+  auto overriddenDiagInfo = getObjCMethodDiagInfo(overriddenMethod);
+
+  ctx.Diags.diagnose(
+      method, diag::objc_override_other, methodDiagInfo.first,
+      methodDiagInfo.second, overriddenDiagInfo.first,
+      overriddenDiagInfo.second, method->getObjCSelector(),
+      overriddenMethod->getDeclContext()->getDeclaredInterfaceType());
+
+  const ValueDecl *overriddenDecl = overriddenMethod;
+  if (overriddenMethod->isImplicit())
+    if (auto accessor = dyn_cast<AccessorDecl>(overriddenMethod))
+      overriddenDecl = accessor->getStorage();
+
+  ctx.Diags.diagnose(overriddenDecl, diag::objc_declared_here,
+                     overriddenDiagInfo.first, overriddenDiagInfo.second);
 }
 
-/// Retrieve the source file for the given Objective-C member conflict.
-static MutableArrayRef<AbstractFunctionDecl *>
-getObjCMethodConflictDecls(const SourceFile::ObjCMethodConflict &conflict) {
-  ClassDecl *classDecl = std::get<0>(conflict);
-  ObjCSelector selector = std::get<1>(conflict);
-  bool isInstanceMethod = std::get<2>(conflict);
+/// Diagnose all conflicts between members that have the same Objective-C
+/// selector in the same class.
+static void diagnoseObjCMethodConflicts(ClassDecl *CD,
+                                        AbstractFunctionDecl *method) {
+  auto &ctx = method->getASTContext();
+  auto selector = method->getObjCSelector();
+  auto methods = CD->lookupDirect(selector, method->isObjCInstanceMethod());
 
-  return classDecl->lookupDirect(selector, isInstanceMethod);
-}
+  // Erase any invalid or stub declarations. We don't want to complain about
+  // them, because we might already have complained about
+  // redeclarations based on Swift matching.
+  llvm::erase_if(methods, [](AbstractFunctionDecl *afd) -> bool {
+    if (afd->isInvalid())
+      return true;
 
-bool swift::diagnoseObjCMethodConflicts(SourceFile &sf) {
-  // If there were no conflicts, we're done.
-  if (sf.ObjCMethodConflicts.empty())
-    return false;
-
-  auto &Ctx = sf.getASTContext();
-  OrderDeclarations ordering;
-
-  // Sort the set of conflicts so we get a deterministic order for
-  // diagnostics. We use the first conflicting declaration in each set to
-  // perform the sort.
-  auto localConflicts = sf.ObjCMethodConflicts;
-  std::sort(localConflicts.begin(), localConflicts.end(),
-            [&](const SourceFile::ObjCMethodConflict &lhs,
-                const SourceFile::ObjCMethodConflict &rhs) {
-              return ordering(getObjCMethodConflictDecls(lhs)[1],
-                              getObjCMethodConflictDecls(rhs)[1]);
-            });
-
-  // Diagnose each conflict.
-  bool anyConflicts = false;
-  for (const auto &conflict : localConflicts) {
-    ObjCSelector selector = std::get<1>(conflict);
-
-    auto methods = getObjCMethodConflictDecls(conflict);
-
-    // Erase any invalid or stub declarations. We don't want to complain about
-    // them, because we might already have complained about
-    // redeclarations based on Swift matching.
-    llvm::erase_if(methods, [](AbstractFunctionDecl *afd) -> bool {
-      if (afd->isInvalid())
+    if (auto ad = dyn_cast<AccessorDecl>(afd)) {
+      if (ad->getStorage()->isInvalid())
         return true;
-
-      if (auto ad = dyn_cast<AccessorDecl>(afd)) {
-        if (ad->getStorage()->isInvalid())
-          return true;
-      }
-      if (auto *ctor = dyn_cast<ConstructorDecl>(afd)) {
-        if (ctor->hasStubImplementation())
-          return true;
-      }
-      return false;
-    });
-
-    if (methods.size() < 2)
-      continue;
-
-    // Diagnose the conflict.
-    anyConflicts = true;
-
-    // If the first method is in an extension and the second is not, swap them
-    // so the primary diagnostic is on the extension method.
-    if (isa<ExtensionDecl>(methods[0]->getDeclContext()) &&
-        !isa<ExtensionDecl>(methods[1]->getDeclContext())) {
-      std::swap(methods[0], methods[1]);
-
-    // Within a source file, use our canonical ordering.
-    } else if (methods[0]->getParentSourceFile() ==
-               methods[1]->getParentSourceFile() &&
-              !ordering(methods[0], methods[1])) {
-      std::swap(methods[0], methods[1]);
     }
-
-    // Otherwise, fall back to the order in which the declarations were type
-    // checked.
-
-    auto originalMethod = methods.front();
-    auto conflictingMethods = methods.slice(1);
-
-    auto origDiagInfo = getObjCMethodDiagInfo(originalMethod);
-    for (auto conflictingDecl : conflictingMethods) {
-      auto diagInfo = getObjCMethodDiagInfo(conflictingDecl);
-
-      const ValueDecl *originalDecl = originalMethod;
-      if (originalMethod->isImplicit())
-        if (auto accessor = dyn_cast<AccessorDecl>(originalMethod))
-          originalDecl = accessor->getStorage();
-
-      if (diagInfo == origDiagInfo) {
-        Ctx.Diags.diagnose(conflictingDecl, diag::objc_redecl_same,
-                           diagInfo.first, diagInfo.second, selector);
-        Ctx.Diags.diagnose(originalDecl, diag::invalid_redecl_prev,
-                           originalDecl->getBaseName());
-      } else {
-        Ctx.Diags.diagnose(conflictingDecl, diag::objc_redecl, diagInfo.first,
-                           diagInfo.second, origDiagInfo.first,
-                           origDiagInfo.second, selector);
-        Ctx.Diags.diagnose(originalDecl, diag::objc_declared_here,
-                           origDiagInfo.first, origDiagInfo.second);
-      }
+    if (auto *ctor = dyn_cast<ConstructorDecl>(afd)) {
+      if (ctor->hasStubImplementation())
+        return true;
     }
+    return false;
+  });
+
+  // If there aren't any conflicts, we're done.
+  if (methods.size() < 2)
+    return;
+
+  auto *original = findOriginalForObjCSelectorConflict(methods);
+  auto origDiagInfo = getObjCMethodDiagInfo(original);
+
+  // If the original decl turns out the be the one we're currently visiting,
+  // and one of the conflicting decls is in the same file, bail.
+  // FIXME: This only exists to make sure we don't diagnose before
+  // re-declaration checking has a chance to diagnose in the case where it
+  // visits a decl that appears before its re-declaration in the same file. We
+  // ought to be able to handle the difference in ordering without bailing and
+  // waiting to diagnose on the later decl.
+  if (original == method &&
+      llvm::any_of(methods, [&](AbstractFunctionDecl *conflict) {
+        return conflict != method &&
+               conflict->getParentSourceFile() == method->getParentSourceFile();
+      })) {
+    return;
   }
 
-  return anyConflicts;
+  // If we have an implicit accessor, diagnose on the storage decl instead.
+  const ValueDecl *originalDiagDecl = original;
+  if (original->isImplicit())
+    if (auto accessor = dyn_cast<AccessorDecl>(original))
+      originalDiagDecl = accessor->getStorage();
+
+  for (auto *conflict : methods) {
+    // Make sure we don't do the same checking again for any of the conflicting
+    // decls.
+    ctx.evaluator.cacheOutput(CheckObjCSelectorConflictsRequest{conflict}, {});
+
+    // Don't diagnose the original, we'll emit a note for it.
+    if (conflict == original)
+      continue;
+
+    auto diagInfo = getObjCMethodDiagInfo(conflict);
+    if (diagInfo == origDiagInfo) {
+      ctx.Diags.diagnose(conflict, diag::objc_redecl_same, diagInfo.first,
+                         diagInfo.second, selector);
+      ctx.Diags.diagnose(originalDiagDecl, diag::invalid_redecl_prev,
+                         originalDiagDecl->getBaseName());
+    } else {
+      ctx.Diags.diagnose(conflict, diag::objc_redecl, diagInfo.first,
+                         diagInfo.second, origDiagInfo.first,
+                         origDiagInfo.second, selector);
+      ctx.Diags.diagnose(originalDiagDecl, diag::objc_declared_here,
+                         origDiagInfo.first, origDiagInfo.second);
+    }
+  }
+}
+
+evaluator::SideEffect CheckObjCSelectorConflictsRequest::evaluate(
+    Evaluator &evaluator, AbstractFunctionDecl *method) const {
+  auto *classDecl = method->getDeclContext()->getSelfClassDecl();
+  assert(classDecl && method->isObjC());
+
+  // We can skip deinitializers. We'll diagnose on any methods that conflict
+  // with them instead. It also avoids kicking off unnecessary lookup requests
+  // for classes that don't have any @objc methods.
+  if (isa<DestructorDecl>(method))
+    return {};
+
+  // Skip invalid methods.
+  if (method->isInvalid())
+    return {};
+
+  // First diagnose any selector conflicts within the class itself.
+  diagnoseObjCMethodConflicts(classDecl, method);
+
+  // Then diagnose any conflicts with methods in the superclass.
+  diagnoseUnintendedObjCMethodOverrides(classDecl, method);
+  return {};
 }
