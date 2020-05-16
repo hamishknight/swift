@@ -834,6 +834,11 @@ bool swift::isRepresentableInObjC(const VarDecl *VD, ObjCReason Reason) {
   if (!Diagnose || Result)
     return Result;
 
+  // @IBOutlet has stricter checking in TypeCheckAttr for what the type of the
+  // property can be, so defer to that.
+  if (Reason == ObjCReason::ExplicitlyIBOutlet)
+    return Result;
+
   SourceRange TypeRange = VD->getTypeSourceRangeForDiagnostics();
   // TypeRange can be invalid; e.g. '@objc let foo = SwiftType()'
   if (TypeRange.isInvalid())

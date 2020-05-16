@@ -770,6 +770,26 @@ public:
                            ProtocolConformanceRef result) const;
 };
 
+/// Look up a class method based on its Objective-C selector, without looking
+/// into its superclass or any protocols it conforms to.
+class ObjCMethodDirectLookupRequest
+    : public SimpleRequest<ObjCMethodDirectLookupRequest,
+                           TinyPtrVector<AbstractFunctionDecl *>(
+                               ClassDecl *, ObjCSelector, bool),
+                           RequestFlags::Uncached> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  // Evaluation.
+  TinyPtrVector<AbstractFunctionDecl *> evaluate(Evaluator &evaluator,
+                                                 ClassDecl *CD,
+                                                 ObjCSelector selector,
+                                                 bool isInstance) const;
+};
+
 #define SWIFT_TYPEID_ZONE NameLookup
 #define SWIFT_TYPEID_HEADER "swift/AST/NameLookupTypeIDZone.def"
 #include "swift/Basic/DefineTypeIDZone.h"

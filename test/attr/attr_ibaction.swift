@@ -28,6 +28,8 @@ class IBActionWrapperTy {
   }
   @IBAction // expected-error {{@IBAction may only be used on 'func' declarations}} {{3-13=}}
   var value : Void = ()
+  // expected-error@-1 {{property cannot be marked @IBAction because its type cannot be represented in Objective-C}}
+  // expected-note@-2 {{empty tuple type cannot be represented in Objective-C}}
 
   @IBAction
   func process(x: AnyObject) -> Int {}  // expected-error {{methods declared @IBAction must not return a value}}

@@ -934,10 +934,6 @@ static void diagnoseObjCAttrWithoutFoundation(ObjCAttr *attr, Decl *decl) {
   auto *SF = decl->getDeclContext()->getParentSourceFile();
   assert(SF);
 
-  // We only care about explicitly written @objc attributes.
-  if (attr->isImplicit())
-    return;
-
   auto &ctx = SF->getASTContext();
   if (ctx.LangOpts.EnableObjCInterop) {
     // Don't diagnose in a SIL file.
@@ -966,6 +962,10 @@ static void diagnoseObjCAttrWithoutFoundation(ObjCAttr *attr, Decl *decl) {
 }
 
 void AttributeChecker::visitObjCAttr(ObjCAttr *attr) {
+  // We only care about explicitly written @objc attributes.
+  if (attr->isImplicit())
+    return;
+
   // Only certain decls can be ObjC.
   Optional<Diag<>> error;
   if (isa<ClassDecl>(D) ||
