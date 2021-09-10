@@ -241,6 +241,7 @@ static bool printModuleInterfaceDecl(Decl *D,
     Printer.callAvoidPrintDeclPost(D);
     return false;
   }
+  std::unique_ptr<SynthesizedExtensionAnalyzer> pAnalyzer;
   if (auto Ext = dyn_cast<ExtensionDecl>(D)) {
     // Clang extensions (categories) are always printed in source order.
     // Swift extensions are printed with their associated type unless it's
@@ -250,9 +251,15 @@ static bool printModuleInterfaceDecl(Decl *D,
       if (!ExtendedNominal ||
           Ext->getModuleContext() == ExtendedNominal->getModuleContext())
         return false;
+
+      pAnalyzer.reset(
+          new SynthesizedExtensionAnalyzer(ExtendedNominal, Options, true, Ext));
+      Options.BracketOptions = {
+          Ext, true, true,
+          !pAnalyzer->hasMergeGroup(SynthesizedExtensionAnalyzer::
+                                        MergeGroupKind::MergeableWithTypeDef)};
     }
   }
-  std::unique_ptr<SynthesizedExtensionAnalyzer> pAnalyzer;
   if (auto NTD = dyn_cast<NominalTypeDecl>(D)) {
     if (PrintSynthesizedExtensions) {
       pAnalyzer.reset(new SynthesizedExtensionAnalyzer(NTD, Options));
@@ -270,7 +277,58 @@ static bool printModuleInterfaceDecl(Decl *D,
     if (Options.BracketOptions.shouldCloseNominal(D))
       Printer << "\n";
     Options.BracketOptions = BracketOptions();
-    if (auto NTD = dyn_cast<NominalTypeDecl>(D)) {
+    if (auto *Ext = dyn_cast<ExtensionDecl>(D)) {
+      if (pAnalyzer) {
+        // Print the part that should be merged with the type decl.
+        pAnalyzer->forEachExtensionMergeGroup(
+            SynthesizedExtensionAnalyzer::MergeGroupKind::MergeableWithTypeDef,
+            [&](ArrayRef<ExtensionInfo> Decls) {
+              for (auto ET : Decls) {
+                Options.BracketOptions = {ET.Ext, false,
+                                          Decls.back().Ext == ET.Ext, true};
+                if (ET.IsSynthesized)
+                  Options.initForSynthesizedExtension(Ext);
+                ET.Ext->print(Printer, Options);
+                if (ET.IsSynthesized)
+                  Options.clearSynthesizedExtension();
+                if (Options.BracketOptions.shouldCloseExtension(ET.Ext))
+                  Printer << "\n";
+              }
+            });
+
+        // Print the rest as synthesized extensions.
+        pAnalyzer->forEachExtensionMergeGroup(
+            SynthesizedExtensionAnalyzer::MergeGroupKind::
+                UnmergeableWithTypeDef,
+            [&](ArrayRef<ExtensionInfo> Decls) {
+              // Whether we've started the extension merge group in printing.
+              bool Opened = false;
+              for (auto ET : Decls) {
+                Options.BracketOptions = {ET.Ext, !Opened,
+                                          Decls.back().Ext == ET.Ext, true};
+                if (Options.BracketOptions.shouldOpenExtension(ET.Ext)) {
+                  Printer << "\n";
+                  if (Options.shouldPrint(ET.Ext) && !LeadingComment.empty())
+                    Printer << LeadingComment << "\n";
+                }
+                if (ET.IsSynthesized) {
+                  if (ET.EnablingExt)
+                    Options.initForSynthesizedExtension(ET.EnablingExt);
+                  else
+                    Options.initForSynthesizedExtension(Ext);
+                }
+                // Set opened if we actually printed this extension.
+                Opened |= ET.Ext->print(Printer, Options);
+                if (ET.IsSynthesized)
+                  Options.clearSynthesizedExtension();
+                if (Options.BracketOptions.shouldCloseExtension(ET.Ext)) {
+                  Printer << "\n";
+                }
+              }
+            });
+        Options.BracketOptions = BracketOptions();
+      }
+    } else if (auto NTD = dyn_cast<NominalTypeDecl>(D)) {
       std::queue<NominalTypeDecl *> SubDecls{{NTD}};
 
       while (!SubDecls.empty()) {

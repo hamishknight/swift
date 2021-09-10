@@ -237,6 +237,7 @@ struct SynthesizedExtensionAnalyzer::Implementation {
   using MergeGroupVector = std::vector<ExtensionMergeGroup>;
 
   NominalTypeDecl *Target;
+  ExtensionDecl *KnownEnablingE;
   Type BaseType;
   DeclContext *DC;
   bool IncludeUnconditional;
@@ -246,8 +247,8 @@ struct SynthesizedExtensionAnalyzer::Implementation {
 
   Implementation(NominalTypeDecl *Target,
                  bool IncludeUnconditional,
-                 PrintOptions Options):
-  Target(Target),
+                 PrintOptions Options, ExtensionDecl *KnownEnablingE = nullptr):
+  Target(Target), KnownEnablingE(KnownEnablingE),
   BaseType(Target->getDeclaredInterfaceType()),
   DC(Target),
   IncludeUnconditional(IncludeUnconditional),
@@ -457,42 +458,52 @@ struct SynthesizedExtensionAnalyzer::Implementation {
       }
     };
 
-    // We want to visit the protocols of any normal conformances we see, but
-    // we have to avoid doing this to self-conformances or we can end up with
-    // a cycle.  Otherwise this is cycle-proof on valid code.
-    // We also want to ignore inherited conformances. Members from these will
-    // be included in the class they were inherited from.
-    auto addConformance = [&](ProtocolConformance *Conf) {
-      if (isa<InheritedProtocolConformance>(Conf))
-        return;
-      auto RootConf = Conf->getRootConformance();
-      if (isa<NormalProtocolConformance>(RootConf))
-        Unhandled.push_back(RootConf->getProtocol());
-    };
-
-    for (auto *Conf : Target->getLocalConformances()) {
-      addConformance(Conf);
-    }
-    while (!Unhandled.empty()) {
-      NominalTypeDecl* Back = Unhandled.back();
-      Unhandled.pop_back();
-      for (ExtensionDecl *E : Back->getExtensions()) {
-        handleExtension(E, true, nullptr, nullptr);
-      }
-      for (auto *Conf : Back->getLocalConformances()) {
-        addConformance(Conf);
-      }
-    }
-
-    // Merge with actual extensions.
-    for (auto *EnablingE : Target->getExtensions()) {
-      handleExtension(EnablingE, false, nullptr, nullptr);
-      for (auto *Conf : EnablingE->getLocalConformances()) {
+    if (KnownEnablingE) {
+      for (auto *Conf : KnownEnablingE->getLocalConformances()) {
         auto NormalConf =
           dyn_cast<NormalProtocolConformance>(Conf->getRootConformance());
         if (!NormalConf) continue;
         for (auto E : NormalConf->getProtocol()->getExtensions())
-          handleExtension(E, true, EnablingE, NormalConf);
+          handleExtension(E, true, KnownEnablingE, NormalConf);
+      }
+    } else {
+      // We want to visit the protocols of any normal conformances we see, but
+      // we have to avoid doing this to self-conformances or we can end up with
+      // a cycle.  Otherwise this is cycle-proof on valid code.
+      // We also want to ignore inherited conformances. Members from these will
+      // be included in the class they were inherited from.
+      auto addConformance = [&](ProtocolConformance *Conf) {
+        if (isa<InheritedProtocolConformance>(Conf))
+          return;
+        auto RootConf = Conf->getRootConformance();
+        if (isa<NormalProtocolConformance>(RootConf))
+          Unhandled.push_back(RootConf->getProtocol());
+      };
+
+      for (auto *Conf : Target->getLocalConformances()) {
+        addConformance(Conf);
+      }
+      while (!Unhandled.empty()) {
+        NominalTypeDecl* Back = Unhandled.back();
+        Unhandled.pop_back();
+        for (ExtensionDecl *E : Back->getExtensions()) {
+          handleExtension(E, true, nullptr, nullptr);
+        }
+        for (auto *Conf : Back->getLocalConformances()) {
+          addConformance(Conf);
+        }
+      }
+
+      // Merge with actual extensions.
+      for (auto *EnablingE : Target->getExtensions()) {
+        handleExtension(EnablingE, false, nullptr, nullptr);
+        for (auto *Conf : EnablingE->getLocalConformances()) {
+          auto NormalConf =
+            dyn_cast<NormalProtocolConformance>(Conf->getRootConformance());
+          if (!NormalConf) continue;
+          for (auto E : NormalConf->getProtocol()->getExtensions())
+            handleExtension(E, true, EnablingE, NormalConf);
+        }
       }
     }
 
@@ -515,8 +526,8 @@ struct SynthesizedExtensionAnalyzer::Implementation {
 SynthesizedExtensionAnalyzer::
 SynthesizedExtensionAnalyzer(NominalTypeDecl *Target,
                              PrintOptions Options,
-                             bool IncludeUnconditional):
-Impl(*(new Implementation(Target, IncludeUnconditional, Options))) {}
+                             bool IncludeUnconditional, ExtensionDecl *KnownEnablingE):
+Impl(*(new Implementation(Target, IncludeUnconditional, Options, KnownEnablingE))) {}
 
 SynthesizedExtensionAnalyzer::~SynthesizedExtensionAnalyzer() {delete &Impl;}
 

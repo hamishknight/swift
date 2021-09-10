@@ -158,7 +158,8 @@ namespace swift {
   public:
     SynthesizedExtensionAnalyzer(NominalTypeDecl *Target,
                                  PrintOptions Options,
-                                 bool IncludeUnconditional = true);
+                                 bool IncludeUnconditional = true,
+                                 ExtensionDecl *KnownEnablingE = nullptr);
     ~SynthesizedExtensionAnalyzer();
 
     enum class MergeGroupKind : char {
