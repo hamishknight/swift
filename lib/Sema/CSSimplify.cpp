@@ -1637,7 +1637,6 @@ ConstraintSystem::matchTupleTypes(TupleType *tuple1, TupleType *tuple2,
   case ConstraintKind::ValueMember:
   case ConstraintKind::ValueWitness:
   case ConstraintKind::BridgingConversion:
-  case ConstraintKind::FunctionInput:
   case ConstraintKind::OneWayEqual:
   case ConstraintKind::OneWayBindParam:
   case ConstraintKind::DefaultClosureType:
@@ -1775,7 +1774,6 @@ static bool matchFunctionRepresentations(FunctionType::ExtInfo einfo1,
   case ConstraintKind::UnresolvedValueMember:
   case ConstraintKind::ValueMember:
   case ConstraintKind::ValueWitness:
-  case ConstraintKind::FunctionInput:
   case ConstraintKind::OneWayEqual:
   case ConstraintKind::OneWayBindParam:
   case ConstraintKind::DefaultClosureType:
@@ -2177,7 +2175,6 @@ ConstraintSystem::matchFunctionTypes(FunctionType *func1, FunctionType *func2,
   case ConstraintKind::ValueMember:
   case ConstraintKind::ValueWitness:
   case ConstraintKind::BridgingConversion:
-  case ConstraintKind::FunctionInput:
   case ConstraintKind::OneWayEqual:
   case ConstraintKind::OneWayBindParam:
   case ConstraintKind::DefaultClosureType:
@@ -5243,7 +5240,6 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
     case ConstraintKind::UnresolvedValueMember:
     case ConstraintKind::ValueMember:
     case ConstraintKind::ValueWitness:
-    case ConstraintKind::FunctionInput:
     case ConstraintKind::OneWayEqual:
     case ConstraintKind::OneWayBindParam:
     case ConstraintKind::DefaultClosureType:
@@ -6167,18 +6163,6 @@ ConstraintSystem::simplifyConstructionConstraint(
                              fnLocator, 
                              ConstraintLocator::ConstructorMember));
 
-  // FIXME: Once TVO_PrefersSubtypeBinding is replaced with something
-  // better, we won't need the second type variable at all.
-  {
-    auto argType = createTypeVariable(
-        getConstraintLocator(locator, ConstraintLocator::ApplyArgument),
-        (TVO_CanBindToLValue |
-         TVO_CanBindToInOut |
-         TVO_CanBindToNoEscape |
-         TVO_PrefersSubtypeBinding));
-    addConstraint(ConstraintKind::FunctionInput, memberType, argType, locator);
-  }
-
   addConstraint(ConstraintKind::ApplicableFunction, fnType, memberType,
                 fnLocator);
 
@@ -6988,38 +6972,6 @@ ConstraintSystem::simplifyOptionalObjectConstraint(
 
   // Equate it to the other type in the constraint.
   addConstraint(ConstraintKind::Bind, objectTy, second, locator);
-  return SolutionKind::Solved;
-}
-
-/// Attempt to simplify a function input constraint.
-ConstraintSystem::SolutionKind
-ConstraintSystem::simplifyFunctionInputConstraint(
-    Type first, Type second, TypeMatchOptions flags,
-    ConstraintLocatorBuilder locator) {
-  first = simplifyType(first);
-
-  if (shouldAttemptFixes() && first->isPlaceholder()) {
-    if (auto *typeVar = second->getAs<TypeVariableType>())
-      recordPotentialHole(typeVar);
-    return SolutionKind::Solved;
-  }
-
-  if (first->isTypeVariableOrMember()) {
-    if (!flags.contains(TMF_GenerateConstraints))
-      return SolutionKind::Unsolved;
-
-    addUnsolvedConstraint(
-      Constraint::create(*this, ConstraintKind::FunctionInput, first, second,
-                         getConstraintLocator(locator)));
-  } else if (auto *funcTy = first->getAs<FunctionType>()) {
-    // Equate it to the other type in the constraint.
-    auto inputTuple = AnyFunctionType::composeTuple(getASTContext(),
-                                                    funcTy->getParams());
-    addConstraint(ConstraintKind::Bind, inputTuple, second,
-                  locator.withPathElement(ConstraintLocator::FunctionArgument));
-  } else {
-    return SolutionKind::Error;
-  }
   return SolutionKind::Solved;
 }
 
@@ -11842,9 +11794,6 @@ ConstraintSystem::addConstraintImpl(ConstraintKind kind, Type first,
   case ConstraintKind::PropertyWrapper:
     return simplifyPropertyWrapperConstraint(first, second, subflags, locator);
 
-  case ConstraintKind::FunctionInput:
-    return simplifyFunctionInputConstraint(first, second, subflags, locator);
-
   case ConstraintKind::OneWayEqual:
   case ConstraintKind::OneWayBindParam:
     return simplifyOneWayConstraint(kind, first, second, subflags, locator);
@@ -12364,12 +12313,6 @@ ConstraintSystem::simplifyConstraint(const Constraint &constraint) {
                                              constraint.getSecondType(),
                                              /*flags*/ None,
                                              constraint.getLocator());
-
-  case ConstraintKind::FunctionInput:
-    return simplifyFunctionInputConstraint(constraint.getFirstType(),
-                                           constraint.getSecondType(),
-                                           /*flags*/ None,
-                                           constraint.getLocator());
 
   case ConstraintKind::Disjunction:
     // Disjunction constraints are never solved here.
