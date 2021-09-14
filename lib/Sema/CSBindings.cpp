@@ -1337,7 +1337,6 @@ void PotentialBindings::infer(Constraint *constraint) {
   case ConstraintKind::OpenedExistentialOf:
   case ConstraintKind::KeyPath:
   case ConstraintKind::FunctionInput:
-  case ConstraintKind::FunctionResult:
     // Constraints from which we can't do anything.
     break;
 

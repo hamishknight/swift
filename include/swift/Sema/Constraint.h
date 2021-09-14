@@ -149,11 +149,9 @@ enum class ConstraintKind : char {
   /// member references along the path.
   KeyPath,
   /// The first type is a function type, the second is the function's
-  /// input type.
+  /// input type. Do not add new uses of this; tuples should not be used to
+  /// model function inputs.
   FunctionInput,
-  /// The first type is a function type, the second is the function's
-  /// result type.
-  FunctionResult,
   /// The first type will be equal to the second type, but only when the
   /// second type has been fully determined (and mapped down to a concrete
   /// type). At that point, this constraint will be treated like an `Equal`
@@ -620,7 +618,6 @@ public:
     case ConstraintKind::KeyPathApplication:
     case ConstraintKind::Defaultable:
     case ConstraintKind::FunctionInput:
-    case ConstraintKind::FunctionResult:
       return ConstraintClassification::TypeProperty;
 
     case ConstraintKind::Disjunction:
