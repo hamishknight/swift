@@ -1612,12 +1612,8 @@ private:
         // Expand the tuple.
         for (auto i : indices(substTupleTy.getElementTypes())) {
           auto &elt = substTupleTy->getElement(i);
-          auto ownership = elt.getParameterFlags().getValueOwnership();
-          assert(ownership == ValueOwnership::Default);
-          assert(!elt.isVararg());
-          visit(ownership, forSelf,
-                origType.getTupleElementType(i),
-                CanType(elt.getRawType()));
+          visit(ValueOwnership::Default, forSelf,
+                origType.getTupleElementType(i), CanType(elt.getRawType()));
         }
         return;
       case ValueOwnership::InOut:
