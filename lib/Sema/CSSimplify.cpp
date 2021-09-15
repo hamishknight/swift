@@ -145,9 +145,6 @@ static bool areConservativelyCompatibleArgumentLabels(
     return true;
   }
 
-  if (!decl->hasParameterList())
-    return true;
-
   // This is a member lookup, which generally means that the call arguments
   // (if we have any) will apply to the second level of parameters, with
   // the member lookup applying the curried self at the first level. But there
@@ -156,10 +153,20 @@ static bool areConservativelyCompatibleArgumentLabels(
       decl->hasCurriedSelf() &&
       doesMemberRefApplyCurriedSelf(choice.getBaseType(), decl);
 
-  auto *fnType = decl->getInterfaceType()->castTo<AnyFunctionType>();
-  if (hasAppliedSelf) {
-    fnType = fnType->getResult()->getAs<AnyFunctionType>();
-    assert(fnType && "Parameter list curry level does not match type");
+  AnyFunctionType *fnType = nullptr;
+  if (decl->hasParameterList()) {
+    fnType = decl->getInterfaceType()->castTo<AnyFunctionType>();
+    if (hasAppliedSelf) {
+      fnType = fnType->getResult()->getAs<AnyFunctionType>();
+      assert(fnType && "Parameter list curry level does not match type");
+    }
+  } else if (auto *VD = dyn_cast<VarDecl>(decl)) {
+    fnType = VD->getValueInterfaceType()->lookThroughAllOptionalTypes()
+                                        ->getAs<AnyFunctionType>();
+    if (!fnType)
+      return false;
+  } else {
+    return false;
   }
 
   auto params = fnType->getParams();
@@ -1997,9 +2004,10 @@ static bool fixMissingArguments(ConstraintSystem &cs, ASTNode anchor,
   // If the argument was a single "tuple", let's bind newly
   // synthesized arguments to it.
   if (argumentTuple) {
-    cs.addConstraint(ConstraintKind::Bind, *argumentTuple,
-                     FunctionType::composeTuple(ctx, args),
-                     cs.getConstraintLocator(anchor));
+    cs.addConstraint(
+        ConstraintKind::Bind, *argumentTuple,
+        FunctionType::composeTuple(ctx, args, ParameterFlagHandling::Drop),
+        cs.getConstraintLocator(anchor));
   }
 
   return false;
@@ -2231,7 +2239,7 @@ ConstraintSystem::matchFunctionTypes(FunctionType *func1, FunctionType *func2,
     // canImplodeParams makes sure we're not dealing with vargs, inout, etc,
     // we may still have e.g ownership flags left over, which we can drop.
     auto input = AnyFunctionType::composeTuple(getASTContext(), params,
-                                               /*wantParamFlags*/ false);
+                                               ParameterFlagHandling::Drop);
     params.clear();
     // If fixes are disabled let's do an easy thing and implode
     // tuple directly into parameters list.
@@ -6095,8 +6103,9 @@ ConstraintSystem::simplifyConstructionConstraint(
     }
 
     // Tuple construction is simply tuple conversion.
-    Type argType = AnyFunctionType::composeTuple(getASTContext(),
-                                                 fnType->getParams());
+    Type argType =
+        AnyFunctionType::composeTuple(getASTContext(), fnType->getParams(),
+                                      ParameterFlagHandling::AssertEmpty);
     Type resultType = fnType->getResult();
 
     ConstraintLocatorBuilder builder(locator);

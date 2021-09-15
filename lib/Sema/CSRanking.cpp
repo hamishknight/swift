@@ -1117,7 +1117,7 @@ SolutionCompareResult ConstraintSystem::compareSolutions(
   }
 
   // Compare the type variable bindings.
-  llvm::DenseMap<TypeVariableType *, std::pair<Type, Type>> typeDiff;
+  llvm::SmallVector<std::pair<Type, Type>, 4> typeDiff;
 
   const auto &bindings1 = solutions[idx1].typeBindings;
   const auto &bindings2 = solutions[idx2].typeBindings;
@@ -1139,14 +1139,56 @@ SolutionCompareResult ConstraintSystem::compareSolutions(
     auto concreteType1 = binding1.second;
     auto concreteType2 = binding2->second;
 
-    if (!concreteType1->isEqual(concreteType2)) {
-      typeDiff.insert({typeVar, {concreteType1, concreteType2}});
+    if (!concreteType1->isEqual(concreteType2))
+      typeDiff.emplace_back(concreteType1, concreteType2);
+  }
+
+  auto &ctx = cs.getASTContext();
+  for (auto &overload : overloadDiff) {
+    auto *loc = overload.locator;
+    auto *anchorExpr = getAsExpr(loc->getAnchor());
+    if (!anchorExpr || !loc->isLastElement<LocatorPathElt::ConstructorMember>())
+      continue;
+
+    auto &s1 = solutions[idx1];
+    auto &s2 = solutions[idx2];
+
+    // We only apply this rule to delegated init calls 'self.init(...)' and
+    // short-form init calls 'X(...)'.
+    if (auto *UDE = dyn_cast<UnresolvedDotExpr>(anchorExpr)) {
+      if (!TypeChecker::getSelfForInitDelegationInConstructor(cs.DC, UDE))
+        continue;
+    } else {
+      auto *call = dyn_cast<CallExpr>(anchorExpr);
+      if (!call)
+        continue;
+      auto *fn = call->getFn();
+      if (!s1.getResolvedType(fn)->is<AnyMetatypeType>() ||
+          !s2.getResolvedType(fn)->is<AnyMetatypeType>()) {
+        continue;
+      }
     }
+
+    auto choice1 = s1.getOverloadChoice(loc);
+    auto choice2 = s2.getOverloadChoice(loc);
+    if (sameOverloadChoice(choice1.choice, choice2.choice))
+      continue;
+
+    auto initTy1 = s1.simplifyType(choice1.boundType)->castTo<FunctionType>();
+    auto initTy2 = s2.simplifyType(choice2.boundType)->castTo<FunctionType>();
+
+    // TODO: Param flag mismatching.
+    auto tuple1 = AnyFunctionType::composeTuple(ctx, initTy1->getParams(),
+                                                ParameterFlagHandling::Drop);
+    auto tuple2 = AnyFunctionType::composeTuple(ctx, initTy2->getParams(),
+                                                ParameterFlagHandling::Drop);
+    if (!tuple1->isEqual(tuple2))
+      typeDiff.emplace_back(tuple1, tuple2);
   }
 
   for (auto &binding : typeDiff) {
-    auto type1 = binding.second.first;
-    auto type2 = binding.second.second;
+    auto type1 = binding.first;
+    auto type2 = binding.second;
 
     // If either of the types still contains type variables, we can't
     // compare them.
