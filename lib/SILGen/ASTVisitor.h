@@ -38,6 +38,7 @@ class ASTVisitor : public swift::ASTVisitor<ImplClass,
                                             PatternRetTy,
                                             void,
                                             void,
+                                            void,
                                             Args...>
 {
 public:

@@ -927,6 +927,23 @@ public protocol StringInterpolationProtocol {
   //   mutating func appendInterpolation<T: Encodable>(json: T) throws
 }
 
+public protocol ExpressibleByRegexLiteral {
+  associatedtype RegexLiteral: RegexLiteralProtocol = DefaultRegexLiteral
+  init(regexLiteral: RegexLiteral)
+}
+
+public protocol RegexLiteralProtocol {
+  init(componentCount: Int)
+}
+
+public struct DefaultRegexLiteral : RegexLiteralProtocol {
+  public init(componentCount: Int) {}
+}
+
+public struct Regex : ExpressibleByRegexLiteral {
+  public init(regexLiteral: DefaultRegexLiteral) {}
+}
+
 /// A type that can be initialized using a color literal (e.g.
 /// `#colorLiteral(red: 1, green: 0, blue: 0, alpha: 1)`).
 public protocol _ExpressibleByColorLiteral {

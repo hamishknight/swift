@@ -247,6 +247,7 @@ ConcreteDeclRef Expr::getReferencedDecl(bool stopAtParenExpr) const {
   NO_REFERENCE(BooleanLiteral);
   NO_REFERENCE(StringLiteral);
   NO_REFERENCE(InterpolatedStringLiteral);
+  NO_REFERENCE(RegexLiteral);
   NO_REFERENCE(ObjectLiteral);
   NO_REFERENCE(MagicIdentifierLiteral);
   NO_REFERENCE(DiscardAssignment);
@@ -555,6 +556,7 @@ bool Expr::canAppendPostfixExpression(bool appendingPostfixOperator) const {
   case ExprKind::BooleanLiteral:
   case ExprKind::StringLiteral:
   case ExprKind::InterpolatedStringLiteral:
+  case ExprKind::RegexLiteral:
   case ExprKind::MagicIdentifierLiteral:
   case ExprKind::ObjCSelector:
   case ExprKind::KeyPath:
@@ -868,6 +870,7 @@ bool Expr::isValidParentOfTypeExpr(Expr *typeExpr) const {
   case ExprKind::KeyPathDot:
   case ExprKind::OneWay:
   case ExprKind::Tap:
+  case ExprKind::RegexLiteral:
     return false;
   }
 
@@ -2077,6 +2080,50 @@ void InterpolatedStringLiteralExpr::forEachSegment(ASTContext &Ctx,
   }
 }
 
+RegexQuantifierComponent::RegexQuantifierComponent(ASTContext &ctx,
+                                                   QuantifierKind kind,
+                                                   ModifierKind modKind,
+                                                   Optional<Range> range,
+                                                   RegexComponent *child)
+    : RegexComponent(Kind::Quantifier, {child}), QuantKind(kind),
+      ModKind(modKind), MatchingRange(range) {
+  assert(!range || kind == QuantifierKind::Range);
+  if (MatchingRange) {
+    MatchingRange->Lower = ctx.AllocateCopy(MatchingRange->Lower);
+    if (MatchingRange->Upper)
+      MatchingRange->Upper = ctx.AllocateCopy(*MatchingRange->Upper);
+  }
+}
+
+RegexLiteralComponent::RegexLiteralComponent(ASTContext &ctx, StringRef text)
+    : RegexComponent(Kind::Literal, {}), Text(ctx.AllocateCopy(text)) {}
+
+RegexMetaCharComponent::RegexMetaCharComponent(ASTContext &ctx,
+                                               MetaCharKind metaKind,
+                                               StringRef text)
+    : RegexComponent(Kind::MetaChar, {}), MetaKind(metaKind),
+      Text(ctx.AllocateCopy(text)) {}
+
+DeclContext *RegexLiteralExpr::getDeclContext() const {
+  if (auto *DC = BuildingExprOrDC.dyn_cast<DeclContext *>())
+    return DC;
+  auto *tap = BuildingExprOrDC.get<TapExpr *>();
+  return tap->getVar()->getDeclContext();
+}
+
+TapExpr *RegexLiteralExpr::getBuildingExpr() const {
+  auto &ctx = getDeclContext()->getASTContext();
+  auto &eval = ctx.evaluator;
+  RegexLiteralBuildingExprRequest req(this);
+  auto *tap = evaluateOrDefault(eval, req, nullptr);
+  if (!tap) {
+    auto *brace = BraceStmt::create(
+        ctx, SourceLoc(), {new (ctx) ErrorExpr(getSourceRange())}, SourceLoc());
+    return new (ctx) TapExpr(nullptr, brace);
+  }
+  return tap;
+}
+
 TapExpr::TapExpr(Expr * SubExpr, BraceStmt *Body)
     : Expr(ExprKind::Tap, /*Implicit=*/true),
       SubExpr(SubExpr), Body(Body) {
@@ -2133,6 +2180,10 @@ void swift::simple_display(llvm::raw_ostream &out,
 }
 
 SourceLoc swift::extractNearestSourceLoc(const DefaultArgumentExpr *expr) {
+  return expr->getLoc();
+}
+
+SourceLoc swift::extractNearestSourceLoc(const RegexLiteralExpr *expr) {
   return expr->getLoc();
 }
 

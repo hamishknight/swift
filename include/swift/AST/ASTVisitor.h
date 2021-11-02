@@ -37,6 +37,7 @@ template<typename ImplClass,
          typename PatternRetTy = void,
          typename TypeReprRetTy = void,
          typename AttributeRetTy = void,
+         typename RegexComponentTy = void,
          typename... Args>
 class ASTVisitor {
 public:
@@ -161,32 +162,51 @@ public:
   }
   
   bool visitParameterList(ParameterList *PL) { return false; }
+
+  RegexComponentTy visit(RegexComponent *Comp, Args... AA) {
+    switch (Comp->getKind()) {
+
+#define REGEX_COMPONENT(Id) \
+    case RegexComponent::Kind::Id: \
+      return static_cast<ImplClass*>(this) \
+        ->visitRegex##Id##Component(static_cast<Regex##Id##Component*>(Comp), \
+                             ::std::forward<Args>(AA)...);
+#include "swift/AST/RegexNodes.def"
+    }
+    llvm_unreachable("Not reachable, all cases handled");
+  }
 };
   
   
 template<typename ImplClass, typename ExprRetTy = void, typename... Args>
 using ExprVisitor = ASTVisitor<ImplClass, ExprRetTy, void, void, void, void,
-                               void, Args...>;
+                               void, void, Args...>;
 
 template<typename ImplClass, typename StmtRetTy = void, typename... Args>
 using StmtVisitor = ASTVisitor<ImplClass, void, StmtRetTy, void, void, void,
-                               void, Args...>;
+                               void, void, Args...>;
 
 template<typename ImplClass, typename DeclRetTy = void, typename... Args>
 using DeclVisitor = ASTVisitor<ImplClass, void, void, DeclRetTy, void, void,
-                               void, Args...>;
+                               void, void, Args...>;
 
 template<typename ImplClass, typename PatternRetTy = void, typename... Args>
 using PatternVisitor = ASTVisitor<ImplClass, void,void,void, PatternRetTy, void,
-                                  void, Args...>;
+                                  void, void, Args...>;
 
 template<typename ImplClass, typename TypeReprRetTy = void, typename... Args>
 using TypeReprVisitor = ASTVisitor<ImplClass, void,void,void,void,TypeReprRetTy,
-                                   void, Args...>;
+                                   void, void, Args...>;
 
 template<typename ImplClass, typename AttributeRetTy = void, typename... Args>
 using AttributeVisitor = ASTVisitor<ImplClass, void,void,void,void,void,
-                                    AttributeRetTy, Args...>;
+                                    AttributeRetTy, void, Args...>;
+
+  template <typename ImplClass, typename RegexComponentRetTy = void,
+            typename... Args>
+  using RegexComponentVisitor =
+      ASTVisitor<ImplClass, void, void, void, void, void, void,
+                 RegexComponentRetTy, Args...>;
 
 } // end namespace swift
 

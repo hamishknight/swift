@@ -1150,6 +1150,39 @@ namespace {
       return tv;
     }
 
+    Type visitRegexLiteralExpr(RegexLiteralExpr *expr) {
+      // Dig out the ExpressibleByRegexLiteral protocol.
+      auto &ctx = CS.getASTContext();
+      auto regexProto = TypeChecker::getProtocol(
+          ctx, expr->getLoc(), KnownProtocolKind::ExpressibleByRegexLiteral);
+      if (!regexProto) {
+        ctx.Diags.diagnose(expr->getStartLoc(),
+                           diag::regex_literal_missing_proto);
+        return nullptr;
+      }
+
+      // The type of the expression must conform to the
+      // ExpressibleByRegexLiteral protocol.
+      auto locator = CS.getConstraintLocator(expr);
+      auto tv = CS.createTypeVariable(locator, TVO_PrefersSubtypeBinding);
+      CS.addConstraint(ConstraintKind::LiteralConformsTo, tv,
+                       regexProto->getDeclaredInterfaceType(), locator);
+
+      auto *builderExpr = expr->getBuildingExpr();
+      auto *associatedTypeDecl =
+          regexProto->getAssociatedType(ctx.Id_RegexLiteral);
+      if (!associatedTypeDecl) {
+        ctx.Diags.diagnose(expr->getStartLoc(),
+                           diag::regex_literal_broken_proto);
+        return nullptr;
+      }
+
+      auto interpolationTV = DependentMemberType::get(tv, associatedTypeDecl);
+      CS.addConstraint(ConstraintKind::Equal, CS.getType(builderExpr),
+                       interpolationTV, CS.getConstraintLocator(builderExpr));
+      return tv;
+    }
+
     Type visitMagicIdentifierLiteralExpr(MagicIdentifierLiteralExpr *expr) {
       switch (expr->getKind()) {
       // Magic pointer identifiers are of type UnsafeMutableRawPointer.

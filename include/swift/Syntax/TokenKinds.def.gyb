@@ -35,6 +35,7 @@
 ///   PUNCTUATOR(name, str)
 ///   LITERAL(name)
 ///   MISC(name)
+///   REGEX_TOKEN(name)
 ///
 //===----------------------------------------------------------------------===//
 
@@ -143,6 +144,10 @@
 #define MISC(name) TOKEN(name)
 #endif
 
+#ifndef REGEX_TOKEN
+#define REGEX_TOKEN(name) TOKEN(name)
+#endif
+
 // Keywords that start decls.
 % for token in SYNTAX_TOKENS:
 %   if isinstance(token, Token.Punctuator):
@@ -194,3 +199,4 @@ MISC(comment)
 #undef PUNCTUATOR
 #undef LITERAL
 #undef MISC
+#undef REGEX_TOKEN

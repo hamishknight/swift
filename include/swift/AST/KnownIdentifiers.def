@@ -266,6 +266,20 @@ IDENTIFIER(_distributedActorDestroy)
 IDENTIFIER(__isRemoteActor)
 IDENTIFIER(whenLocal)
 
+// Regex
+IDENTIFIER(RegexLiteral)
+IDENTIFIER(regexLiteral)
+IDENTIFIER(componentCount)
+IDENTIFIER_WITH_NAME(dollarRegexBuilder, "$regexBuilder")
+IDENTIFIER(buildLiteral)
+IDENTIFIER(buildCaptureGroup)
+IDENTIFIER(buildConcatenate)
+IDENTIFIER(buildAlternation)
+IDENTIFIER(buildCharacterClass_)
+IDENTIFIER(buildZeroOrOne)
+IDENTIFIER(buildZeroOrMore)
+IDENTIFIER(buildOneOrMore)
+
 #undef IDENTIFIER
 #undef IDENTIFIER_
 #undef IDENTIFIER_WITH_NAME

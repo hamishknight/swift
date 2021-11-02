@@ -18,6 +18,7 @@
 #define SWIFT_LEXER_H
 
 #include "swift/AST/DiagnosticEngine.h"
+#include "swift/Basic/OptionalEnum.h"
 #include "swift/Basic/SourceLoc.h"
 #include "swift/Basic/SourceManager.h"
 #include "swift/Parse/LexerState.h"
@@ -58,7 +59,10 @@ enum class HashbangMode : bool {
 enum class LexerMode {
   Swift,
   SwiftInterface,
-  SIL
+  SIL,
+
+  /// Used when lexing regex syntax in a regex literal.
+  Regex
 };
 
 /// Kinds of conflict marker which the lexer might encounter.
@@ -183,7 +187,8 @@ public:
   /// \param Parent the parent lexer that scans the whole buffer
   /// \param BeginState start of the subrange
   /// \param EndState end of the subrange
-  Lexer(Lexer &Parent, State BeginState, State EndState);
+  Lexer(Lexer &Parent, State BeginState, State EndState,
+        OptionalEnum<LexerMode> NewLexMode = None);
 
   /// Returns true if this lexer will produce a code completion token.
   bool isCodeCompletion() const {
@@ -554,6 +559,10 @@ private:
   void lexHexNumber();
   void lexNumber();
 
+  void lexRegex();
+  void lexRegexEscapeCharacter(const char *BackslashChar);
+  void lexRegexLiteralCharacter();
+
   /// Skip over trivia and return characters that were skipped over in a \c
   /// StringRef. \p AllTriviaStart determines the start of the trivia. In nearly
   /// all cases, this should be \c CurPtr. If other trivia has already been
@@ -567,6 +576,8 @@ private:
                         unsigned CustomDelimiterLen = 0);
   void lexStringLiteral(unsigned CustomDelimiterLen = 0);
   void lexEscapedIdentifier();
+
+  bool tryLexRegexLiteral(const char *TokStart, const char *LeadingTriviaStart);
 
   void tryLexEditorPlaceholder();
   const char *findEndOfCurlyQuoteStringLiteral(const char *,

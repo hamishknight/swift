@@ -247,10 +247,9 @@ ASTSourceFileScope::ASTSourceFileScope(SourceFile *SF,
 namespace swift {
 namespace ast_scope {
 
-class NodeAdder
-    : public ASTVisitor<NodeAdder, ASTScopeImpl *,
-                        ASTScopeImpl *, ASTScopeImpl *,
-                        void, void, void, ASTScopeImpl *, ScopeCreator &> {
+class NodeAdder : public ASTVisitor<NodeAdder, ASTScopeImpl *, ASTScopeImpl *,
+                                    ASTScopeImpl *, void, void, void, void,
+                                    ASTScopeImpl *, ScopeCreator &> {
   Optional<SourceLoc> endLoc;
 
 public:

@@ -3015,6 +3015,25 @@ public:
   bool isCached() const { return true; }
 };
 
+class RegexLiteralBuildingExprRequest
+    : public SimpleRequest<RegexLiteralBuildingExprRequest,
+                           TapExpr *(const RegexLiteralExpr *),
+                           RequestFlags::SeparatelyCached> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  TapExpr *evaluate(Evaluator &evaluator, const RegexLiteralExpr *regex) const;
+
+public:
+  // Separate caching.
+  bool isCached() const { return true; }
+  Optional<TapExpr *> getCachedResult() const;
+  void cacheResult(TapExpr *buildingExpr) const;
+};
+
 class RenamedDeclRequest
     : public SimpleRequest<RenamedDeclRequest,
                            ValueDecl *(const ValueDecl *, const AvailableAttr *),

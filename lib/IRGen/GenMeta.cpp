@@ -5269,6 +5269,7 @@ SpecialProtocol irgen::getSpecialProtocolID(ProtocolDecl *P) {
   case KnownProtocolKind::ExpressibleByColorLiteral:
   case KnownProtocolKind::ExpressibleByImageLiteral:
   case KnownProtocolKind::ExpressibleByFileReferenceLiteral:
+  case KnownProtocolKind::ExpressibleByRegexLiteral:
   case KnownProtocolKind::ExpressibleByBuiltinBooleanLiteral:
   case KnownProtocolKind::ExpressibleByBuiltinExtendedGraphemeClusterLiteral:
   case KnownProtocolKind::ExpressibleByBuiltinFloatLiteral:
@@ -5296,6 +5297,7 @@ SpecialProtocol irgen::getSpecialProtocolID(ProtocolDecl *P) {
   case KnownProtocolKind::UnsafeSendable:
   case KnownProtocolKind::RangeReplaceableCollection:
   case KnownProtocolKind::GlobalActor:
+  case KnownProtocolKind::RegexLiteralProtocol:
     return SpecialProtocol::None;
   }
 

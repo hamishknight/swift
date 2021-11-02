@@ -2758,67 +2758,57 @@ namespace {
       return handleStringLiteralExpr(expr);
     }
 
+    ConcreteDeclRef fetchProtocolInitWitness(KnownProtocolKind protocolKind,
+                                             Type type,
+                                             ArrayRef<Identifier> argLabels,
+                                             SourceLoc loc) {
+      auto &ctx = cs.getASTContext();
+      auto *proto = TypeChecker::getProtocol(ctx, loc, protocolKind);
+      assert(proto && "Missing regex literal protocol?");
+
+      auto conformance = TypeChecker::conformsToProtocol(
+          type, proto, cs.DC->getParentModule());
+      assert(conformance && "regex type doesn't conform to protocol?");
+
+      DeclName constrName(ctx, DeclBaseName::createConstructor(), argLabels);
+
+      ConcreteDeclRef witness =
+          conformance.getWitnessByName(type->getRValueType(), constrName);
+      if (!witness || !isa<AbstractFunctionDecl>(witness.getDecl()))
+        return nullptr;
+      return witness;
+    }
+
+    Expr *buildExprFromUnsigned(unsigned value) {
+      auto &ctx = cs.getASTContext();
+      LiteralExpr *expr = IntegerLiteralExpr::createFromUnsigned(ctx, value);
+      cs.setType(expr, ctx.getIntType());
+      return handleIntegerLiteralExpr(expr);
+    }
+
     Expr *
     visitInterpolatedStringLiteralExpr(InterpolatedStringLiteralExpr *expr) {
       // Figure out the string type we're converting to.
-      auto openedType = cs.getType(expr);
-      auto type = simplifyType(openedType);
+      auto type = simplifyType(cs.getType(expr));
       cs.setType(expr, type);
 
       auto &ctx = cs.getASTContext();
       auto loc = expr->getStartLoc();
-
-      auto fetchProtocolInitWitness =
-          [&](KnownProtocolKind protocolKind, Type type,
-              ArrayRef<Identifier> argLabels) -> ConcreteDeclRef {
-        auto proto = TypeChecker::getProtocol(ctx, loc, protocolKind);
-        assert(proto && "Missing string interpolation protocol?");
-
-        auto conformance =
-          TypeChecker::conformsToProtocol(type, proto, cs.DC->getParentModule());
-        assert(conformance && "string interpolation type conforms to protocol");
-
-        DeclName constrName(ctx, DeclBaseName::createConstructor(), argLabels);
-
-        ConcreteDeclRef witness =
-            conformance.getWitnessByName(type->getRValueType(), constrName);
-        if (!witness || !isa<AbstractFunctionDecl>(witness.getDecl()))
-          return nullptr;
-        return witness;
-      };
-
-      auto *interpolationProto = TypeChecker::getProtocol(
-          cs.getASTContext(), expr->getLoc(),
-          KnownProtocolKind::ExpressibleByStringInterpolation);
-      auto associatedTypeDecl =
-          interpolationProto->getAssociatedType(ctx.Id_StringInterpolation);
-      if (associatedTypeDecl == nullptr) {
-        ctx.Diags.diagnose(expr->getStartLoc(),
-                           diag::interpolation_broken_proto);
-        return nullptr;
-      }
-      auto interpolationType =
-        simplifyType(DependentMemberType::get(openedType, associatedTypeDecl));
+      auto *appendingExpr = expr->getAppendingExpr();
+      auto interpolationType = cs.getType(appendingExpr);
 
       // Fetch needed witnesses.
       ConcreteDeclRef builderInit = fetchProtocolInitWitness(
           KnownProtocolKind::StringInterpolationProtocol, interpolationType,
-          {ctx.Id_literalCapacity, ctx.Id_interpolationCount});
+          {ctx.Id_literalCapacity, ctx.Id_interpolationCount}, loc);
       if (!builderInit) return nullptr;
       expr->setBuilderInit(builderInit);
 
       ConcreteDeclRef resultInit = fetchProtocolInitWitness(
           KnownProtocolKind::ExpressibleByStringInterpolation, type,
-          {ctx.Id_stringInterpolation});
+          {ctx.Id_stringInterpolation}, loc);
       if (!resultInit) return nullptr;
       expr->setInitializer(resultInit);
-
-      // Make the integer literals for the parameters.
-      auto buildExprFromUnsigned = [&](unsigned value) {
-        LiteralExpr *expr = IntegerLiteralExpr::createFromUnsigned(ctx, value);
-        cs.setType(expr, ctx.getIntType());
-        return handleIntegerLiteralExpr(expr);
-      };
 
       expr->setLiteralCapacityExpr(
           buildExprFromUnsigned(expr->getLiteralCapacity()));
@@ -2832,9 +2822,22 @@ namespace {
       cs.setType(interpolationExpr, interpolationType);
       expr->setInterpolationExpr(interpolationExpr);
 
-      auto appendingExpr = expr->getAppendingExpr();
       appendingExpr->setSubExpr(interpolationExpr);
 
+      return expr;
+    }
+
+    Expr *visitRegexLiteralExpr(RegexLiteralExpr *expr) {
+      simplifyExprType(expr);
+
+      auto &ctx = cs.getASTContext();
+      auto resultInit = fetchProtocolInitWitness(
+          KnownProtocolKind::ExpressibleByRegexLiteral, cs.getType(expr),
+          {ctx.Id_regexLiteral}, expr->getStartLoc());
+      if (!resultInit)
+        return nullptr;
+
+      expr->setInitializer(resultInit);
       return expr;
     }
     

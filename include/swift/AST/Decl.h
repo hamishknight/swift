@@ -1693,6 +1693,9 @@ public:
                                             DeclContext *Parent,
                                             SourceLoc VarLoc = SourceLoc());
 
+  static PatternBindingDecl *createImplicit(ASTContext &Ctx, VarDecl *VD,
+                                            Expr *Init);
+
   static PatternBindingDecl *createDeserialized(
                                ASTContext &Ctx, SourceLoc StaticLoc,
                                StaticSpellingKind StaticSpelling,
@@ -4848,6 +4851,9 @@ public:
           SourceLoc nameLoc, Identifier name, DeclContext *dc)
     : VarDecl(DeclKind::Var, isStatic, introducer, nameLoc,
               name, dc, StorageIsMutable_t(introducer == Introducer::Var)) {}
+
+  /// Create an implicit 'var' decl with a given \p name.
+  static VarDecl *createImplicitVar(Identifier name, DeclContext *dc);
 
   SourceRange getSourceRange() const;
 

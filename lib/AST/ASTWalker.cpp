@@ -538,6 +538,25 @@ class Traversal : public ASTVisitor<Traversal, Expr*, Stmt*,
     return E;
   }
 
+  Expr *visitRegexLiteralExpr(RegexLiteralExpr *E) {
+    if (Walker.shouldWalkRegexComponents()) {
+      if (auto *newComp = doIt(E->getRootComponent())) {
+        E->setRootComponent(newComp);
+      } else {
+        return nullptr;
+      }
+    }
+
+    if (auto *oldBuildingExpr = E->getBuildingExpr()) {
+      if (auto *buildingExpr = doIt(oldBuildingExpr)) {
+        E->setBuildingExpr(cast<TapExpr>(buildingExpr));
+      } else {
+        return nullptr;
+      }
+    }
+    return E;
+  }
+
   Expr *visitObjectLiteralExpr(ObjectLiteralExpr *E) {
     if (auto *args = doIt(E->getArgs())) {
       E->setArgs(args);
@@ -1353,6 +1372,22 @@ public:
       ArgList->setExpr(Idx, E);
     }
     return Walker.walkToArgumentListPost(ArgList);
+  }
+
+  RegexComponent *doIt(RegexComponent *Comp) {
+    assert(Walker.shouldWalkRegexComponents());
+    bool WalkChildren;
+    std::tie(WalkChildren, Comp) = Walker.walkToRegexComponentPre(Comp);
+    if (!WalkChildren || !Comp)
+      return Comp;
+
+    for (auto *Child : Comp->getChildren()) {
+      Child = doIt(Child);
+      if (!Child)
+        return nullptr;
+      // ArgList->setExpr(Idx, E);
+    }
+    return Walker.walkToRegexComponentPost(Comp);
   }
 };
 

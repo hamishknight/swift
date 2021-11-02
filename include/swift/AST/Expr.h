@@ -181,6 +181,11 @@ protected:
     LiteralCapacity : 32
   );
 
+  SWIFT_INLINE_BITFIELD_FULL(RegexLiteralExpr, LiteralExpr, 32,
+    : NumPadBits,
+    NumComponents : 32
+  );
+
   SWIFT_INLINE_BITFIELD(DeclRefExpr, Expr, 2+2+1+1,
     Semantics : 2, // an AccessSemantics
     FunctionRefKind : 2,
@@ -958,6 +963,177 @@ public:
   static bool classof(const Expr *E) {
     return E->getKind() == ExprKind::InterpolatedStringLiteral;
   }
+};
+
+class RegexComponent {
+public:
+  enum class Kind {
+#define REGEX_COMPONENT(Id) Id,
+#include "swift/AST/RegexNodes.def"
+  };
+
+private:
+  Kind ComponentKind;
+  TinyPtrVector<RegexComponent *> Children;
+
+protected:
+  RegexComponent(Kind kind, ArrayRef<RegexComponent *> children)
+      : ComponentKind(kind), Children(children) {}
+
+public:
+  Kind getKind() const { return ComponentKind; }
+  ArrayRef<RegexComponent *> getChildren() const { return Children; }
+};
+
+class RegexQuantifierComponent : public RegexComponent {
+public:
+  enum class QuantifierKind {
+    ZeroOrOne,
+    ZeroOrMore,
+    OneOrMore,
+    Range,
+  };
+  enum class ModifierKind {
+    None,
+    Possesive,
+    Lazy,
+  };
+  struct Range {
+    StringRef Lower;
+    Optional<StringRef> Upper;
+  };
+
+private:
+  QuantifierKind QuantKind;
+  ModifierKind ModKind;
+  Optional<Range> MatchingRange;
+
+public:
+  RegexQuantifierComponent(ASTContext &ctx, QuantifierKind kind,
+                           ModifierKind modKind, Optional<Range> range,
+                           RegexComponent *child);
+
+  QuantifierKind getQuantifierKind() { return QuantKind; }
+  ModifierKind getModifierKind() { return ModKind; }
+  Optional<Range> getMatchingRange() { return MatchingRange; }
+
+  RegexComponent *getChild() const { return getChildren()[0]; }
+
+  static bool classof(const RegexComponent *C) {
+    return C->getKind() == Kind::Quantifier;
+  }
+};
+
+class RegexCaptureComponent : public RegexComponent {
+public:
+  enum class CaptureKind {
+    NonCapturing,
+    Capturing,
+  };
+
+private:
+  CaptureKind CapturingKind;
+
+public:
+  RegexCaptureComponent(CaptureKind captureKind, RegexComponent *child)
+    : RegexComponent(Kind::Capture, {child}), CapturingKind(captureKind) {}
+
+  RegexComponent *getChild() const { return getChildren()[0]; }
+
+  CaptureKind getCaptureKind() const { return CapturingKind; }
+
+  static bool classof(const RegexComponent *C) {
+    return C->getKind() == Kind::Capture;
+  }
+};
+
+class RegexConcatComponent : public RegexComponent {
+public:
+  RegexConcatComponent(ArrayRef<RegexComponent *> children)
+      : RegexComponent(Kind::Concat, children) {}
+  static bool classof(const RegexComponent *C) {
+    return C->getKind() == Kind::Concat;
+  }
+};
+
+class RegexAlternationComponent : public RegexComponent {
+public:
+  RegexAlternationComponent(ArrayRef<RegexComponent *> children)
+    : RegexComponent(Kind::Alternation, children) {}
+  static bool classof(const RegexComponent *C) {
+    return C->getKind() == Kind::Alternation;
+  }
+};
+
+class RegexCharacterClassComponent : public RegexComponent {
+public:
+  static bool classof(const RegexComponent *C) {
+    return C->getKind() == Kind::CharacterClass;
+  }
+};
+
+class RegexLiteralComponent : public RegexComponent {
+  StringRef Text;
+
+public:
+  RegexLiteralComponent(ASTContext &ctx, StringRef text);
+
+  static bool classof(const RegexComponent *C) {
+    return C->getKind() == Kind::Literal;
+  }
+};
+
+class RegexMetaCharComponent : public RegexComponent {
+public:
+  enum class MetaCharKind {
+    Dot, Caret, Dollar, Escaped
+  };
+
+private:
+  MetaCharKind MetaKind;
+  StringRef Text;
+
+public:
+  RegexMetaCharComponent(ASTContext &ctx, MetaCharKind metaKind,
+                         StringRef text);
+
+  static bool classof(const RegexComponent *C) {
+    return C->getKind() == Kind::MetaChar;
+  }
+};
+
+class RegexLiteralExpr : public LiteralExpr {
+  friend class RegexLiteralBuildingExprRequest;
+
+  SourceLoc Loc;
+  RegexComponent *RootComponent;
+  mutable llvm::PointerUnion<DeclContext *, TapExpr *> BuildingExprOrDC;
+
+public:
+  RegexLiteralExpr(SourceLoc Loc, RegexComponent *RootComponent,
+                   DeclContext *DC, unsigned NumComponents)
+      : LiteralExpr(ExprKind::RegexLiteral, /*implicit*/ false), Loc(Loc),
+        RootComponent(RootComponent), BuildingExprOrDC(DC) {
+    Bits.RegexLiteralExpr.NumComponents = NumComponents;
+  }
+
+  SourceLoc getStartLoc() const { return Loc; }
+  SourceLoc getEndLoc() const { return Loc; }
+
+  DeclContext *getDeclContext() const;
+
+  RegexComponent *getRootComponent() const { return RootComponent; }
+  void setRootComponent(RegexComponent *newComp) { RootComponent = newComp; }
+
+  unsigned getComponentCount() const {
+    return Bits.RegexLiteralExpr.NumComponents;
+  }
+
+  void setBuildingExpr(TapExpr *expr) {
+    assert(BuildingExprOrDC.is<TapExpr *>() && "Haven't created it yet");
+    BuildingExprOrDC = expr;
+  }
+  TapExpr *getBuildingExpr() const;
 };
   
 /// MagicIdentifierLiteralExpr - A magic identifier like #file which expands
@@ -5733,6 +5909,7 @@ void simple_display(llvm::raw_ostream &out, const DefaultArgumentExpr *expr);
 void simple_display(llvm::raw_ostream &out, const Expr *expr);
 
 SourceLoc extractNearestSourceLoc(const DefaultArgumentExpr *expr);
+SourceLoc extractNearestSourceLoc(const RegexLiteralExpr *expr);
 
 } // end namespace swift
 

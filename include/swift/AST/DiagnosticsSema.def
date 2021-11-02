@@ -3597,6 +3597,12 @@ ERROR(interpolation_broken_proto,none,
       "protocol 'ExpressibleByStringInterpolation' is broken",
       ())
 
+ERROR(regex_literal_missing_proto,none,
+      "regex literals require the protocol 'ExpressibleByRegexLiteral' to be "
+      "defined", ())
+ERROR(regex_literal_broken_proto,none,
+      "protocol 'ExpressibleByRegexLiteral' is broken", ())
+
 ERROR(object_literal_broken_proto,none,
       "object literal protocol is broken", ())
 

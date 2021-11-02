@@ -1887,6 +1887,11 @@ public:
     printRec(E->getAppendingExpr());
     PrintWithColorRAII(OS, ParenthesisColor) << ')';
   }
+  void visitRegexLiteralExpr(RegexLiteralExpr *E) {
+    printCommon(E, "regex_literal_expr");
+    printRec(E->getBuildingExpr());
+    // TODO: printing out regex structure
+  }
   void visitMagicIdentifierLiteralExpr(MagicIdentifierLiteralExpr *E) {
     printCommon(E, "magic_identifier_literal_expr")
       << " kind=" << MagicIdentifierLiteralExpr::getKindString(E->getKind());

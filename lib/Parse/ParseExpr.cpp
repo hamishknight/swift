@@ -14,7 +14,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "swift/AST/DiagnosticEngine.h"
 #include "swift/Parse/Parser.h"
+#include "swift/AST/ASTVisitor.h"
 #include "swift/AST/ASTWalker.h"
 #include "swift/AST/Attr.h"
 #include "swift/AST/DiagnosticsParse.h"
@@ -1487,6 +1489,7 @@ ParserResult<Expr> Parser::parseExprPostfix(Diag<> ID, bool isExprBasic) {
 ///     integer_literal
 ///     floating_literal
 ///     string_literal
+///     regex_literal
 ///     nil
 ///     true
 ///     false
@@ -1545,7 +1548,10 @@ ParserResult<Expr> Parser::parseExprPrimary(Diag<> ID, bool isExprBasic) {
       
   case tok::string_literal:  // "foo"
     return parseExprStringLiteral();
-  
+
+  case tok::regex_literal: // /(\d+)-(\d+)-(\d+)/
+    return parseExprRegexLiteral();
+
   case tok::kw_nil:
     ExprContext.setCreateSyntax(SyntaxKind::NilLiteralExpr);
     return makeParserResult(new (Context)
@@ -1764,6 +1770,7 @@ ParserResult<Expr> Parser::parseExprPrimary(Diag<> ID, bool isExprBasic) {
 
   // Eat an invalid token in an expression context.  Error tokens are diagnosed
   // by the lexer, so there is no reason to emit another diagnostic.
+
   case tok::unknown:
     if (Tok.getText().startswith("\"\"\"")) {
       // This was due to unterminated multi-line string.
@@ -2108,6 +2115,274 @@ ParserResult<Expr> Parser::parseExprStringLiteral() {
                                       Loc, Loc.getAdvancedLoc(CloseQuoteBegin),
                                       LiteralCapacity, InterpolationCount,
                                       AppendingExpr));
+}
+
+ParserResult<RegexQuantifierComponent>
+Parser::parseRegexQuantifier(RegexComponent *Child) {
+  using Range = RegexQuantifierComponent::Range;
+  using QuantifierKind = RegexQuantifierComponent::QuantifierKind;
+  using ModifierKind = RegexQuantifierComponent::ModifierKind;
+
+  QuantifierKind Kind;
+  switch (Tok.getKind()) {
+  case tok::regex_star: {
+    Kind = QuantifierKind::ZeroOrMore;
+    break;
+  }
+  case tok::regex_plus: {
+    Kind = QuantifierKind::OneOrMore;
+    break;
+  }
+  case tok::regex_question: {
+    Kind = QuantifierKind::ZeroOrOne;
+    break;
+  }
+  case tok::regex_lbrace: {
+    Kind = QuantifierKind::Range;
+    break;
+  }
+  default:
+    llvm_unreachable("Not a valid quantifier start");
+  }
+  consumeToken();
+
+  Optional<Range> MatchingRange;
+  if (Kind == QuantifierKind::Range) {
+    if (Tok.isNot(tok::regex_number))
+      return makeParserError();
+
+    auto Lower = Tok.getText();
+    consumeToken();
+
+    Optional<StringRef> Upper;
+    if (consumeIf(tok::regex_comma)) {
+      if (Tok.isNot(tok::regex_number))
+        return makeParserError();
+
+      Upper = Tok.getText();
+    }
+    if (!consumeIf(tok::regex_rbrace))
+      return makeParserError();
+
+    MatchingRange.emplace(Range{Lower, Upper});
+  }
+
+  ModifierKind ModKind;
+  switch (Tok.getKind()) {
+  case tok::regex_plus:
+    ModKind = ModifierKind::Possesive;
+    consumeToken();
+    break;
+  case tok::regex_question:
+    ModKind = ModifierKind::Lazy;
+    consumeToken();
+    break;
+  default:
+    ModKind = ModifierKind::None;
+    break;
+  }
+
+  return makeParserResult(new RegexQuantifierComponent(Context, Kind, ModKind,
+                                                       MatchingRange, Child));
+}
+
+ParserResult<RegexCaptureComponent> Parser::parseRegexCaptureGroup() {
+  using Kind = RegexCaptureComponent::CaptureKind;
+  Kind CaptureKind;
+  if (Tok.is(tok::regex_question) && peekToken().is(tok::regex_colon)) {
+    consumeToken();
+    consumeToken();
+    CaptureKind = Kind::NonCapturing;
+  } else {
+    CaptureKind = Kind::Capturing;
+  }
+  auto Child = parseRegexComponents();
+  if (Child.isParseErrorOrHasCompletion())
+    return makeParserError();
+  if (!consumeIf(tok::regex_rparen))
+    return makeParserError();
+  return makeParserResult(new RegexCaptureComponent(CaptureKind, Child.get()));
+}
+
+namespace {
+class RegexComponentBuilder {
+  ASTContext &Ctx;
+  SmallVector<RegexComponent *, 4> Components;
+  SmallString<16> LiteralChars;
+  SmallString<4> LastChars;
+
+  void commitLiteralChars() {
+    SmallString<16> PriorLiteralChars;
+    PriorLiteralChars.append(LiteralChars);
+    PriorLiteralChars.append(LastChars);
+    if (PriorLiteralChars.empty())
+      return;
+
+    LiteralChars.clear();
+    LastChars.clear();
+    Components.push_back(new RegexLiteralComponent(Ctx, PriorLiteralChars));
+  }
+
+public:
+  RegexComponentBuilder(ASTContext &ctx) : Ctx(ctx) {}
+
+  void addComponent(RegexComponent *comp) {
+    commitLiteralChars();
+    Components.push_back(comp);
+  }
+
+  void appendLiteralChars(StringRef chars) {
+    if (!LastChars.empty()) {
+      LiteralChars.append(LastChars);
+      LastChars.clear();
+    }
+    LastChars.append(chars);
+  }
+
+  NullablePtr<RegexComponent> takeLastComponent() {
+    if (LastChars.empty() && Components.empty())
+      return nullptr;
+
+    if (!LastChars.empty()) {
+      SWIFT_DEFER { LastChars.clear(); };
+      return new RegexLiteralComponent(Ctx, LastChars);
+    }
+    return Components.pop_back_val();
+  }
+
+  NullablePtr<RegexComponent> takeRootComponent() {
+    commitLiteralChars();
+    SmallVector<RegexComponent *, 4> Result;
+    std::swap(Components, Result);
+    if (Result.empty())
+      return nullptr;
+    if (Result.size() == 1)
+      return Result[0];
+    return new RegexConcatComponent(Result);
+  }
+};
+} // end anonymous namespace
+
+ParserResult<RegexComponent> Parser::parseRegexPrimary() {
+  using MetaKind = RegexMetaCharComponent::MetaCharKind;
+  RegexComponentBuilder Builder(Context);
+
+  // regex_pipe is not a part of a primary regex expression, caller will handle
+  // building the parent alternation.
+  while (Tok.isNot(tok::regex_delimiter, tok::regex_pipe,
+                   tok::regex_rparen)) {
+    switch (Tok.getKind()) {
+    case tok::regex_literal_char:
+    case tok::regex_colon:
+    case tok::regex_comma:
+    case tok::regex_rsquare:
+    case tok::regex_rbrace: // Outside of char class, treated as regular char.
+      Builder.appendLiteralChars(Tok.getText());
+      consumeToken();
+      break;
+
+    case tok::regex_number: {
+      if (Tok.getLength() > 1)
+        Builder.appendLiteralChars(Tok.getText().drop_back());
+
+      Builder.appendLiteralChars(Tok.getText().take_back());
+      consumeToken();
+      break;
+    }
+
+    case tok::regex_meta:
+      llvm_unreachable("Not implemented yet");
+
+    case tok::regex_star:
+    case tok::regex_plus:
+    case tok::regex_question:
+    case tok::regex_lbrace: {
+      auto Quantifier = parseRegexQuantifier(Builder.takeLastComponent().get());
+      // TODO: Error handling
+      Builder.addComponent(Quantifier.get());
+      break;
+    }
+
+    case tok::regex_dot: {
+      consumeToken();
+      Builder.addComponent(new RegexMetaCharComponent(Context, MetaKind::Dot,
+                                                      "."));
+      break;
+    }
+    case tok::regex_caret: {
+      consumeToken();
+      Builder.addComponent(new RegexMetaCharComponent(Context, MetaKind::Caret,
+                                                      "^"));
+      break;
+    }
+    case tok::regex_dollar: {
+      consumeToken();
+      Builder.addComponent(new RegexMetaCharComponent(Context, MetaKind::Dollar,
+                                                      "$"));
+      break;
+    }
+
+    case tok::regex_lparen: {
+      consumeToken();
+      auto Comp = parseRegexCaptureGroup();
+      Builder.addComponent(Comp.get());
+      break;
+    }
+
+    case tok::regex_lsquare:
+      llvm_unreachable("Not implemented yet");
+
+    case tok::regex_delimiter:
+    case tok::regex_pipe:
+    case tok::regex_rparen:
+      llvm_unreachable("Already handled by loop condition");
+
+    case tok::NUM_TOKENS:
+      llvm_unreachable("Not a regex token");
+
+#define REGEX_TOKEN(Name)
+#define TOKEN(Name) case tok::Name: llvm_unreachable("Not a regex token");
+#include "swift/Syntax/TokenKinds.def"
+    }
+  }
+  auto Root = Builder.takeRootComponent();
+  if (!Root)
+    return makeParserError();
+  return makeParserResult(Root.get());
+}
+
+ParserResult<RegexComponent> Parser::parseRegexComponents() {
+  SmallVector<RegexComponent *, 4> Components;
+  do {
+    auto Component = parseRegexPrimary();
+    Components.push_back(Component.get());
+  } while (consumeIf(tok::regex_pipe));
+
+  if (Components.empty())
+    return makeParserError();
+  if (Components.size() == 1)
+    return makeParserResult(Components[0]);
+  return makeParserResult(new RegexAlternationComponent(Components));
+}
+
+ParserResult<Expr> Parser::parseExprRegexLiteral() {
+  SyntaxParsingContext LocalContext(SyntaxContext,
+                                    SyntaxKind::RegexLiteralExpr);
+  RegexComponent *RootComponent = nullptr;
+  SourceLoc Loc;
+  {
+    auto BeginState =
+        L->getStateForBeginningOfTokenLoc(Tok.getLoc().getAdvancedLoc(1));
+    auto EndState = BeginState.advance(Tok.getLength() - 1);
+    Lexer RegexLexer(*L, BeginState, EndState, LexerMode::Regex);
+    llvm::SaveAndRestore<Lexer *> LexScope(L, &RegexLexer);
+    Loc = consumeToken(tok::regex_literal);
+    RootComponent = parseRegexComponents().get();
+  }
+
+  consumeToken(tok::regex_delimiter);
+  return makeParserResult(new (Context) RegexLiteralExpr(
+      Loc, RootComponent, CurDeclContext, /*numComponents*/ 5));
 }
 
 void Parser::parseOptionalArgumentLabel(Identifier &name, SourceLoc &loc) {

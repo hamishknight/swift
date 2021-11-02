@@ -140,6 +140,9 @@ class Misc(Token):
     def macro_name(self):
         return "MISC"
 
+class RegexToken(Token):
+    def macro_name(self):
+        return "REGEX_TOKEN"
 
 SYNTAX_TOKENS = [
     # Keywords that start decls
@@ -246,7 +249,6 @@ SYNTAX_TOKENS = [
     Punctuator('Arrow', 'arrow', text='->', requires_trailing_space=True,
                serialization_code=78),
 
-
     Punctuator('Backtick', 'backtick', text='`', serialization_code=79),
 
     Punctuator('Backslash', 'backslash', text='\\\\', serialization_code=100),
@@ -330,6 +332,11 @@ SYNTAX_TOKENS = [
             classification='FloatingLiteral', serialization_code=112),
     Literal('StringLiteral', 'string_literal',
             classification='StringLiteral', serialization_code=113),
+    # TODO: using StringLiteral classification here. Apparently this
+    # affects things like syntax highlighting so it shouldn't be too 
+    # much of a problem
+    Literal('RegexLiteral', 'regex_literal',
+            classification='StringLiteral', serialization_code=126),
 
     Misc('Unknown', 'unknown', serialization_code=115),
     Misc('Identifier', 'identifier', classification='Identifier',
@@ -352,6 +359,25 @@ SYNTAX_TOKENS = [
          serialization_code=101),
     Misc('Yield', 'kw_yield', serialization_code=116, text='yield'),
 
+    RegexToken('RegexLiteralChar', 'regex_literal_char', serialization_code=130),
+    RegexToken('RegexMeta', 'regex_meta', serialization_code=131),
+    RegexToken('RegexStar', 'regex_star', serialization_code=132, text='*'),
+    RegexToken('RegexPlus', 'regex_plus', serialization_code=133, text='+'),
+    RegexToken('RegexQuestion', 'regex_question', serialization_code=134, text='?'),
+    RegexToken('RegexPipe', 'regex_pipe', serialization_code=135, text='|'),
+    RegexToken('RegexLParen', 'regex_lparen', serialization_code=136, text='('),
+    RegexToken('RegexRParen', 'regex_rparen', serialization_code=137, text=')'),
+    RegexToken('RegexLBrace', 'regex_lbrace', serialization_code=138, text='{'),
+    RegexToken('RegexRBrace', 'regex_rbrace', serialization_code=139, text='}'),
+    RegexToken('RegexLSquare', 'regex_lsquare', serialization_code=140, text='['),
+    RegexToken('RegexRSquare', 'regex_rsquare', serialization_code=141, text=']'),
+    RegexToken('RegexDot', 'regex_dot', serialization_code=142, text='.'),
+    RegexToken('RegexComma', 'regex_comma', serialization_code=143, text=','),
+    RegexToken('RegexCaret', 'regex_caret', serialization_code=144, text='^'),
+    RegexToken('RegexDollar', 'regex_dollar', serialization_code=145, text='$'),
+    RegexToken('RegexColon', 'regex_colon', serialization_code=146, text=':'),
+    RegexToken('RegexNumber', 'regex_number', serialization_code=147),
+    RegexToken('RegexDelimiter', 'regex_delimiter', serialization_code=148, text='\''),
 ]
 
 SYNTAX_TOKEN_MAP = {token.name + 'Token': token for token in SYNTAX_TOKENS}

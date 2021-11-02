@@ -205,6 +205,14 @@ public:
     }
   }
 
+  StringRef getKindName() const {
+    switch (Kind) {
+#define TOKEN(X) case tok::X: return #X;
+#include "swift/Syntax/TokenKinds.def"
+    default: return "";
+    }
+  }
+
   /// True if the token is any literal.
   bool isLiteral() const {
     switch(Kind) {

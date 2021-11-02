@@ -803,3 +803,125 @@ bool ClosureHasExplicitResultRequest::evaluate(Evaluator &evaluator,
   body->walk(finder);
   return finder.hasResult();
 }
+
+
+namespace {
+class RegexComponentConverter : public RegexComponentVisitor<RegexComponentConverter, Expr *> {
+  ASTContext &Ctx;
+  DeclContext *DC;
+  SmallVectorImpl<ASTNode> &Stmts;
+  VarDecl *TapVar;
+  unsigned BindingID = 0;
+
+public:
+  RegexComponentConverter(DeclContext *DC, SmallVectorImpl<ASTNode> &stmts)
+      : Ctx(DC->getASTContext()), DC(DC), Stmts(stmts) {
+    TapVar = cast<VarDecl>(stmts[0].get<Decl *>());
+  }
+
+  DeclRefExpr *makeTapVarRef() const {
+    return new (Ctx) DeclRefExpr(TapVar, DeclNameLoc(), /*implicit*/ true);
+  }
+
+  DeclRefExpr *makeBinding(Expr *init) {
+    auto name = Ctx.getIdentifier("$_" + std::to_string(BindingID));
+    BindingID++;
+
+    auto *var = VarDecl::createImplicitVar(name, DC);
+    Stmts.push_back(var);
+
+    auto *pbd = PatternBindingDecl::createImplicit(Ctx, var, init);
+    Stmts.push_back(pbd);
+
+    return new (Ctx) DeclRefExpr(var, DeclNameLoc(), /*implicit*/ true);
+  }
+
+  DeclRefExpr *makeBoundBuilderCall(DeclName name, ArrayRef<Expr *> args) {
+    auto *memberRef = UnresolvedDotExpr::createImplicit(Ctx, makeTapVarRef(),
+                                                        name.getBaseName());
+    // Pad with empty argument labels if needed.
+    if (name.isSimpleName() && !args.empty()) {
+      SmallVector<Identifier, 4> labels(args.size());
+      name = DeclName(Ctx, name.getBaseName(), labels);
+    }
+    auto *argList =
+        ArgumentList::forImplicitCallTo(DeclNameRef(name), args, Ctx);
+    return makeBinding(CallExpr::createImplicit(Ctx, memberRef, argList));
+  }
+
+  Expr *visitRegexQuantifierComponent(RegexQuantifierComponent *comp) {
+    using QuantifierKind = RegexQuantifierComponent::QuantifierKind;
+    auto *childRef = visit(comp->getChild());
+    switch (comp->getQuantifierKind()) {
+    case QuantifierKind::OneOrMore:
+      return makeBoundBuilderCall(Ctx.Id_buildOneOrMore, {childRef});
+    case QuantifierKind::ZeroOrMore:
+      return makeBoundBuilderCall(Ctx.Id_buildZeroOrMore, {childRef});
+    case QuantifierKind::ZeroOrOne:
+      return makeBoundBuilderCall(Ctx.Id_buildZeroOrOne, {childRef});
+    case QuantifierKind::Range:
+      llvm_unreachable("not implemented");
+    }
+    llvm_unreachable("Unhandled case in switch");
+  }
+  Expr *visitRegexCaptureComponent(RegexCaptureComponent *comp) {
+    auto *childRef = visit(comp->getChild());
+    return makeBoundBuilderCall(Ctx.Id_buildCaptureGroup, {childRef});
+  }
+  Expr *visitRegexCharacterClassComponent(RegexCharacterClassComponent *comp) {
+    // TODO
+    return nullptr;
+  }
+  Expr *visitRegexLiteralComponent(RegexLiteralComponent *comp) {
+    return makeBoundBuilderCall(Ctx.Id_buildLiteral, {});
+  }
+  Expr *visitRegexConcatComponent(RegexConcatComponent *comp) {
+    SmallVector<Expr *, 4> childRefs;
+    for (auto *child : comp->getChildren())
+      childRefs.push_back(visit(child));
+
+    return makeBoundBuilderCall(Ctx.Id_buildConcatenate, childRefs);
+  }
+  Expr *visitRegexAlternationComponent(RegexAlternationComponent *comp) {
+    SmallVector<Expr *, 4> childRefs;
+    for (auto *child : comp->getChildren())
+      childRefs.push_back(visit(child));
+
+    return makeBoundBuilderCall(Ctx.Id_buildAlternation, childRefs);
+  }
+  Expr *visitRegexMetaCharComponent(RegexMetaCharComponent *comp) {
+    // TODO
+    return nullptr;
+  }
+};
+};
+
+TapExpr *
+RegexLiteralBuildingExprRequest::evaluate(Evaluator &evaluator,
+                                          const RegexLiteralExpr *regex) const {
+  auto *DC = regex->BuildingExprOrDC.get<DeclContext *>();
+  auto &ctx = DC->getASTContext();
+
+  // Make the variable which will contain our temporary value.
+  auto *tapVar = VarDecl::createImplicitVar(ctx.Id_dollarRegexBuilder, DC);
+  tapVar->setUserAccessible(false);
+
+  SmallVector<ASTNode, 4> stmts;
+  stmts.push_back(tapVar);
+
+  RegexComponentConverter conv(DC, stmts);
+  conv.visit(regex->getRootComponent());
+
+  auto *body = BraceStmt::create(ctx, /*lParen*/ SourceLoc(), stmts,
+                                 /*rParen*/ SourceLoc());
+  auto *dotInit = new (ctx)
+      UnresolvedMemberExpr(SourceLoc(), DeclNameLoc(),
+                           DeclNameRef(DeclBaseName::createConstructor()),
+                           /*implicit*/ true);
+  auto *countExpr =
+      IntegerLiteralExpr::createFromUnsigned(ctx, regex->getComponentCount());
+  auto *args =
+      ArgumentList::forImplicitSingle(ctx, ctx.Id_componentCount, countExpr);
+  auto *initExpr = CallExpr::createImplicit(ctx, dotInit, args);
+  return new (ctx) TapExpr(initExpr, body);
+}

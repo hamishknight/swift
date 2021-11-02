@@ -478,6 +478,7 @@ namespace {
     RValue visitAbstractClosureExpr(AbstractClosureExpr *E, SGFContext C);
     RValue visitInterpolatedStringLiteralExpr(InterpolatedStringLiteralExpr *E,
                                               SGFContext C);
+    RValue visitRegexLiteralExpr(RegexLiteralExpr *E, SGFContext C);
     RValue visitObjectLiteralExpr(ObjectLiteralExpr *E, SGFContext C);
     RValue visitEditorPlaceholderExpr(EditorPlaceholderExpr *E, SGFContext C);
     RValue visitObjCSelectorExpr(ObjCSelectorExpr *E, SGFContext C);
@@ -2520,6 +2521,17 @@ visitInterpolatedStringLiteralExpr(InterpolatedStringLiteralExpr *E,
   PreparedArguments resultInitArgs;
   resultInitArgs.emplace(AnyFunctionType::Param(interpolation.getType()));
   resultInitArgs.add(E, std::move(interpolation));
+
+  return SGF.emitApplyAllocatingInitializer(
+      E, E->getInitializer(), std::move(resultInitArgs), Type(), C);
+}
+
+RValue RValueEmitter::visitRegexLiteralExpr(RegexLiteralExpr *E,
+                                            SGFContext C) {
+  RValue regex = SGF.emitRValue(E->getBuildingExpr());
+  PreparedArguments resultInitArgs;
+  resultInitArgs.emplace(AnyFunctionType::Param(regex.getType()));
+  resultInitArgs.add(E, std::move(regex));
 
   return SGF.emitApplyAllocatingInitializer(
       E, E->getInitializer(), std::move(resultInitArgs), Type(), C);

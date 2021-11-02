@@ -1423,6 +1423,21 @@ SourceLoc swift::extractNearestSourceLoc(const TypeRepr *repr) {
 }
 
 //----------------------------------------------------------------------------//
+// RegexLiteralBuildingExprRequest caching.
+//----------------------------------------------------------------------------//
+
+Optional<TapExpr *> RegexLiteralBuildingExprRequest::getCachedResult() const {
+  auto *regex = std::get<0>(getStorage());
+  if (regex->BuildingExprOrDC.is<DeclContext *>())
+    return None;
+  return regex->BuildingExprOrDC.get<TapExpr *>();
+}
+void RegexLiteralBuildingExprRequest::cacheResult(TapExpr *buildingExpr) const {
+  auto *regex = std::get<0>(getStorage());
+  regex->BuildingExprOrDC = buildingExpr;
+}
+
+//----------------------------------------------------------------------------//
 // CustomAttrTypeRequest computation.
 //----------------------------------------------------------------------------//
 

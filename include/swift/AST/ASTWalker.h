@@ -24,6 +24,7 @@ class Decl;
 class Expr;
 class ClosureExpr;
 class ModuleDecl;
+class RegexComponent;
 class Stmt;
 class Pattern;
 class TypeRepr;
@@ -235,6 +236,8 @@ public:
   /// until eventually we can remove this altogether.
   virtual bool shouldWalkAccessorsTheOldWay() { return false; }
 
+  virtual bool shouldWalkRegexComponents() { return false; }
+
   /// walkToParameterListPre - This method is called when first visiting a
   /// ParameterList, before walking into its parameters.  If it returns false,
   /// the subtree is skipped.
@@ -269,6 +272,15 @@ public:
   /// The default implementation always returns the argument list.
   virtual ArgumentList *walkToArgumentListPost(ArgumentList *ArgList) {
     return ArgList;
+  }
+
+  virtual std::pair<bool, RegexComponent *>
+  walkToRegexComponentPre(RegexComponent *Comp) {
+    return {true, Comp};
+  }
+
+  virtual RegexComponent *walkToRegexComponentPost(RegexComponent *Comp) {
+    return Comp;
   }
 
 protected:

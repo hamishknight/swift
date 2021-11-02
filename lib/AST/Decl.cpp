@@ -1388,6 +1388,13 @@ PatternBindingDecl *PatternBindingDecl::createImplicit(
   return Result;
 }
 
+PatternBindingDecl *
+PatternBindingDecl::createImplicit(ASTContext &Ctx, VarDecl *VD, Expr *Init) {
+  auto *pattern = NamedPattern::createImplicit(Ctx, VD);
+  return createImplicit(Ctx, StaticSpellingKind::None, pattern, Init,
+                        VD->getDeclContext());
+}
+
 PatternBindingDecl *PatternBindingDecl::createForDebugger(
     ASTContext &Ctx, StaticSpellingKind StaticSpelling, Pattern *Pat, Expr *E,
     DeclContext *Parent) {
@@ -5653,6 +5660,15 @@ VarDecl::VarDecl(DeclKind kind, bool isStatic, VarDecl::Introducer introducer,
   Bits.VarDecl.IsLazyStorageProperty = false;
   Bits.VarDecl.IsPropertyWrapperBackingProperty = false;
   Bits.VarDecl.IsTopLevelGlobal = false;
+}
+
+VarDecl *VarDecl::createImplicitVar(Identifier name, DeclContext *dc) {
+  auto &ctx = dc->getASTContext();
+  auto *var = new (ctx) VarDecl(/*isStatic*/ false, Introducer::Var,
+                                /*nameLoc*/ SourceLoc(), name,
+                                dc);
+  var->setImplicit();
+  return var;
 }
 
 Type VarDecl::getType() const {

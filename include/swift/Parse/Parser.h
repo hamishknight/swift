@@ -1592,6 +1592,13 @@ public:
   ParserResult<Expr> parseExprSelector();
   ParserResult<Expr> parseExprSuper();
   ParserResult<Expr> parseExprStringLiteral();
+  ParserResult<Expr> parseExprRegexLiteral();
+
+  ParserResult<RegexQuantifierComponent>
+  parseRegexQuantifier(RegexComponent *Child);
+  ParserResult<RegexCaptureComponent> parseRegexCaptureGroup();
+  ParserResult<RegexComponent> parseRegexPrimary();
+  ParserResult<RegexComponent> parseRegexComponents();
 
   StringRef copyAndStripUnderscores(StringRef text);
 

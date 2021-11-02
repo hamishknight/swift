@@ -235,9 +235,10 @@ Lexer::Lexer(const LangOptions &Options, const SourceManager &SourceMgr,
   initialize(Offset, EndOffset);
 }
 
-Lexer::Lexer(Lexer &Parent, State BeginState, State EndState)
+Lexer::Lexer(Lexer &Parent, State BeginState, State EndState,
+             OptionalEnum<LexerMode> NewLexMode)
     : Lexer(PrincipalTag(), Parent.LangOpts, Parent.SourceMgr, Parent.BufferID,
-            Parent.Diags, Parent.LexMode,
+            Parent.Diags, NewLexMode.getValueOr(Parent.LexMode),
             Parent.IsHashbangAllowed
                 ? HashbangMode::Allowed
                 : HashbangMode::Disallowed,
@@ -1905,6 +1906,95 @@ void Lexer::lexStringLiteral(unsigned CustomDelimiterLen) {
                                 CustomDelimiterLen);
 }
 
+bool Lexer::tryLexRegexLiteral(const char *TokStart,
+                               const char *LeadingTriviaStart) {
+  assert(*TokStart == '/');
+  auto bail = [&]() -> bool {
+    CurPtr = TokStart + 1;
+    return false;
+  };
+
+  // Time to apply a pile of heuristics!
+  // TODO: This needs to be formalized somehow.
+  auto isSequencedWithExpr = [&](const Token &T) -> bool {
+    // An expression must come before and after a binary operator.
+    if (T.isBinaryOperator())
+      return true;
+
+    // Keywords generally come before expressions, except the ones that are
+    // themselves expressions.
+    if (T.isKeyword()) {
+      // These keywords are themselves expressions and therefore may be used in
+      // a binary chain (or would have better parser recovery if parsed that
+      // way).
+      return T.isNot(tok::kw_false, tok::kw_true, tok::kw_nil,
+                     tok::kw_Any, tok::kw_super, tok::kw_self, tok::kw_Self,
+                     tok::kw__);
+    }
+    // Punctuation that generally seperates exprs.
+    return T.isAny(tok::semi, tok::comma, tok::colon, tok::equal, tok::period,
+                   tok::ellipsis);
+  };
+  auto isValidPreviousTok = [&](const Token &T) -> bool {
+    if (isSequencedWithExpr(T))
+      return true;
+    return T.isAny(tok::l_angle, tok::l_brace, tok::l_paren, tok::l_square,
+                   tok::oper_prefix, tok::amp_prefix, tok::period_prefix);
+  };
+  auto isValidNextTok = [&](const Token &T) -> bool {
+    if (isSequencedWithExpr(T))
+      return true;
+    return T.isAny(tok::r_angle, tok::r_brace, tok::r_paren, tok::r_square,
+                   tok::oper_postfix, tok::exclaim_postfix,
+                   tok::question_postfix);
+  };
+
+  bool CheckTrailingTok = false;
+  if (LeadingTriviaStart != BufferStart) {
+    auto PrevToken = NextToken;
+    assert(!PrevToken.is(tok::NUM_TOKENS) && "Need access to previous token");
+    if (!isValidPreviousTok(PrevToken)) {
+      // We can forgive an unsuitable previous token if we're starting a
+      // new line. However, we'll need to make sure the trailing token is
+      // suitable.
+      if (!NextToken.isAtStartOfLine())
+        return bail();
+      CheckTrailingTok = true;
+    }
+  }
+
+  while (true) {
+    uint32_t CharValue = validateUTF8CharacterAndAdvance(CurPtr, BufferEnd);
+    if (CharValue == ~0U)
+      return bail();
+
+    // Regex literals cannot span multiple lines.
+    if (CharValue == '\n' || CharValue == '\r')
+      return bail();
+
+    if (CharValue == '\\' && *CurPtr == '/') {
+      // Skip escaped delimiter and advance.
+      CurPtr++;
+    } else if (CharValue == '/') {
+      // End of literal, stop.
+      break;
+    }
+  }
+  // We've ended on the opening of a comment, bail.
+  if (*CurPtr == '*' || *CurPtr == '/')
+    return bail();
+
+  // If we need to validate the trailing token, do so.
+  if (CheckTrailingTok) {
+    // Okay yes this is awful.
+    Lexer NextLexer(*this, LexerState(SourceLoc(llvm::SMLoc::getFromPointer(CurPtr))),
+                    LexerState(SourceLoc(llvm::SMLoc::getFromPointer(BufferEnd))));
+    if (!isValidNextTok(NextLexer.NextToken))
+      return bail();
+  }
+  formToken(tok::regex_literal, TokStart);
+  return true;
+}
 
 /// We found an opening curly quote in the source file.  Scan ahead until we
 /// find and end-curly-quote (or straight one).  If we find what looks to be a
@@ -2349,7 +2439,40 @@ void Lexer::lexImpl() {
 
   // Remember the start of the token so we can form the text range.
   const char *TokStart = CurPtr;
-  
+
+  switch (*CurPtr) {
+  case (char)-1:
+  case (char)-2:
+    diagnose(CurPtr, diag::lex_utf16_bom_marker);
+    CurPtr = BufferEnd;
+    return formToken(tok::unknown, TokStart);
+
+  case 0:
+    switch (getNulCharacterKind(CurPtr)) {
+    case NulCharacterKind::CodeCompletion:
+      ++CurPtr;
+      while (advanceIfValidContinuationOfIdentifier(CurPtr, BufferEnd)) {}
+      return formToken(tok::code_complete, TokStart);
+
+    case NulCharacterKind::BufferEnd:
+      // This is the real end of the buffer.
+      // Return EOF.
+      return formToken(tok::eof, TokStart);
+
+    case NulCharacterKind::Embedded:
+      llvm_unreachable(
+          "Embedded nul should be eaten by lexTrivia as LeadingTrivia");
+    }
+  default:
+    break;
+  }
+
+  // Regex has different lexing rules.
+  if (LexMode == LexerMode::Regex) {
+    lexRegex();
+    return;
+  }
+
   switch (*CurPtr++) {
   default: {
     char const *Tmp = CurPtr-1;
@@ -2377,31 +2500,6 @@ void Lexer::lexImpl() {
   case '\v':
     llvm_unreachable(
         "Whitespaces should be eaten by lexTrivia as LeadingTrivia");
-
-  case (char)-1:
-  case (char)-2:
-    diagnose(CurPtr-1, diag::lex_utf16_bom_marker);
-    CurPtr = BufferEnd;
-    return formToken(tok::unknown, TokStart);
-
-  case 0:
-    switch (getNulCharacterKind(CurPtr - 1)) {
-    case NulCharacterKind::CodeCompletion:
-      while (advanceIfValidContinuationOfIdentifier(CurPtr, BufferEnd))
-        ;
-      return formToken(tok::code_complete, TokStart);
-
-    case NulCharacterKind::BufferEnd:
-      // This is the real end of the buffer.
-      // Put CurPtr back into buffer bounds.
-      --CurPtr;
-      // Return EOF.
-      return formToken(tok::eof, TokStart);
-
-    case NulCharacterKind::Embedded:
-      llvm_unreachable(
-          "Embedded nul should be eaten by lexTrivia as LeadingTrivia");
-    }
 
   case '@': return formToken(tok::at_sign, TokStart);
   case '{': return formToken(tok::l_brace, TokStart);
@@ -2435,6 +2533,9 @@ void Lexer::lexImpl() {
              "Non token comment should be eaten by lexTrivia as LeadingTrivia");
       return formToken(tok::comment, TokStart);
     }
+    if (tryLexRegexLiteral(TokStart, LeadingTriviaStart))
+      return;
+
     return lexOperatorIdentifier();
   case '%':
     // Lex %[0-9a-zA-Z_]+ as a local SIL value
@@ -2498,6 +2599,75 @@ void Lexer::lexImpl() {
   }
 }
 
+void Lexer::lexRegexEscapeCharacter(const char *BackslashChar) {
+  llvm_unreachable("Not implemented yet");
+}
+
+void Lexer::lexRegexLiteralCharacter() {
+  const char *TokStart = CurPtr;
+  unsigned CharValue = validateUTF8CharacterAndAdvance(CurPtr, BufferEnd);
+  if (CharValue == ~0U) {
+    diagnose(TokStart, diag::lex_invalid_utf8);
+    return formToken(tok::unknown, TokStart);
+  }
+  return formToken(tok::regex_literal_char, TokStart);
+}
+
+void Lexer::lexRegex() {
+  if (ArtificialEOF && CurPtr >= ArtificialEOF)
+    return formToken(tok::eof, CurPtr);
+
+  // Remember the start of the token so we can form the text range.
+  const char *TokStart = CurPtr;
+  CurPtr++;
+  switch (*TokStart) {
+  case '\n':
+  case '\r':
+    llvm_unreachable("Shouldn't have newlines in regex");
+  case '(':
+    return formToken(tok::regex_lparen, TokStart);
+  case ')':
+    return formToken(tok::regex_rparen, TokStart);
+  case '{':
+    return formToken(tok::regex_lbrace, TokStart);
+  case '}':
+    return formToken(tok::regex_rbrace, TokStart);
+  case '[':
+    return formToken(tok::regex_lsquare, TokStart);
+  case ']':
+    return formToken(tok::regex_rsquare, TokStart);
+  case '*':
+    return formToken(tok::regex_star, TokStart);
+  case '+':
+    return formToken(tok::regex_plus, TokStart);
+  case '?':
+    return formToken(tok::regex_question, TokStart);
+  case '.':
+    return formToken(tok::regex_dot, TokStart);
+  case ',':
+    return formToken(tok::regex_comma, TokStart);
+  case ':':
+    return formToken(tok::regex_colon, TokStart);
+  case '^':
+    return formToken(tok::regex_caret, TokStart);
+  case '$':
+    return formToken(tok::regex_dollar, TokStart);
+  case '/':
+    return formToken(tok::regex_delimiter, TokStart);
+  case '\\':
+    return lexRegexEscapeCharacter(TokStart);
+  case '0': case '1': case '2': case '3': case '4':
+  case '5': case '6': case '7': case '8': case '9': {
+    while (isDigit(*CurPtr))
+      CurPtr++;
+    return formToken(tok::regex_number, TokStart);
+  }
+  default:
+    CurPtr--;
+    return lexRegexLiteralCharacter();
+  }
+}
+
 Token Lexer::getTokenAtLocation(const SourceManager &SM, SourceLoc Loc,
                                 CommentRetentionMode CRM) {
   // Don't try to do anything with an invalid location.
@@ -2526,6 +2696,8 @@ Token Lexer::getTokenAtLocation(const SourceManager &SM, SourceLoc Loc,
 StringRef Lexer::lexTrivia(bool IsForTrailingTrivia,
                            const char *AllTriviaStart) {
   CommentStart = nullptr;
+  if (LexMode == LexerMode::Regex)
+    return StringRef();
 
 Restart:
   const char *TriviaStart = CurPtr;
