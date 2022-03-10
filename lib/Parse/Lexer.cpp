@@ -1959,14 +1959,14 @@ const char *Lexer::findEndOfCurlyQuoteStringLiteral(const char *Body,
 }
 bool Lexer::tryLexRegexLiteral(const char *TokStart,
                                const char *LeadingTriviaStart) {
+  // First try lex `/.../`.
+  if (tryLexForwardSlashRegexLiteral(TokStart, LeadingTriviaStart))
+    return true;
+
   // We need to have experimental string processing enabled, and have the
   // parsing logic for regex literals available.
   if (!LangOpts.EnableExperimentalStringProcessing || !regexLiteralLexingFn)
     return false;
-
-  // First try lex `/.../`.
-  if (tryLexForwardSlashRegexLiteral(TokStart, LeadingTriviaStart))
-    return true;
 
   // Ask libswift to try and lex a regex literal.
   // - Ptr will not be advanced if this is not for a regex literal.
