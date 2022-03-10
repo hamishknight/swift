@@ -1957,12 +1957,16 @@ const char *Lexer::findEndOfCurlyQuoteStringLiteral(const char *Body,
     // Otherwise, keep scanning.
   }
 }
-
-bool Lexer::tryLexRegexLiteral(const char *TokStart) {
+bool Lexer::tryLexRegexLiteral(const char *TokStart,
+                               const char *LeadingTriviaStart) {
   // We need to have experimental string processing enabled, and have the
   // parsing logic for regex literals available.
   if (!LangOpts.EnableExperimentalStringProcessing || !regexLiteralLexingFn)
     return false;
+
+  // First try lex `/.../`.
+  if (tryLexForwardSlashRegexLiteral(TokStart, LeadingTriviaStart))
+    return true;
 
   // Ask libswift to try and lex a regex literal.
   // - Ptr will not be advanced if this is not for a regex literal.
@@ -1993,6 +1997,95 @@ bool Lexer::tryLexRegexLiteral(const char *TokStart) {
 
   // Otherwise, we either had a successful lex, or something that was
   // recoverable.
+  formToken(tok::regex_literal, TokStart);
+  return true;
+}
+
+bool Lexer::tryLexForwardSlashRegexLiteral(const char *TokStart,
+                                           const char *LeadingTriviaStart) {
+  if (*TokStart != '/')
+    return false;
+
+  auto bail = [&]() -> bool {
+    CurPtr = TokStart + 1;
+    return false;
+  };
+
+  // Time to apply a pile of heuristics!
+  // TODO: This needs to be formalized somehow.
+
+  auto isStmtKeyword = [](const Token &T) {
+    switch (T.getKind()) {
+#define STMT_KEYWORD(X) case tok::kw_##X: return true;
+#include "swift/Syntax/TokenKinds.def"
+    default: return false;
+    }
+  };
+
+  auto isSequencedWithExpr = [&](const Token &T) -> bool {
+    // An expression must come before and after a binary operator.
+    if (T.isBinaryOperator())
+      return true;
+
+    // Expression keywords that sequence expressions. Note that 'is' and 'as'
+    // sequence exprs, but are not useful in the postfix case.
+    // TODO: await is not a formal keyword for some reason?
+    if (T.is(tok::kw_try) || T.isContextualKeyword("await"))
+      return true;
+
+    // Statement keywords generally come before expressions.
+    if (isStmtKeyword(T))
+      return true;
+
+    // Punctuation that generally separates exprs.
+    return T.isAny(tok::semi, tok::comma, tok::colon, tok::equal,
+                   tok::question_infix);
+  };
+  auto isValidPreviousTok = [&](const Token &T) -> bool {
+    if (isSequencedWithExpr(T))
+      return true;
+    return T.isAny(tok::l_angle, tok::l_brace, tok::l_paren, tok::l_square,
+                   tok::oper_prefix, tok::amp_prefix, tok::period_prefix);
+  };
+
+  if (LeadingTriviaStart != BufferStart) {
+    // TODO: Handle sub-lexers, where we may have to walk back and lex the
+    // previous token.
+    auto PrevToken = NextToken;
+    assert(!PrevToken.is(tok::NUM_TOKENS) && "Need access to previous token");
+    if (!isValidPreviousTok(PrevToken)) {
+      // We can forgive an unsuitable previous token if we're starting a
+      // new line. However in that case, the next character must not be a
+      // space, as that would indicate an operator chain.
+      if (!NextToken.isAtStartOfLine() || *CurPtr == ' ')
+        return bail();
+    }
+  }
+
+  while (true) {
+    uint32_t CharValue = validateUTF8CharacterAndAdvance(CurPtr, BufferEnd);
+    if (CharValue == ~0U)
+      return bail();
+
+    // Regex literals cannot span multiple lines.
+    if (CharValue == '\n' || CharValue == '\r')
+      return bail();
+
+    if (CharValue == '\\' && *CurPtr == '/') {
+      // Skip escaped delimiter and advance.
+      CurPtr++;
+    } else if (CharValue == '/') {
+      // End of literal, stop.
+      break;
+    }
+  }
+  // We've ended on the opening of a comment, bail.
+  // TODO: We could treat such cases as postfix operators on a regex literal,
+  // but it seems more likely the user has written a comment and is in the
+  // middle of editing the text before it.
+  if (*CurPtr == '*' || *CurPtr == '/')
+    return bail();
+
   formToken(tok::regex_literal, TokStart);
   return true;
 }
@@ -2474,7 +2567,7 @@ void Lexer::lexImpl() {
 
     // If we have experimental string processing enabled, try lex a regex
     // literal.
-    if (tryLexRegexLiteral(TokStart))
+    if (tryLexRegexLiteral(TokStart, LeadingTriviaStart))
       return;
 
     // Otherwise try lex a magic pound literal.
@@ -2494,6 +2587,9 @@ void Lexer::lexImpl() {
              "Non token comment should be eaten by lexTrivia as LeadingTrivia");
       return formToken(tok::comment, TokStart);
     }
+    if (tryLexRegexLiteral(TokStart, LeadingTriviaStart))
+      return;
+
     return lexOperatorIdentifier();
   case '%':
     // Lex %[0-9a-zA-Z_]+ as a local SIL value
@@ -2533,7 +2629,7 @@ void Lexer::lexImpl() {
   case 'r':
     // If we have experimental string processing enabled, try lex a regex
     // literal.
-    if (tryLexRegexLiteral(TokStart))
+    if (tryLexRegexLiteral(TokStart, LeadingTriviaStart))
       return;
     LLVM_FALLTHROUGH;
 
