@@ -2006,6 +2006,21 @@ bool Lexer::tryLexForwardSlashRegexLiteral(const char *TokStart,
   if (*TokStart != '/')
     return false;
 
+  // The opening '/' regex literal not be left bound, as that would indicate
+  // either postfix or unspaced infix '/', neither of which should form a regex
+  // literal.
+  if (isLeftBound(TokStart, ContentStart))
+    return false;
+
+  // We need to ban these characters at the start of a regex to avoid ambiguity
+  // with unapplied operator references, e.g 'foo(/, /)'.
+  switch (*CurPtr) {
+  case ' ': case '\t': case ',': case ')':
+    return false;
+  default:
+    break;
+  }
+
   auto bail = [&]() -> bool {
     CurPtr = TokStart + 1;
     return false;
@@ -2048,18 +2063,14 @@ bool Lexer::tryLexForwardSlashRegexLiteral(const char *TokStart,
                    tok::oper_prefix, tok::amp_prefix, tok::period_prefix);
   };
 
-  if (LeadingTriviaStart != BufferStart) {
+
+  if (!NextToken.isAtStartOfLine() && LeadingTriviaStart != ContentStart) {
     // TODO: Handle sub-lexers, where we may have to walk back and lex the
     // previous token.
     auto PrevToken = NextToken;
     assert(!PrevToken.is(tok::NUM_TOKENS) && "Need access to previous token");
-    if (!isValidPreviousTok(PrevToken)) {
-      // We can forgive an unsuitable previous token if we're starting a
-      // new line. However in that case, the next character must not be a
-      // space, as that would indicate an operator chain.
-      if (!NextToken.isAtStartOfLine() || *CurPtr == ' ')
-        return bail();
-    }
+    if (!isValidPreviousTok(PrevToken))
+      return bail();
   }
 
   while (true) {
