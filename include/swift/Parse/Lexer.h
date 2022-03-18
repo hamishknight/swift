@@ -599,6 +599,10 @@ private:
   /// lexed, false if this is not a regex literal.
   bool tryLexRegexLiteral(const char *TokStart);
 
+  /// Attempt to lex a regex literal with forward slashes `/.../`.
+  bool tryLexForwardSlashRegexLiteral(const char *TokStart,
+                                      const char *LeadingTriviaStart);
+
   void tryLexEditorPlaceholder();
   const char *findEndOfCurlyQuoteStringLiteral(const char *,
                                                bool EmitDiagnostics);

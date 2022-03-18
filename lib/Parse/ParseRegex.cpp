@@ -32,12 +32,30 @@ using namespace swift::syntax;
 
 ParserResult<Expr> Parser::parseExprRegexLiteral() {
   assert(Tok.is(tok::regex_literal));
-  assert(regexLiteralParsingFn);
+
+  // Bail if '-enable-experimental-string-processing' is not enabled.
+  if (!Context.LangOpts.EnableExperimentalStringProcessing ||
+      !regexLiteralParsingFn) {
+    diagnose(Tok, diag::regex_literal_parsing_error,
+             "regex literal requires '-enable-experimental-string-processing'");
+    auto loc = consumeToken();
+    return makeParserResult(new (Context) ErrorExpr(loc));
+  }
 
   SyntaxParsingContext LocalContext(SyntaxContext,
                                     SyntaxKind::RegexLiteralExpr);
 
   auto regexText = Tok.getText();
+
+  // The Swift library doesn't know about `/.../` regexes, let's pretend it's
+  // `#/.../#` instead.
+  if (regexText[0] == '/') {
+    SmallString<32> scratch;
+    scratch.append("#");
+    scratch.append(regexText);
+    scratch.append("#");
+    regexText = Context.AllocateCopy(StringRef(scratch));
+  }
 
   // Let the Swift library parse the contents, returning an error, or null if
   // successful.
