@@ -559,6 +559,11 @@ public:
     return f(backtrackScope);
   }
 
+  /// Discard the current token. This will avoid interface hashing or updating
+  /// the previous loc. Only should be used if you've completely re-lexed
+  /// a different token at that position.
+  SourceLoc discardToken();
+
   /// Consume a token that we created on the fly to correct the original token
   /// stream from lexer.
   void consumeExtraToken(Token K);
@@ -1745,7 +1750,13 @@ public:
   ParserResult<Expr>
   parseExprPoundCodeCompletion(Optional<StmtKind> ParentKind);
 
+  UnresolvedDeclRefExpr *makeExprOperator(Token opToken);
   UnresolvedDeclRefExpr *parseExprOperator();
+
+  /// Try re-lex a '/' operator character as a regex literal. This should be
+  /// called when parsing in an expression position to ensure a regex literal is
+  /// correctly parsed.
+  void tryLexRegexLiteral();
 
   void validateCollectionElement(ParserResult<Expr> element);
 

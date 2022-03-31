@@ -551,6 +551,10 @@ public:
     void operator=(const SILBodyRAII&) = delete;
   };
 
+  /// Attempt to re-lex a regex literal with forward slashes `/.../` from a
+  /// given lexing state.
+  bool tryLexAsForwardSlashRegexLiteral(State S);
+
 private:
   /// Nul character meaning kind.
   enum class NulCharacterKind {
@@ -615,8 +619,8 @@ private:
   void lexStringLiteral(unsigned CustomDelimiterLen = 0);
   void lexEscapedIdentifier();
 
-  /// Attempt to lex a regex literal, returning true if a regex literal was
-  /// lexed, false if this is not a regex literal.
+  /// Attempt to lex a regex literal, returning true if lexing should continue,
+  /// false if this is not a regex literal.
   bool tryLexRegexLiteral(const char *TokStart);
 
   void tryLexEditorPlaceholder();
