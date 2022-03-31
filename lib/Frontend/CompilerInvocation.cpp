@@ -502,6 +502,12 @@ static bool ParseLangArgs(LangOptions &Opts, ArgList &Args,
   Opts.EnableExperimentalStringProcessing |=
       Args.hasArg(OPT_enable_experimental_string_processing);
 
+  // For now, forward slash regexes are enabled anytime experimental string
+  // processing is enabled. However, once experimental string processing gets
+  // flipped to on by default, we will need to change this to be gated on a
+  // language mode.
+  Opts.EnableForwardSlashRegex = Opts.EnableExperimentalStringProcessing;
+
   Opts.EnableExperimentalBoundGenericExtensions |=
     Args.hasArg(OPT_enable_experimental_bound_generic_extensions);
 

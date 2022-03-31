@@ -157,6 +157,10 @@ namespace swift {
     /// Enable experimental string processing
     bool EnableExperimentalStringProcessing = false;
 
+    /// Enable parsing a `/.../` regex literal. This requires experimental
+    /// string processing. Note this does not affect `#/.../#`.
+    bool EnableForwardSlashRegex = false;
+
     /// Disable API availability checking.
     bool DisableAvailabilityChecking = false;
 
