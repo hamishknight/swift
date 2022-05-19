@@ -1694,6 +1694,13 @@ struct DynamicCallableMethods {
     keywordArgumentsMethods.insert(method);
   }
 
+  void addMethods(const DynamicCallableMethods &other) {
+    argumentsMethods.insert(other.argumentsMethods.begin(),
+                            other.argumentsMethods.end());
+    keywordArgumentsMethods.insert(other.keywordArgumentsMethods.begin(),
+                                   other.keywordArgumentsMethods.end());
+  }
+
   /// Returns true if type defines either of the @dynamicCallable
   /// required methods. Returns false iff type does not satisfy @dynamicCallable
   /// requirements.
@@ -2804,7 +2811,8 @@ public:
 
   /// A cache that stores the @dynamicCallable required methods implemented by
   /// types.
-  llvm::DenseMap<CanType, DynamicCallableMethods> DynamicCallableCache;
+  llvm::DenseMap<NominalTypeDecl *, DynamicCallableMethods>
+      DynamicCallableCache;
 
   /// A cache of implicitly generated dot-member expressions used as roots
   /// for some `.callAsFunction` calls. The key here is "base" locator for
