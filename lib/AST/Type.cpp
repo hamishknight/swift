@@ -1992,6 +1992,12 @@ const llvm::fltSemantics &BuiltinFloatType::getAPFloatSemantics() const {
   llvm::report_fatal_error("Unknown FP semantics");
 }
 
+bool TypeBase::mayBeCallable(DeclContext *dc) {
+  return is<AnyFunctionType>() || is<PlaceholderType>() ||
+         isTypeVariableOrMember() || isTypeParameter() ||
+         isCallAsFunctionNominalType(dc) || hasDynamicCallableAttribute();
+}
+
 bool TypeBase::mayHaveSuperclass() {
   if (getClassOrBoundGenericClass())
     return true;

@@ -7718,6 +7718,8 @@ Expr *ExprRewriter::finishApply(ApplyExpr *apply, Type openedType,
   if (overload) {
     auto *decl = overload->choice.getDeclOrNull();
     callee = resolveConcreteDeclRef(decl, calleeLoc);
+    assert(!decl || decl->getInterfaceType()->getReferenceStorageReferent()
+           ->lookThroughAllOptionalTypes()->mayBeCallable(dc));
   }
 
   // If this is an implicit call to a `callAsFunction` method, build the
