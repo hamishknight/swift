@@ -8804,21 +8804,30 @@ SourceRange EnumElementDecl::getSourceRange() const {
   return {getStartLoc(), getNameLoc()};
 }
 
-Type EnumElementDecl::getArgumentInterfaceType() const {
+ArrayRef<AnyFunctionType::Param>
+EnumElementDecl::getAssociatedValueParams() const {
   if (!hasAssociatedValues())
-    return nullptr;
+    return {};
 
   auto interfaceType = getInterfaceType();
-  if (interfaceType->is<ErrorType>()) {
-    return interfaceType;
-  }
+  if (interfaceType->is<ErrorType>())
+    return {};
 
   auto funcTy = interfaceType->castTo<AnyFunctionType>();
-  funcTy = funcTy->getResult()->castTo<FunctionType>();
+  return funcTy->getResult()->castTo<FunctionType>()->getParams();
+}
+
+Type EnumElementDecl::getAssociatedValueTuple() const {
+  if (!hasAssociatedValues())
+    return Type();
+
+  auto interfaceType = getInterfaceType();
+  if (interfaceType->is<ErrorType>())
+    return interfaceType;
 
   auto &ctx = getASTContext();
   SmallVector<TupleTypeElt, 4> elements;
-  for (const auto &param : funcTy->getParams()) {
+  for (const auto &param : getAssociatedValueParams()) {
     Type eltType = param.getParameterType(/*canonicalVararg=*/false, &ctx);
     elements.emplace_back(eltType, param.getLabel());
   }

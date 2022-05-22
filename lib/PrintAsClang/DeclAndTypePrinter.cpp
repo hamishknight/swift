@@ -2059,10 +2059,6 @@ private:
     os << "void";
   }
 
-  void visitParenType(ParenType *PT, Optional<OptionalTypeKind> optionalKind) {
-    visitPart(PT->getSinglyDesugaredType(), optionalKind);
-  }
-
   void visitSyntaxSugarType(SyntaxSugarType *SST,
                             Optional<OptionalTypeKind> optionalKind) {
     visitPart(SST->getSinglyDesugaredType(), optionalKind);

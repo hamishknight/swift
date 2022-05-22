@@ -1530,7 +1530,7 @@ static void noteGlobalActorOnContext(DeclContext *dc, Type globalActor) {
 
       case ActorIsolation::Unspecified:
         fn->diagnose(diag::note_add_globalactor_to_function,
-            globalActor->getWithoutParens().getString(),
+            globalActor.getString(),
             fn->getDescriptiveKind(),
             fn->getName(),
             globalActor)
@@ -4128,14 +4128,12 @@ namespace {
     if (auto enumDecl = dyn_cast<EnumDecl>(nominal)) {
       for (auto caseDecl : enumDecl->getAllCases()) {
         for (auto element : caseDecl->getElements()) {
-          if (!element->hasAssociatedValues())
-            continue;
-
-          // Check that the associated value type is Sendable.
-          auto elementType = dc->mapTypeIntoContext(
-              element->getArgumentInterfaceType());
-          if (visitor(element, elementType))
-            return true;
+          for (auto param : element->getAssociatedValueParams()) {
+            // Check that the associated value type is Sendable.
+            auto elementType = dc->mapTypeIntoContext(param.getParameterType());
+            if (visitor(element, elementType))
+              return true;
+          }
         }
       }
 

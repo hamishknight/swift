@@ -2108,14 +2108,13 @@ namespace {
           properties.setNonTrivial();
           continue;
         }
-        
+
         auto substEltType =
-          elt->getArgumentInterfaceType().subst(subMap)
-             ->getCanonicalType();
-        
-        auto origEltType = origType.unsafeGetSubstFieldType(elt,
-                              elt->getArgumentInterfaceType()
-                                 ->getCanonicalType(D->getGenericSignature()));
+            elt->getAssociatedValueTuple().subst(subMap)->getCanonicalType();
+
+        auto origEltType = origType.unsafeGetSubstFieldType(
+            elt, elt->getAssociatedValueTuple()->getCanonicalType(
+                     D->getGenericSignature()));
         properties.addSubobject(classifyType(origEltType, substEltType,
                                              TC, Expansion));
       }
@@ -3847,7 +3846,7 @@ CanSILBoxType TypeConverter::getBoxTypeForEnumElement(
       enumDecl->getGenericSignature());
 
   if (boxSignature == CanGenericSignature()) {
-    auto eltIntfTy = elt->getArgumentInterfaceType();
+    auto eltIntfTy = elt->getAssociatedValueTuple();
     auto boxVarTy = getLoweredRValueType(context, eltIntfTy);
     auto layout = SILLayout::get(C, nullptr, SILField(boxVarTy, true),
                                  /*captures generics*/ false);
@@ -3858,7 +3857,7 @@ CanSILBoxType TypeConverter::getBoxTypeForEnumElement(
   auto boundEnum = enumType.getASTType();
 
   // Lower the enum element's argument in the box's context.
-  auto eltIntfTy = elt->getArgumentInterfaceType();
+  auto eltIntfTy = elt->getAssociatedValueTuple();
 
   auto boxVarTy = getLoweredRValueType(context,
                                        getAbstractionPattern(elt), eltIntfTy);

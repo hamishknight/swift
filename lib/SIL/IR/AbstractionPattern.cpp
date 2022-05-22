@@ -111,7 +111,7 @@ AbstractionPattern TypeConverter::getAbstractionPattern(EnumElementDecl *decl) {
   auto sig = decl->getParentEnum()
                  ->getGenericSignatureOfContext()
                  .getCanonicalSignature();
-  auto type = sig.getCanonicalTypeInContext(decl->getArgumentInterfaceType());
+  auto type = sig.getCanonicalTypeInContext(decl->getAssociatedValueTuple());
 
   return AbstractionPattern(sig, type);
 }

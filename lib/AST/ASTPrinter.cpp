@@ -5486,12 +5486,6 @@ public:
     printGenericArgs(T->getDirectGenericArgs());
   }
 
-  void visitParenType(ParenType *T) {
-    Printer << "(";
-    visit(T->getUnderlyingType()->getInOutObjectType());
-    Printer << ")";
-  }
-
   void visitPackType(PackType *T) {
     Printer << "(";
 
