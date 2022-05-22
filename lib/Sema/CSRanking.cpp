@@ -848,9 +848,9 @@ getConstructorParamsAsTuples(ASTContext &ctx, Type boundTy1, Type boundTy2) {
   }
 
   auto tuple1 = AnyFunctionType::composeTuple(ctx, initParams1,
-                                              /*wantParamFlags*/ false);
+                                              ParameterFlagHandling::Drop);
   auto tuple2 = AnyFunctionType::composeTuple(ctx, initParams2,
-                                              /*wantParamFlags*/ false);
+                                              ParameterFlagHandling::Drop);
   return TypeBindingsToCompare(tuple1, tuple2);
 }
 

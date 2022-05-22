@@ -2640,9 +2640,10 @@ static bool fixMissingArguments(ConstraintSystem &cs, ASTNode anchor,
   // If the argument was a single "tuple", let's bind newly
   // synthesized arguments to it.
   if (argumentTuple) {
-    cs.addConstraint(ConstraintKind::Bind, *argumentTuple,
-                     FunctionType::composeTuple(ctx, args),
-                     cs.getConstraintLocator(anchor));
+    cs.addConstraint(
+        ConstraintKind::Bind, *argumentTuple,
+        FunctionType::composeTuple(ctx, args, ParameterFlagHandling::Drop),
+        cs.getConstraintLocator(anchor));
   }
 
   return false;
@@ -2875,7 +2876,7 @@ ConstraintSystem::matchFunctionTypes(FunctionType *func1, FunctionType *func2,
     // canImplodeParams makes sure we're not dealing with vargs, inout, etc,
     // we may still have e.g ownership flags left over, which we can drop.
     auto input = AnyFunctionType::composeTuple(getASTContext(), params,
-                                               /*wantParamFlags*/ false);
+                                               ParameterFlagHandling::Drop);
     params.clear();
     // If fixes are disabled let's do an easy thing and implode
     // tuple directly into parameters list.
@@ -6961,8 +6962,9 @@ ConstraintSystem::simplifyConstructionConstraint(
     }
 
     // Tuple construction is simply tuple conversion.
-    Type argType = AnyFunctionType::composeTuple(getASTContext(),
-                                                 fnType->getParams());
+    Type argType =
+        AnyFunctionType::composeTuple(getASTContext(), fnType->getParams(),
+                                      ParameterFlagHandling::Drop);
     Type resultType = fnType->getResult();
 
     ConstraintLocatorBuilder builder(locator);
@@ -7942,7 +7944,7 @@ ConstraintSystem::simplifyBindTupleOfFunctionParamsConstraint(
 
   auto tupleTy =
       AnyFunctionType::composeTuple(getASTContext(), funcTy->getParams(),
-                                    /*wantParamFlags*/ false);
+                                    ParameterFlagHandling::Drop);
 
   addConstraint(ConstraintKind::Bind, tupleTy, second,
                 locator.withPathElement(ConstraintLocator::FunctionArgument));
