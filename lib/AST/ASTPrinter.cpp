@@ -5488,8 +5488,6 @@ public:
 
   void visitParenType(ParenType *T) {
     Printer << "(";
-    printParameterFlags(Printer, Options, T->getParameterFlags(),
-                        /*escaping*/ false);
     visit(T->getUnderlyingType()->getInOutObjectType());
     Printer << ")";
   }
@@ -5524,7 +5522,7 @@ public:
       if (i)
         Printer << ", ";
       const TupleTypeElt &TD = Fields[i];
-      Type EltType = TD.getRawType();
+      Type EltType = TD.getType();
 
       Printer.callPrintStructurePre(PrintStructureKind::TupleElement);
       SWIFT_DEFER {
@@ -5535,14 +5533,7 @@ public:
         Printer.printName(TD.getName(), PrintNameContext::TupleElement);
         Printer << ": ";
       }
-      if (TD.isVararg()) {
-        visit(TD.getVarargBaseTy());
-        Printer << "...";
-      } else {
-        printParameterFlags(Printer, Options, TD.getParameterFlags(),
-                            /*escaping*/ false);
-        visit(EltType);
-      }
+      visit(EltType);
     }
     Printer << ")";
   }
