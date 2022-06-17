@@ -54,8 +54,6 @@ ParserResult<Expr> Parser::parseExprRegexLiteral() {
                             /*diagBaseLoc*/ getBridgedSourceLoc(Tok.getLoc()),
                             getBridgedDiagnosticEngine(&Diags));
   auto loc = consumeToken();
-  SourceMgr.recordRegexLiteralStartLoc(loc);
-
   if (hadError) {
     return makeParserResult(new (Context) ErrorExpr(loc));
   }

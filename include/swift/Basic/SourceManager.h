@@ -56,10 +56,6 @@ private:
   /// reusing compilation.
   llvm::DenseMap<SourceRange, SourceRange> ReplacedRanges;
 
-  /// The starting source locations of regex literals written in source. This
-  /// is an unfortunate hack needed to allow for correct re-lexing.
-  llvm::DenseSet<SourceLoc> RegexLiteralStartLocs;
-
   std::map<const char *, VirtualFile> VirtualFiles;
   mutable std::pair<const char *, const VirtualFile*> CachedVFile = {nullptr, nullptr};
 
@@ -110,17 +106,6 @@ public:
   }
   void setReplacedRange(SourceRange Orig, SourceRange New) {
     ReplacedRanges[Orig] = New;
-  }
-
-  /// Record the starting source location of a regex literal.
-  void recordRegexLiteralStartLoc(SourceLoc loc) {
-    RegexLiteralStartLocs.insert(loc);
-  }
-
-  /// Checks whether a given source location is for the start of a regex
-  /// literal.
-  bool isRegexLiteralStart(SourceLoc loc) const {
-    return RegexLiteralStartLocs.contains(loc);
   }
 
   /// Returns true if \c LHS is before \c RHS in the source buffer.
