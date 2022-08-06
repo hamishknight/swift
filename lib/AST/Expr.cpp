@@ -1198,12 +1198,6 @@ bool OverloadSetRefExpr::hasBaseObject() const {
   return false;
 }
 
-InOutExpr::InOutExpr(SourceLoc operLoc, Expr *subExpr, Type baseType,
-                     bool isImplicit)
-  : Expr(ExprKind::InOut, isImplicit,
-         baseType.isNull() ? baseType : InOutType::get(baseType)),
-    SubExpr(subExpr), OperLoc(operLoc) {}
-
 VarargExpansionExpr *VarargExpansionExpr::createParamExpansion(ASTContext &ctx, Expr *E) {
   assert(E->getType() && "Expansion must have fully-resolved type!");
   return new (ctx) VarargExpansionExpr(E, /*implicit*/ true, E->getType());
@@ -1609,7 +1603,7 @@ DotSyntaxCallExpr *DotSyntaxCallExpr::create(ASTContext &ctx, Expr *fnExpr,
                                              SourceLoc dotLoc, Argument baseArg,
                                              Type ty) {
   assert(!baseArg.hasLabel());
-  auto *argList = ArgumentList::forImplicitUnlabeled(ctx, {baseArg.getExpr()});
+  auto *argList = ArgumentList::createImplicit(ctx, {baseArg});
   return new (ctx) DotSyntaxCallExpr(fnExpr, dotLoc, argList, ty);
 }
 
@@ -2173,9 +2167,6 @@ SourceRange TypeExpr::getSourceRange() const {
 
 bool Expr::isSelfExprOf(const AbstractFunctionDecl *AFD, bool sameBase) const {
   auto *E = getSemanticsProvidingExpr();
-
-  if (auto IOE = dyn_cast<InOutExpr>(E))
-    E = IOE->getSubExpr();
 
   while (auto ICE = dyn_cast<ImplicitConversionExpr>(E)) {
     if (sameBase && isa<DerivedToBaseExpr>(ICE))

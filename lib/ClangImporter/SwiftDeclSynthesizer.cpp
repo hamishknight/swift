@@ -34,7 +34,7 @@ static Argument createSelfArg(AccessorDecl *accessorDecl) {
     return Argument::unlabeled(selfRefExpr);
   }
   selfRefExpr->setType(LValueType::get(selfDecl->getInterfaceType()));
-  return Argument::implicitInOut(ctx, selfRefExpr);
+  return Argument::inout(selfRefExpr);
 }
 
 static CallExpr *createAccessorImplCallExpr(FuncDecl *accessorImpl,
@@ -895,7 +895,7 @@ synthesizeUnionFieldSetterBody(AbstractFunctionDecl *afd, void *context) {
       ctx.TheRawPointerType, addressOfInfo));
 
   auto *selfPtrArgs = ArgumentList::createImplicit(
-      ctx, {Argument::implicitInOut(ctx, inoutSelfRef)});
+      ctx, {Argument::inout(inoutSelfRef)});
   auto selfPointer =
       CallExpr::createImplicit(ctx, addressofFnRefExpr, selfPtrArgs);
   selfPointer->setType(ctx.TheRawPointerType);
@@ -1753,7 +1753,7 @@ synthesizeSuccessorFuncBody(AbstractFunctionDecl *afd, void *context) {
 
   // Call `operator++`.
   auto incrementExpr = createAccessorImplCallExpr(
-      incrementImpl, Argument::implicitInOut(ctx, copyRefLValueExpr));
+      incrementImpl, Argument::inout(copyRefLValueExpr));
 
   auto copyRefRValueExpr = new (ctx) DeclRefExpr(copyDecl, DeclNameLoc(),
                                                  /*implicit*/ true);
@@ -1819,7 +1819,7 @@ synthesizeOperatorMethodBody(AbstractFunctionDecl *afd, void *context) {
         new (ctx) DeclRefExpr(param, DeclNameLoc(), /*Implicit*/ true);
     paramRefExpr->setType(isInOut ? LValueType::get(paramTy) : paramTy);
 
-    auto arg = isInOut ? Argument::implicitInOut(ctx, paramRefExpr)
+    auto arg = isInOut ? Argument::inout(paramRefExpr)
                        : Argument::unlabeled(paramRefExpr);
     forwardingArgs.push_back(arg);
   }
@@ -1837,7 +1837,7 @@ synthesizeOperatorMethodBody(AbstractFunctionDecl *afd, void *context) {
       new (ctx) DeclRefExpr(baseParam, DeclNameLoc(), /*implicit*/ true);
   baseExpr->setType(baseIsInOut ? LValueType::get(baseParamTy) : baseParamTy);
 
-  auto baseArg = baseIsInOut ? Argument::implicitInOut(ctx, baseExpr)
+  auto baseArg = baseIsInOut ? Argument::inout(baseExpr)
                              : Argument::unlabeled(baseExpr);
   auto dotCallExpr =
       DotSyntaxCallExpr::create(ctx, methodExpr, SourceLoc(), baseArg);

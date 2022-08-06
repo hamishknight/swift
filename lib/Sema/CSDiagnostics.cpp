@@ -191,7 +191,7 @@ Type RequirementFailure::getOwnerType() const {
   if (auto *assignment = getAsExpr<AssignExpr>(anchor))
     anchor = assignment->getSrc();
 
-  return getType(anchor)->getInOutObjectType()->getMetatypeInstanceType();
+  return getType(anchor)->getMetatypeInstanceType();
 }
 
 const GenericContext *RequirementFailure::getGenericContext() const {
@@ -2096,8 +2096,8 @@ bool AssignmentFailure::diagnoseAsError() {
   }
 
   if (auto contextualType = getContextualType(immutableExpr)) {
-    Type neededType = contextualType->getInOutObjectType();
-    Type actualType = getType(immutableExpr)->getInOutObjectType();
+    Type neededType = contextualType;
+    Type actualType = getType(immutableExpr);
     if (!neededType->isEqual(actualType)) {
       if (DeclDiagnostic.ID != diag::cannot_pass_rvalue_inout_subelement.ID) {
         emitDiagnosticAt(Loc, DeclDiagnostic,
@@ -6507,9 +6507,6 @@ void InOutConversionFailure::fixItChangeArgumentType() const {
   auto *argExpr = castToExpr(getAnchor());
   auto *DC = getDC();
 
-  if (auto *IOE = dyn_cast<InOutExpr>(argExpr))
-    argExpr = IOE->getSubExpr();
-
   auto *DRE = dyn_cast<DeclRefExpr>(argExpr);
   if (!DRE)
     return;
@@ -7228,7 +7225,7 @@ bool NonEphemeralConversionFailure::diagnoseAsError() {
   auto argDesc = getArgDescription(scratch);
 
   auto *argExpr = getArgExpr();
-  if (isa<InOutExpr>(argExpr)) {
+  if (getArg().isInOut()) {
     emitDiagnosticAt(argExpr->getLoc(), diag::cannot_use_inout_non_ephemeral,
                      argDesc, getCallee(), getCalleeFullName())
         .highlight(argExpr->getSourceRange());

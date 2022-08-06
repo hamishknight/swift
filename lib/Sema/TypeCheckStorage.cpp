@@ -1605,7 +1605,7 @@ synthesizeModifyCoroutineSetterBody(AccessorDecl *setter, ASTContext &ctx) {
 
 static Argument maybeWrapInOutArgument(Expr *expr, ASTContext &ctx) {
   if (expr->getType()->is<LValueType>())
-    return Argument::implicitInOut(ctx, expr);
+    return Argument::inout(expr);
 
   return Argument::unlabeled(expr);
 }

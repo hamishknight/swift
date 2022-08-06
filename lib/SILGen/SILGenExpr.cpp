@@ -5643,8 +5643,7 @@ RValue RValueEmitter::visitArrayToPointerExpr(ArrayToPointerExpr *E,
   FormalEvaluationScope writeback(SGF);
 
   auto subExpr = E->getSubExpr();
-  auto accessInfo = SGF.getArrayAccessInfo(E->getType(),
-                                     subExpr->getType()->getInOutObjectType());
+  auto accessInfo = SGF.getArrayAccessInfo(E->getType(), subExpr->getType());
 
   // Convert the array mutably if it's being passed inout.
   ManagedValue array;

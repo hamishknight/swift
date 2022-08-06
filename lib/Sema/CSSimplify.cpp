@@ -4549,16 +4549,6 @@ bool ConstraintSystem::repairFailures(
           return true;
 
         auto *loc = getConstraintLocator(locator);
-        // If this `inout` is in incorrect position, it should be diagnosed
-        // by other fixes.
-        if (loc->directlyAt<InOutExpr>()) {
-          if (!getArgumentLocator(castToExpr(anchor))) {
-            conversionsOrFixes.push_back(
-                RemoveAddressOf::create(*this, lhs, rhs, loc));
-            return true;
-          }
-        }
-
         conversionsOrFixes.push_back(TreatRValueAsLValue::create(*this, loc));
         return true;
       }
@@ -4757,17 +4747,6 @@ bool ConstraintSystem::repairFailures(
     if (auto *AE = getAsExpr<AssignExpr>(anchor)) {
       if (repairByInsertingExplicitCall(lhs, rhs))
         return true;
-
-      if (auto *inoutExpr = dyn_cast<InOutExpr>(AE->getSrc())) {
-        auto *loc = getConstraintLocator(inoutExpr);
-
-        if (hasFixFor(loc, FixKind::RemoveAddressOf))
-          return true;
-
-        conversionsOrFixes.push_back(
-            RemoveAddressOf::create(*this, lhs, rhs, loc));
-        return true;
-      }
 
       if (repairByAnyToAnyObjectCast(lhs, rhs))
         return true;

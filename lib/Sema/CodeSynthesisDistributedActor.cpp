@@ -605,9 +605,9 @@ deriveBodyDistributed_thunk(AbstractFunctionDecl *thunk, void *context) {
                                        AccessSemantics::Ordinary,
                                        RCT->getDeclaredInterfaceType()));
     // -- invocation: inout InvocationEncoder
-    args.push_back(new (C) InOutExpr(sloc,
-        new (C) DeclRefExpr(ConcreteDeclRef(invocationVar), dloc,
-        implicit, AccessSemantics::Ordinary, invocationEncoderTy), invocationEncoderTy, implicit));
+    args.push_back(new (C) DeclRefExpr(ConcreteDeclRef(invocationVar), dloc,
+                                       implicit, AccessSemantics::Ordinary,
+                                       invocationEncoderTy));
 
     // -- throwing: Err.Type
     if (func->hasThrows()) {
@@ -641,7 +641,7 @@ deriveBodyDistributed_thunk(AbstractFunctionDecl *thunk, void *context) {
 
     assert(args.size() == remoteCallDecl->getParameters()->size());
     auto remoteCallArgs = ArgumentList::forImplicitCallTo(
-        systemRemoteCallRef->getName(), args, C);
+        remoteCallDecl->getParameters(), args, C);
 
     Expr *remoteCallExpr =
         CallExpr::createImplicit(C, systemRemoteCallRef, remoteCallArgs);

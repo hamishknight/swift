@@ -19,6 +19,7 @@
 
 namespace swift {
 
+class Argument;
 class ArgumentList;
 class Decl;
 class Expr;
@@ -292,6 +293,9 @@ public:
   virtual ArgumentList *walkToArgumentListPost(ArgumentList *ArgList) {
     return ArgList;
   }
+
+  virtual bool walkToArgumentPre(Argument Arg) { return true; }
+  virtual void walkToArgumentPost(Argument Arg) {}
 
 protected:
   ASTWalker() = default;

@@ -722,8 +722,6 @@ namespace {
         return lookupRef->getBase();
       } else if (auto load = dyn_cast<LoadExpr>(expr)) {
         return load->getSubExpr();
-      } else if (auto inout = dyn_cast<InOutExpr>(expr)) {
-        return inout->getSubExpr();
       } else if (auto force = dyn_cast<ForceValueExpr>(expr)) {
         return force->getSubExpr();
       } else {
@@ -782,7 +780,6 @@ namespace {
       InOutExpr *origInOutBase = dyn_cast<InOutExpr>(base);
       if (origInOutBase) {
         base = origInOutBase->getSubExpr();
-        baseTy = baseTy->getInOutObjectType();
         isLValue = true;
       }
 
@@ -1073,6 +1070,7 @@ namespace {
                                     : calleeParamType,
                                 locator);
 
+        auto paramRefSpecifier = Argument::Specifier::Default;
         auto *const calleeParamDecl = calleeParamList->get(idx);
         if (calleeParamDecl->hasAttachedPropertyWrapper()) {
           // Rewrite the parameter ref to the backing wrapper initialization
@@ -1096,9 +1094,7 @@ namespace {
           // FIXME: vararg
         } else {
           if (thunkParamDecl->isInOut()) {
-            paramRef =
-                new (ctx) InOutExpr(SourceLoc(), paramRef, calleeParamType,
-                                    /*implicit=*/true);
+            paramRefSpecifier = Argument::Specifier::InOut;
           } else if (thunkParamDecl->isVariadic()) {
             assert(calleeParamType->isEqual(paramRef->getType()));
             paramRef = VarargExpansionExpr::createParamExpansion(ctx, paramRef);
@@ -1108,7 +1104,8 @@ namespace {
           newCalleeParams.push_back(calleeParam);
         }
 
-        args.emplace_back(SourceLoc(), calleeParam.getLabel(), paramRef);
+        args.emplace_back(SourceLoc(), calleeParam.getLabel(), paramRef,
+                          paramRefSpecifier);
       }
 
       // SILGen knows how to emit property-wrapped parameters, but the
@@ -1304,12 +1301,7 @@ namespace {
                                 : selfThunkParamTy);
       cs.cacheType(selfParamRef);
 
-      if (selfThunkParam.isInOut()) {
-        selfParamRef =
-            new (ctx) InOutExpr(SourceLoc(), selfParamRef, selfThunkParamTy,
-                                /*implicit=*/true);
-        cs.cacheType(selfParamRef);
-      }
+      assert(!selfThunkParam.isInOut());
 
       bool hasOpenedExistential = false;
       Expr *selfOpenedRef = selfParamRef;
@@ -1649,8 +1641,7 @@ namespace {
                  cs.UnevaluatedRootExprs.count(
                      getAsExpr(memberLocator.getBaseLocator()->getAnchor())) &&
                  "Attempt to reference an instance member of a metatype");
-          auto baseInstanceTy = cs.getType(base)
-              ->getInOutObjectType()->getMetatypeInstanceType();
+          auto baseInstanceTy = cs.getType(base)->getMetatypeInstanceType();
           base = new (context) UnevaluatedInstanceExpr(base, baseInstanceTy);
           cs.cacheType(base);
           base->setImplicit();
@@ -3613,14 +3604,6 @@ namespace {
 
     Expr *visitAutoClosureExpr(AutoClosureExpr *expr) {
       llvm_unreachable("Already type-checked");
-    }
-
-    Expr *visitInOutExpr(InOutExpr *expr) {
-      auto objectTy = cs.getType(expr->getSubExpr())->getRValueType();
-
-      // The type is simply inout of whatever the lvalue's object type was.
-      cs.setType(expr, InOutType::get(objectTy));
-      return expr;
     }
 
     Expr *visitVarargExpansionExpr(VarargExpansionExpr *expr) {
@@ -7406,7 +7389,7 @@ ExprRewriter::coerceSelfArgumentToType(Expr *expr,
   // Use InOutExpr to convert it to an explicit inout argument for the
   // receiver.
   return cs.cacheType(new (ctx) InOutExpr(expr->getStartLoc(), expr, 
-                                          toInOutTy->getInOutObjectType(),
+                                          toInOutTy,
                                           /*isImplicit*/ true));
 }
 
@@ -7566,8 +7549,9 @@ std::pair<Expr *, ArgumentList *> ExprRewriter::buildDynamicCallable(
   // expression).
   Expr *argExpr = nullptr;
   if (!useKwargsMethod) {
-    argExpr = ArrayExpr::create(ctx, SourceLoc(), args->getArgExprs(), {},
-                                SourceLoc());
+    SmallVector<Expr *, 4> Scratch;
+    argExpr = ArrayExpr::create(ctx, SourceLoc(), args->getArgExprs(Scratch),
+                                {}, SourceLoc());
     cs.setType(argExpr, argumentType);
     finishArrayExpr(cast<ArrayExpr>(argExpr));
   } else {

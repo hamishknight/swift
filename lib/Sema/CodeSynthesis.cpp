@@ -101,7 +101,7 @@ Argument swift::buildSelfArgument(VarDecl *selfDecl,
                                   bool isMutable) {
   auto &ctx = selfDecl->getASTContext();
   auto *selfRef = buildSelfReference(selfDecl, selfAccessorKind, isMutable);
-  return isMutable ? Argument::implicitInOut(ctx, selfRef)
+  return isMutable ? Argument::inout(selfRef)
                    : Argument::unlabeled(selfRef);
 }
 
@@ -116,13 +116,14 @@ ArgumentList *swift::buildForwardingArgumentList(ArrayRef<ParamDecl *> params,
     Expr *ref = new (ctx) DeclRefExpr(param, DeclNameLoc(), /*implicit*/ true);
     ref->setType(param->isInOut() ? LValueType::get(type) : type);
 
+    auto specifier = Argument::Specifier::Default;
     if (param->isInOut()) {
-      ref = new (ctx) InOutExpr(SourceLoc(), ref, type, /*isImplicit=*/true);
+      specifier = Argument::Specifier::InOut;
     } else if (param->isVariadic()) {
       assert(ref->getType()->isEqual(type));
       ref = VarargExpansionExpr::createParamExpansion(ctx, ref);
     }
-    args.emplace_back(SourceLoc(), param->getArgumentName(), ref);
+    args.emplace_back(SourceLoc(), param->getArgumentName(), ref, specifier);
   }
   return ArgumentList::createImplicit(ctx, args);
 }

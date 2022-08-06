@@ -345,8 +345,6 @@ public:
           new (Context) ForceValueExpr(*BaseVariable.first, SourceLoc()));
       return std::make_pair(Forced, BaseVariable.second);
     }
-    case ExprKind::InOut:
-      return digForVariable(cast<InOutExpr>(E)->getSubExpr());
     }
   }
 
@@ -364,18 +362,19 @@ public:
   static DeclRefExpr *digForInoutDeclRef(ArgumentList *args) {
     DeclRefExpr *uniqueRef = nullptr;
     for (auto arg : *args) {
-      if (auto *inout = dyn_cast<InOutExpr>(arg.getExpr())) {
-        auto *ref = dyn_cast<DeclRefExpr>(
-            inout->getSubExpr()->getSemanticsProvidingExpr());
-        if (!ref)
-          continue;
+      if (!arg.isInOut())
+        continue;
 
-        // If we already have a reference, it's not unique.
-        if (uniqueRef)
-          return nullptr;
+      auto *expr = arg.getExpr()->getSemanticsProvidingExpr();
+      auto *ref = dyn_cast<DeclRefExpr>(expr);
+      if (!ref)
+        continue;
 
-        uniqueRef = ref;
-      }
+      // If we already have a reference, it's not unique.
+      if (uniqueRef)
+        return nullptr;
+
+      uniqueRef = ref;
     }
     return uniqueRef;
   }

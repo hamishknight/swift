@@ -242,9 +242,7 @@ static void diagSyntacticUseRestrictions(const Expr *E, const DeclContext *DC,
                 isa<ArrayToPointerExpr>(unwrapped) ||
                 isa<ErasureExpr>(unwrapped)) {
               auto operand =
-                cast<ImplicitConversionExpr>(unwrapped)->getSubExpr();
-              if (auto *IOE = dyn_cast<InOutExpr>(operand))
-                operand = IOE->getSubExpr();
+                  cast<ImplicitConversionExpr>(unwrapped)->getSubExpr();
 
               // Also do some additional work based on how the function uses
               // the argument.
@@ -3344,7 +3342,7 @@ void VarDeclUsageChecker::markBaseOfStorageUse(Expr *base, ConcreteDeclRef decl,
     // the subobject is being mutated and the base type is not a class
     // or metatype.
     if (flags & RK_Written) {
-      Type type = base->getType()->getRValueType()->getInOutObjectType();
+      Type type = base->getType()->getRValueType();
       if (!type->isAnyClassReferenceType() && !type->is<AnyMetatypeType>())
         isMutating = true;
     }
@@ -3360,12 +3358,6 @@ void VarDeclUsageChecker::markBaseOfStorageUse(Expr *base, ConcreteDeclRef decl,
 }
 
 void VarDeclUsageChecker::markBaseOfStorageUse(Expr *base, bool isMutating) {
-  // CSApply sometimes wraps the base in an InOutExpr just because the
-  // base is an l-value; look through that so we can get more precise
-  // checking.
-  if (auto *ioe = dyn_cast<InOutExpr>(base))
-    base = ioe->getSubExpr();
-
   if (!isMutating) {
     base->walk(*this);
     return;
@@ -3374,7 +3366,6 @@ void VarDeclUsageChecker::markBaseOfStorageUse(Expr *base, bool isMutating) {
   // Otherwise this is a read and write of the base.
   return markStoredOrInOutExpr(base, RK_Written|RK_Read);
 }
-
 
 void VarDeclUsageChecker::markStoredOrInOutExpr(Expr *E, unsigned Flags) {
   // Sema leaves some subexpressions null, which seems really unfortunate.  It

@@ -5559,15 +5559,6 @@ Type Solution::resolveInterfaceType(Type type) const {
 
 Optional<FunctionArgApplyInfo>
 Solution::getFunctionArgApplyInfo(ConstraintLocator *locator) const {
-  // It's only valid to use `&` in argument positions, but we need
-  // to figure out exactly where it was used.
-  if (auto *argExpr = getAsExpr<InOutExpr>(locator->getAnchor())) {
-    auto *argLoc = getConstraintSystem().getArgumentLocator(argExpr);
-    if (!argLoc)
-      return None;
-
-    locator = argLoc;
-  }
 
   auto anchor = locator->getAnchor();
   auto path = locator->getPath();
@@ -5675,9 +5666,9 @@ Solution::getFunctionArgApplyInfo(ConstraintLocator *locator) const {
   auto argIdx = applyArgElt->getArgIdx();
   auto paramIdx = applyArgElt->getParamIdx();
 
-  return FunctionArgApplyInfo::get(argList, argExpr, argIdx,
-                                   simplifyType(getType(argExpr)), paramIdx,
-                                   fnInterfaceType, fnType, callee);
+  return FunctionArgApplyInfo::get(argList, argIdx,
+                                   simplifyType(getType(argExpr)),
+                                   paramIdx, fnInterfaceType, fnType, callee);
 }
 
 bool constraints::isKnownKeyPathType(Type type) {
@@ -5882,11 +5873,6 @@ ConstraintSystem::isConversionEphemeral(ConversionRestrictionKind conversion,
     auto *argLoc = simplifyLocator(*this, getConstraintLocator(locator), range);
     auto *subExpr =
         castToExpr(argLoc->getAnchor())->getSemanticsProvidingExpr();
-
-    // Look through an InOutExpr if we have one. This is usually the case, but
-    // might not be if e.g we're applying an 'add missing &' fix.
-    if (auto *ioe = dyn_cast<InOutExpr>(subExpr))
-      subExpr = ioe->getSubExpr();
 
     while (true) {
       subExpr = subExpr->getSemanticsProvidingExpr();

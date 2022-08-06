@@ -1071,14 +1071,6 @@ public:
     }
 
     void verifyChecked(DeclRefExpr *E) {
-      if (E->getType()->is<InOutType>()) {
-        PrettyStackTraceExpr debugStack(Ctx, "verifying decl reference", E);
-        Out << "reference with inout type "
-          << E->getType().getString() << "\n";
-        E->dump(Out);
-        Out << "\n";
-        abort();
-      }
       if (E->getType()->is<GenericFunctionType>()) {
         PrettyStackTraceExpr debugStack(Ctx, "verifying decl reference", E);
         Out << "unspecialized reference with polymorphic type "
@@ -1131,15 +1123,6 @@ public:
           abort();
         }
       });
-      verifyCheckedBase(E);
-    }
-
-    void verifyChecked(InOutExpr *E) {
-      Type srcObj = checkLValue(E->getSubExpr()->getType(),
-                                "result of InOutExpr");
-      auto DestTy = E->getType()->castTo<InOutType>()->getObjectType();
-      
-      checkSameType(DestTy, srcObj, "object types for InOutExpr");
       verifyCheckedBase(E);
     }
 
@@ -1353,10 +1336,10 @@ public:
         abort();
       }
 
-      auto fromElement = E->getSubExpr()->getType()->getInOutObjectType();
+      auto fromElement = E->getSubExpr()->getType();
       auto toElement = E->getType()->getAnyPointerElementType();
       
-      if (!E->getSubExpr()->getType()->is<InOutType>() && !toElement) {
+      if (!toElement) {
         Out << "InOutToPointer does not convert from inout to pointer:\n";
         E->dump(Out);
         Out << "\n";
@@ -1386,7 +1369,7 @@ public:
       }
 
       // The source may be optionally inout.
-      auto fromArray = E->getSubExpr()->getType()->getInOutObjectType();
+      auto fromArray = E->getSubExpr()->getType();
       
       if (!fromArray->isArray()) {
         Out << "ArrayToPointer does not convert from array:\n";
@@ -1822,12 +1805,6 @@ public:
       }
 
       auto baseType = E->getBase()->getType();
-      if (baseType->is<InOutType>()) {
-        Out << "Member reference to an inout type\n";
-        E->dump(Out);
-        Out << "\n";
-        abort();
-      }
 
       // The base of a member reference cannot be an existential type.
       if (baseType->getWithoutSpecifierType()->isExistentialType()) {
@@ -3269,7 +3246,7 @@ public:
 
     /// Look through a possible l-value type, returning true if it was
     /// an l-value.
-    bool lookThroughLValue(Type &type, bool &isInOut) {
+    bool lookThroughLValue(Type &type) {
       if (LValueType *lv = type->getAs<LValueType>()) {
         Type objectType = lv->getObjectType();
         if (objectType->is<LValueType>()) {
@@ -3277,18 +3254,6 @@ public:
           type.print(Out);
           Out << "\n";
         }
-        isInOut = false;
-        type = objectType;
-        return true;
-      }
-      if (InOutType *io = type->getAs<InOutType>()) {
-        Type objectType = io->getObjectType();
-        if (objectType->is<InOutType>()) {
-          Out << "type is an inout of inout type: ";
-          type.print(Out);
-          Out << "\n";
-        }
-        isInOut = true;
         type = objectType;
         return true;
       }
@@ -3300,9 +3265,8 @@ public:
     /// Returns true if they are both l-values.
     bool checkSameLValueness(Type &T0, Type &T1,
                              const char *what) {
-      bool Q0, Q1;
-      bool isLValue0 = lookThroughLValue(T0, Q0);
-      bool isLValue1 = lookThroughLValue(T1, Q1);
+      bool isLValue0 = lookThroughLValue(T0);
+      bool isLValue1 = lookThroughLValue(T1);
       
       if (isLValue0 != isLValue1) {
         Out << "lvalue-ness of " << what << " do not match: "
@@ -3310,7 +3274,7 @@ public:
         abort();
       }
 
-      if (isLValue0 && Q0 != Q1) {
+      if (isLValue0) {
         Out << "qualification of " << what << " do not match\n";
         abort();
       }

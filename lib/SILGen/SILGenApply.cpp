@@ -1393,13 +1393,6 @@ public:
         continue;
       }
 
-      // Skip over inout expressions.
-      if (auto inout = dyn_cast<InOutExpr>(selfArg)) {
-        selfArg = inout->getSubExpr();
-        resultTy = resultTy->getInOutObjectType()->getCanonicalType();
-        continue;
-      }
-
       // Declaration references terminate the search.
       if (isa<DeclRefExpr>(selfArg))
         break;
@@ -1487,8 +1480,7 @@ public:
     // If we're using the allocating constructor, we need to pass along the
     // metatype.
     if (useAllocatingCtor) {
-      selfFormalType = CanMetatypeType::get(
-          selfFormalType->getInOutObjectType()->getCanonicalType());
+      selfFormalType = CanMetatypeType::get(selfFormalType->getCanonicalType());
 
       // If the initializer is a C function imported as a member,
       // there is no 'self' parameter. Mark it undef.
@@ -3193,9 +3185,8 @@ private:
       if (arg.isLValue()) {
         return std::move(arg).asKnownLValue();
       } else {
-        auto *e = cast<InOutExpr>(std::move(arg).asKnownExpr()->
-                                  getSemanticsProvidingExpr());
-        return SGF.emitLValue(e->getSubExpr(), SGFAccessKind::ReadWrite);
+        auto *e = std::move(arg).asKnownExpr()->getSemanticsProvidingExpr();
+        return SGF.emitLValue(e, SGFAccessKind::ReadWrite);
       }
     }();
 
@@ -3424,7 +3415,7 @@ private:
     // but delay the formal access.
     if (arrayExpr->isSemanticallyInOutExpr()) {
       auto info = SGF.getArrayAccessInfo(pointerExpr->getType(),
-                                         arrayExpr->getType()->getInOutObjectType());
+                                         arrayExpr->getType());
       LValueOptions options;
       options.IsNonAccessing = pointerExpr->isNonAccessing();
       LValue lv = SGF.emitLValue(arrayExpr, info.AccessKind, options);

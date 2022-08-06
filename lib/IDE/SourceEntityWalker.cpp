@@ -324,7 +324,21 @@ SemaAnnotator::walkToArgumentListPre(ArgumentList *ArgList) {
     if (!passCallArgNames(CallE->getFn(), ArgList))
       return doStopTraversal();
   }
-  return {true, ArgList};
+  for (auto Idx : indices(*ArgList)) {
+    auto Arg = ArgList->get(Idx);
+
+    // If we have an inout argument, set the access to read-write.
+    Optional<llvm::SaveAndRestore<Optional<AccessKind>>> AccessScope;
+    if (Arg.isInOut())
+      AccessScope.emplace(this->OpAccess, AccessKind::ReadWrite);
+
+    auto *E = Arg.getExpr()->walk(*this);
+    if (!E)
+      return doStopTraversal();
+    ArgList->setExpr(Idx, E);
+  }
+  // We have already walked the argument list, bail.
+  return {false, ArgList};
 }
 
 std::pair<bool, Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
@@ -386,8 +400,7 @@ std::pair<bool, Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
     }
   }
 
-  if (!isa<InOutExpr>(E) &&
-      !isa<LoadExpr>(E) &&
+  if (!isa<LoadExpr>(E) &&
       !isa<OpenExistentialExpr>(E) &&
       !isa<MakeTemporarilyEscapableExpr>(E) &&
       !isa<CollectionUpcastConversionExpr>(E) &&
@@ -509,15 +522,6 @@ std::pair<bool, Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
     if (!BinE->getFn()->walk(*this))
       return doStopTraversal();
     if (!BinE->getRHS()->walk(*this))
-      return doStopTraversal();
-
-    // We already visited the children.
-    return doSkipChildren();
-  } else if (auto IOE = dyn_cast<InOutExpr>(E)) {
-    llvm::SaveAndRestore<Optional<AccessKind>>
-      C(this->OpAccess, AccessKind::ReadWrite);
-
-    if (!IOE->getSubExpr()->walk(*this))
       return doStopTraversal();
 
     // We already visited the children.

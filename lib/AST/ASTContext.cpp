@@ -410,7 +410,6 @@ struct ASTContext::Implementation {
     llvm::DenseMap<Type, ParenType*> ParenTypes;
     llvm::DenseMap<uintptr_t, ReferenceStorageType*> ReferenceStorageTypes;
     llvm::DenseMap<Type, LValueType*> LValueTypes;
-    llvm::DenseMap<Type, InOutType*> InOutTypes;
     llvm::DenseMap<std::pair<Type, void*>, DependentMemberType *>
       DependentMemberTypes;
     llvm::DenseMap<Type, DynamicSelfType *> DynamicSelfTypes;
@@ -2884,8 +2883,6 @@ ParenType *ParenType::get(const ASTContext &C, Type underlying) {
   ParenType *&Result = C.getImpl().getArena(arena).ParenTypes[underlying];
   if (Result == nullptr) {
     Result = new (C, arena) ParenType(underlying, properties);
-    assert((C.hadError() || !underlying->is<InOutType>()) &&
-           "Cannot wrap InOutType");
   }
   return Result;
 }
@@ -2941,9 +2938,7 @@ TupleType *TupleType::get(ArrayRef<TupleTypeElt> Fields, const ASTContext &C) {
 }
 
 TupleTypeElt::TupleTypeElt(Type ty, Identifier name)
-    : Name(name), ElementType(ty) {
-  assert(!ty->is<InOutType>() && "Cannot have InOutType in a tuple");
-}
+    : Name(name), ElementType(ty) {}
 
 PackExpansionType::PackExpansionType(Type patternType, Type countType,
                                      RecursiveTypeProperties properties,
@@ -3027,11 +3022,6 @@ void PackType::Profile(llvm::FoldingSetNodeID &ID, ArrayRef<Type> Elements) {
   for (Type Ty : Elements) {
     ID.AddPointer(Ty.getPointer());
   }
-}
-
-Type AnyFunctionType::Param::getOldType() const {
-  if (Flags.isInOut()) return InOutType::get(Ty);
-  return Ty;
 }
 
 AnyFunctionType::Param swift::computeSelfParam(AbstractFunctionDecl *AFD,
@@ -4338,11 +4328,11 @@ Type ExistentialType::get(Type constraint) {
 }
 
 LValueType *LValueType::get(Type objectTy) {
-  assert(!objectTy->is<LValueType>() && !objectTy->is<InOutType>() &&
-         "cannot have 'inout' or @lvalue wrapped inside an @lvalue");
+  assert(!objectTy->is<LValueType>() &&
+         "cannot have @lvalue wrapped inside an @lvalue");
 
   auto properties = objectTy->getRecursiveProperties()
-                    | RecursiveTypeProperties::IsLValue;
+  | RecursiveTypeProperties::IsLValue;
   auto arena = getArena(properties);
 
   auto &C = objectTy->getASTContext();
@@ -4353,25 +4343,6 @@ LValueType *LValueType::get(Type objectTy) {
   const ASTContext *canonicalContext = objectTy->isCanonical() ? &C : nullptr;
   return entry = new (C, arena) LValueType(objectTy, canonicalContext,
                                            properties);
-}
-
-InOutType *InOutType::get(Type objectTy) {
-  assert(!objectTy->is<LValueType>() && !objectTy->is<InOutType>() &&
-         "cannot have 'inout' or @lvalue wrapped inside an 'inout'");
-
-  auto properties = objectTy->getRecursiveProperties();
-
-  properties &= ~RecursiveTypeProperties::IsLValue;
-  auto arena = getArena(properties);
-
-  auto &C = objectTy->getASTContext();
-  auto &entry = C.getImpl().getArena(arena).InOutTypes[objectTy];
-  if (entry)
-    return entry;
-
-  const ASTContext *canonicalContext = objectTy->isCanonical() ? &C : nullptr;
-  return entry = new (C, arena) InOutType(objectTy, canonicalContext,
-                                          properties);
 }
 
 DependentMemberType *DependentMemberType::get(Type base, Identifier name) {

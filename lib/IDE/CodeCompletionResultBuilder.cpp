@@ -290,7 +290,6 @@ void CodeCompletionResultBuilder::addCallArgument(
   if (IsInOut) {
     addChunkWithTextNoCopy(CodeCompletionString::Chunk::ChunkKind::Ampersand,
                            "&");
-    Ty = Ty->getInOutObjectType();
   }
 
   // If the parameter is of the type @autoclosure ()->output, then the

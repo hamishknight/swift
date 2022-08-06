@@ -1682,9 +1682,6 @@ CanType TypeBase::computeCanonicalType() {
     Result = LValueType::get(cast<LValueType>(this)->getObjectType()
                                ->getCanonicalType());
     break;
-  case TypeKind::InOut:
-    Result = InOutType::get(getInOutObjectType()->getCanonicalType());
-    break;
   case TypeKind::Function:
   case TypeKind::GenericFunction: {
     AnyFunctionType *funcTy = cast<AnyFunctionType>(this);
@@ -5729,16 +5726,6 @@ case TypeKind::Id:
 
       if (type.getPointer() != substType.getPointer())
         isUnchanged = false;
-
-      // FIXME: Remove this once we get rid of TVO_CanBindToInOut;
-      // the only time we end up here is when the constraint solver
-      // simplifies a type containing a type variable fixed to an
-      // InOutType.
-      if (substType->is<InOutType>()) {
-        assert(flags.getValueOwnership() == ValueOwnership::Default);
-        substType = substType->getInOutObjectType();
-        flags = flags.withInOut(true);
-      }
 
       substParams.emplace_back(substType, label, flags, internalLabel);
     }

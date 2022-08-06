@@ -329,9 +329,7 @@ public:
                        LValueOptions options);
 
   // Expressions that wrap lvalues
-  
-  LValue visitInOutExpr(InOutExpr *e, SGFAccessKind accessKind,
-                        LValueOptions options);
+
   LValue visitDotSyntaxBaseIgnoredExpr(DotSyntaxBaseIgnoredExpr *e,
                                        SGFAccessKind accessKind,
                                        LValueOptions options);
@@ -3696,11 +3694,6 @@ LValue SILGenLValue::visitBindOptionalExpr(BindOptionalExpr *e,
   LValue valueLV;
   valueLV.add<ValueComponent>(valueAddr, None, valueTypeData);
   return valueLV;
-}
-
-LValue SILGenLValue::visitInOutExpr(InOutExpr *e, SGFAccessKind accessKind,
-                                    LValueOptions options) {
-  return visitRec(e->getSubExpr(), accessKind, options);
 }
 
 LValue SILGenLValue::visitMoveExpr(MoveExpr *e, SGFAccessKind accessKind,

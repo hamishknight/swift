@@ -849,7 +849,6 @@ namespace {
         ParameterTypeFlags flags;
         auto ty = CS.getType(arg.getExpr());
         if (arg.isInOut()) {
-          ty = ty->getInOutObjectType();
           flags = flags.withInOut(true);
         }
         if (arg.isConst()) {
@@ -1001,16 +1000,6 @@ namespace {
                                          TVO_CanBindToLValue | TVO_CanBindToNoEscape);
         if (addedTypeVars)
           addedTypeVars->push_back(outputTy->castTo<TypeVariableType>());
-      }
-
-      // FIXME: This can only happen when diagnostics successfully type-checked
-      // sub-expression of the subscript and mutated AST, but under normal
-      // circumstances subscript should never have InOutExpr as a direct child
-      // until type checking is complete and expression is re-written.
-      // Proper fix for such situation requires preventing diagnostics from
-      // re-writing AST after successful type checking of the sub-expressions.
-      if (auto inoutTy = baseTy->getAs<InOutType>()) {
-        baseTy = LValueType::get(inoutTy->getObjectType());
       }
 
       // Add the member constraint for a subscript declaration.
@@ -2837,23 +2826,6 @@ namespace {
     Type visitAutoClosureExpr(AutoClosureExpr *expr) {
       // AutoClosureExpr is introduced by CSApply.
       llvm_unreachable("Already type-checked");
-    }
-
-    Type visitInOutExpr(InOutExpr *expr) {
-      // The address-of operator produces an explicit inout T from an lvalue T.
-      // We model this with the constraint
-      //
-      //     S < lvalue T
-      //
-      // where T is a fresh type variable.
-      auto lvalue = CS.createTypeVariable(CS.getConstraintLocator(expr),
-                                          TVO_CanBindToNoEscape);
-      auto bound = LValueType::get(lvalue);
-      auto result = InOutType::get(lvalue);
-      CS.addConstraint(ConstraintKind::Conversion,
-                       CS.getType(expr->getSubExpr()), bound,
-                       CS.getConstraintLocator(expr));
-      return result;
     }
 
     Type visitVarargExpansionExpr(VarargExpansionExpr *expr) {

@@ -35,25 +35,8 @@ SourceRange Argument::getSourceRange() const {
   return SourceRange(labelLoc, exprEndLoc);
 }
 
-Argument Argument::implicitInOut(ASTContext &ctx, Expr *expr) {
-  assert(!isa<InOutExpr>(expr) && "Cannot nest InOutExpr");
-
-  // Eventually this will set an 'inout' bit on Argument, but for now,
-  // synthesize in the InOutExpr.
-  Type objectTy;
-  if (auto subTy = expr->getType())
-    objectTy = subTy->castTo<LValueType>()->getObjectType();
-
-  return Argument::unlabeled(
-      new (ctx) InOutExpr(SourceLoc(), expr, objectTy, /*isImplicit*/ true));
-}
-
-bool Argument::isInOut() const {
-  return ArgExpr->isSemanticallyInOutExpr();
-}
-
 bool Argument::isConst() const {
-  return ArgExpr->isSemanticallyConstExpr();
+  return getExpr()->isSemanticallyConstExpr();
 }
 
 ArgumentList *ArgumentList::create(ASTContext &ctx, SourceLoc lParenLoc,
@@ -61,14 +44,14 @@ ArgumentList *ArgumentList::create(ASTContext &ctx, SourceLoc lParenLoc,
                                    Optional<unsigned> firstTrailingClosureIndex,
                                    bool isImplicit, ArgumentList *originalArgs,
                                    AllocationArena arena) {
-  SmallVector<Expr *, 4> exprs;
+  SmallVector<ExprStorage, 4> exprs;
   SmallVector<Identifier, 4> labels;
   SmallVector<SourceLoc, 4> labelLocs;
 
   bool hasLabels = false;
   bool hasLabelLocs = false;
   for (auto &arg : args) {
-    exprs.push_back(arg.getExpr());
+    exprs.push_back(arg.ExprAndSpecifier);
 
     hasLabels |= !arg.getLabel().empty();
     labels.push_back(arg.getLabel());
@@ -82,7 +65,7 @@ ArgumentList *ArgumentList::create(ASTContext &ctx, SourceLoc lParenLoc,
     labelLocs.clear();
 
   auto numBytes =
-      totalSizeToAlloc<Expr *, Identifier, SourceLoc, ArgumentList *>(
+      totalSizeToAlloc<ExprStorage, Identifier, SourceLoc, ArgumentList *>(
           exprs.size(), labels.size(), labelLocs.size(), originalArgs ? 1 : 0);
   auto *mem = ctx.Allocate(numBytes, alignof(ArgumentList), arena);
   auto *argList = new (mem)
@@ -90,7 +73,7 @@ ArgumentList *ArgumentList::create(ASTContext &ctx, SourceLoc lParenLoc,
                    originalArgs, isImplicit, hasLabels, hasLabelLocs);
 
   std::uninitialized_copy(exprs.begin(), exprs.end(),
-                          argList->getExprsBuffer().begin());
+                          argList->getExprStorageBuffer().begin());
   if (hasLabels) {
     std::uninitialized_copy(labels.begin(), labels.end(),
                             argList->getLabelsBuffer().begin());
@@ -172,8 +155,10 @@ ArgumentList *ArgumentList::forImplicitCallTo(ParameterList *params,
   SmallVector<Argument, 8> args;
   for (auto idx : indices(argExprs)) {
     auto *param = params->get(idx);
-    assert(param->isInOut() == argExprs[idx]->isSemanticallyInOutExpr());
-    args.emplace_back(SourceLoc(), param->getArgumentName(), argExprs[idx]);
+    auto specifier = param->isInOut() ? Argument::Specifier::InOut
+                                      : Argument::Specifier::Default;
+    args.emplace_back(SourceLoc(), param->getArgumentName(), argExprs[idx],
+                      specifier);
   }
   return createImplicit(ctx, args);
 }
@@ -211,6 +196,14 @@ SourceRange ArgumentList::getSourceRange() const {
     return SourceRange();
 
   return SourceRange(start, end);
+}
+
+ArrayRef<Expr *>
+ArgumentList::getArgExprs(SmallVectorImpl<Expr *> &scratch) const {
+  assert(scratch.empty());
+  for (auto storage : getExprStorageBuffer())
+    scratch.push_back(storage.getPointer());
+  return scratch;
 }
 
 ArrayRef<Identifier>
@@ -294,9 +287,6 @@ bool ArgumentList::matches(ArrayRef<AnyFunctionType::Param> params,
     assert(argTy && "Expected type for argument");
     auto paramTy = param.getParameterType();
     assert(paramTy && "Expected a type for param");
-
-    if (arg.isInOut())
-      argTy = argTy->getInOutObjectType();
 
     if (!argTy->isEqual(paramTy))
       return false;

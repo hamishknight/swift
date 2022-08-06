@@ -4438,7 +4438,8 @@ struct AsyncHandlerDesc {
       // Only param handlers with an error can pass both an error AND a result.
       return false;
     }
-    auto Args = CE->getArgs()->getArgExprs();
+    SmallVector<Expr *, 4> Scratch;
+    auto Args = CE->getArgs()->getArgExprs(Scratch);
     if (!isa<NilLiteralExpr>(Args.back())) {
       // We've got an error parameter. If any of the success params is not nil,
       // the call is ambiguous.

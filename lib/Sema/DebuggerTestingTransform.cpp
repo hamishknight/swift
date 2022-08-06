@@ -150,8 +150,6 @@ private:
       // TODO: Try more ways to extract interesting decl refs.
       if (auto *Subscript = dyn_cast<SubscriptExpr>(E))
         E = Subscript->getBase();
-      else if (auto *InOut = dyn_cast<InOutExpr>(E))
-        E = InOut->getSubExpr();
       else if (auto *MemberRef = dyn_cast<MemberRefExpr>(E))
         E = MemberRef->getBase();
       else

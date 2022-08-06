@@ -209,9 +209,7 @@ constantFoldBinaryWithOverflow(BuiltinInst *BI, llvm::Intrinsic::ID ID,
     if (CE) {
       const auto *Args = CE->getArgs();
       if (Args->size() == 2) {
-        // Look through inout types in order to handle += well.
-        CanType LHSTy = Args->getExpr(0)->getType()->getInOutObjectType()->
-                         getCanonicalType();
+        CanType LHSTy = Args->getExpr(0)->getType()->getCanonicalType();
         CanType RHSTy = Args->getExpr(1)->getType()->getCanonicalType();
         if (LHSTy == RHSTy)
           OpType = Args->getExpr(1)->getType();

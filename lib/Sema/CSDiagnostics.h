@@ -2012,6 +2012,9 @@ protected:
   /// \returns The position of the parameter being diagnosed, starting at 1.
   unsigned getParamPosition() const { return Info.getParamPosition(); }
 
+  /// Returns the argument being diagnosed.
+  Argument getArg() const { return Info.getArg(); }
+
   /// Returns the argument expression being diagnosed.
   ///
   /// Note this may differ from \c getAnchor(), which will return a smaller

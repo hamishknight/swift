@@ -2405,12 +2405,6 @@ public:
     PrintWithColorRAII(OS, ParenthesisColor) << ')';
   }
 
-  void visitInOutExpr(InOutExpr *E) {
-    printCommon(E, "inout_expr") << '\n';
-    printRec(E->getSubExpr());
-    PrintWithColorRAII(OS, ParenthesisColor) << ')';
-  }
-
   void visitVarargExpansionExpr(VarargExpansionExpr *E) {
     printCommon(E, "vararg_expansion_expr") << '\n';
     printRec(E->getSubExpr());
@@ -4069,12 +4063,6 @@ namespace {
 
     void visitLValueType(LValueType *T, StringRef label) {
       printCommon(label, "lvalue_type");
-      printRec(T->getObjectType());
-      PrintWithColorRAII(OS, ParenthesisColor) << ')';
-    }
-
-    void visitInOutType(InOutType *T, StringRef label) {
-      printCommon(label, "inout_type");
       printRec(T->getObjectType());
       PrintWithColorRAII(OS, ParenthesisColor) << ')';
     }

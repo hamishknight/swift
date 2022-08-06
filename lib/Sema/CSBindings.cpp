@@ -1327,7 +1327,7 @@ PotentialBindings::inferFromRelational(Constraint *constraint) {
   }
 
   if (type->is<InOutType>() && !TypeVar->getImpl().canBindToInOut())
-    type = LValueType::get(type->getInOutObjectType());
+    type = LValueType::get(type);
   if (type->is<LValueType>() && !TypeVar->getImpl().canBindToLValue())
     type = type->getRValueType();
 

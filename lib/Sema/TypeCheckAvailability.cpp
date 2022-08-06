@@ -2312,9 +2312,6 @@ static void fixItAvailableAttrRename(InFlightDiagnostic &diag,
                                     oldLabelStr);
     }
 
-    if (auto *inoutSelf = dyn_cast<InOutExpr>(selfExpr))
-      selfExpr = inoutSelf->getSubExpr();
-
     CharSourceRange selfExprRange =
         Lexer::getCharSourceRangeFromSourceRange(sourceMgr,
                                                  selfExpr->getSourceRange());
@@ -3220,6 +3217,10 @@ public:
   }
 
   bool shouldWalkIntoTapExpression() override { return false; }
+
+  bool walkToArgumentPre(const Argument &Arg) override {
+    
+  }
 
   std::pair<bool, Expr *> walkToExprPre(Expr *E) override {
     auto *DC = Where.getDeclContext();

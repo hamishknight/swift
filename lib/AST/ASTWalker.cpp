@@ -798,14 +798,6 @@ class Traversal : public ASTVisitor<Traversal, Expr*, Stmt*,
     return nullptr;
   }
 
-  Expr *visitInOutExpr(InOutExpr *E) {
-    if (Expr *E2 = doIt(E->getSubExpr())) {
-      E->setSubExpr(E2);
-      return E;
-    }
-    return nullptr;
-  }
-  
   Expr *visitVarargExpansionExpr(VarargExpansionExpr *E) {
     if (Expr *E2 = doIt(E->getSubExpr())) {
       E->setSubExpr(E2);
@@ -1414,6 +1406,19 @@ public:
     return false;
   }
 
+  bool doIt(ArgumentList *ArgList, unsigned Idx) {
+    bool WalkChildren = Walker.walkToArgumentPre(ArgList->get(Idx));
+    if (!WalkChildren)
+      return false;
+
+    auto *E = doIt(ArgList->getExpr(Idx));
+    if (!E) return true;
+    ArgList->setExpr(Idx, E);
+
+    Walker.walkToArgumentPost(ArgList->get(Idx));
+    return false;
+  }
+
   ArgumentList *doIt(ArgumentList *ArgList) {
     bool WalkChildren;
     std::tie(WalkChildren, ArgList) = Walker.walkToArgumentListPre(ArgList);
@@ -1421,9 +1426,8 @@ public:
       return ArgList;
 
     for (auto Idx : indices(*ArgList)) {
-      auto *E = doIt(ArgList->getExpr(Idx));
-      if (!E) return nullptr;
-      ArgList->setExpr(Idx, E);
+      if (doIt(ArgList, Idx))
+        return nullptr;
     }
     return Walker.walkToArgumentListPost(ArgList);
   }

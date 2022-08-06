@@ -4492,7 +4492,7 @@ MemberRefExpr *getSelfInteropStaticCast(FuncDecl *funcDecl,
 
   auto rawSelfPointer = createCallToBuiltin(
       ctx.getIdentifier("addressof"), {derivedStruct->getSelfInterfaceType()},
-      Argument::implicitInOut(ctx, mutableSelf));
+      Argument::inout(mutableSelf));
   rawSelfPointer->setType(ctx.TheRawPointerType);
 
   auto derivedPtrType = derivedStruct->getSelfInterfaceType()->wrapInPointer(
@@ -4562,8 +4562,8 @@ synthesizeBaseClassMethodBody(AbstractFunctionDecl *afd, void *context) {
 
   Argument casted = [&]() {
     if (funcDecl->isMutating()) {
-      return Argument::implicitInOut(
-          ctx, getSelfInteropStaticCast(funcDecl, baseStruct, derivedStruct));
+      return Argument::inout(
+          getSelfInteropStaticCast(funcDecl, baseStruct, derivedStruct));
     }
     auto *selfDecl = funcDecl->getImplicitSelfDecl();
     auto selfExpr = new (ctx) DeclRefExpr(selfDecl, DeclNameLoc(),
@@ -5414,7 +5414,7 @@ static Argument createSelfArg(FuncDecl *fnDecl) {
     return Argument::unlabeled(selfRefExpr);
   }
   selfRefExpr->setType(LValueType::get(selfDecl->getInterfaceType()));
-  return Argument::implicitInOut(ctx, selfRefExpr);
+  return Argument::inout(selfRefExpr);
 }
 
 // Synthesize a thunk body for the function created in
@@ -5447,7 +5447,7 @@ synthesizeDependentTypeThunkParamForwarding(AbstractFunctionDecl *afd, void *con
     Argument arg = [&]() {
       if (isInOut) {
         assert(specParamTy->isEqual(paramTy));
-        return Argument::implicitInOut(ctx, paramRefExpr);
+        return Argument::inout(paramRefExpr);
       }
       Expr *argExpr = nullptr;
       if (specParamTy->isEqual(paramTy)) {
@@ -5587,7 +5587,7 @@ synthesizeForwardingThunkBody(AbstractFunctionDecl *afd, void *context) {
                                                /*Implicit=*/true);
     paramRefExpr->setType(isInOut ? LValueType::get(paramTy) : paramTy);
 
-    auto arg = isInOut ? Argument::implicitInOut(ctx, paramRefExpr)
+    auto arg = isInOut ? Argument::inout(paramRefExpr)
                        : Argument::unlabeled(paramRefExpr);
     forwardingParams.push_back(arg);
   }

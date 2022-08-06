@@ -663,10 +663,7 @@ struct APIDiffMigratorPass : public ASTMigratorPass, public SourceEntityWalker {
         while (const auto *ICE = dyn_cast<ImplicitConversionExpr>(Arg)) {
           Arg = ICE->getSubExpr();
         }
-        if (const auto *IOE = dyn_cast<InOutExpr>(Arg)) {
-          return dyn_cast<DeclRefExpr>(IOE->getSubExpr());
-        }
-        return nullptr;
+        return dyn_cast<DeclRefExpr>(Arg);
       };
 
       const auto *Arg0 = extractArg(Args->getExpr(0));
@@ -744,8 +741,6 @@ struct APIDiffMigratorPass : public ASTMigratorPass, public SourceEntityWalker {
       IgnoredArgIndices.push_back(*RI);
     emitRenameLabelChanges(Args, NewName, IgnoredArgIndices);
     auto *SelfExpr = AllArgs[0].ArgExp;
-    if (auto *IOE = dyn_cast<InOutExpr>(SelfExpr))
-      SelfExpr = IOE->getSubExpr();
     const bool NeedParen = !SelfExpr->canAppendPostfixExpression();
 
     // Remove the global function name: "Foo(a, b..." to "a, b..."

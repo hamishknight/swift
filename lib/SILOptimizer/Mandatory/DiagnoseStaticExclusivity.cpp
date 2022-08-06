@@ -382,9 +382,9 @@ canReplaceWithCallToCollectionSwapAt(const BeginAccessInst *Access1,
   if (Loc1.isNull() || Loc2.isNull())
     return false;
 
-  auto *InOut1 = Loc1.getAsASTNode<InOutExpr>();
-  auto *InOut2 = Loc2.getAsASTNode<InOutExpr>();
-  if (!InOut1 || !InOut2)
+  auto *ArgExpr1 = Loc1.getAsASTNode<Expr>();
+  auto *ArgExpr2 = Loc2.getAsASTNode<Expr>();
+  if (!ArgExpr1 || !ArgExpr2)
     return false;
 
   FoundCall = nullptr;
@@ -402,10 +402,13 @@ canReplaceWithCallToCollectionSwapAt(const BeginAccessInst *Access1,
     assert(isCallToStandardLibrarySwap(CE, Ctx));
     // swap() takes two arguments.
     auto *Args = CE->getArgs();
-    const Expr *Arg1 = Args->getExpr(0);
-    const Expr *Arg2 = Args->getExpr(1);
-    if ((Arg1 == InOut1 && Arg2 == InOut2)) {
-        FoundCall = CE;
+    auto Arg1 = Args->get(0);
+    auto Arg2 = Args->get(1);
+    if (!Arg1.isInOut() || !Arg2.isInOut())
+      continue;
+
+    if ((Arg1.getExpr() == ArgExpr1 && Arg2.getExpr() == ArgExpr2)) {
+      FoundCall = CE;
       break;
     }
   }
@@ -414,10 +417,10 @@ canReplaceWithCallToCollectionSwapAt(const BeginAccessInst *Access1,
 
   // We found a call to swap(&e1, &e2). Now check to see whether it
   // matches the form swap(&someCollection[index1], &someCollection[index2]).
-  auto *SE1 = dyn_cast<SubscriptExpr>(InOut1->getSubExpr());
+  auto *SE1 = dyn_cast<SubscriptExpr>(ArgExpr1);
   if (!SE1)
     return false;
-  auto *SE2 = dyn_cast<SubscriptExpr>(InOut2->getSubExpr());
+  auto *SE2 = dyn_cast<SubscriptExpr>(ArgExpr2);
   if (!SE2)
     return false;
 

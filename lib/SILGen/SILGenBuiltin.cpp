@@ -425,8 +425,8 @@ static ManagedValue emitBuiltinAddressOf(SILGenFunction &SGF,
 
   // If the argument is inout, try forming its lvalue. This builtin only works
   // if it's trivially physically projectable.
-  auto inout = cast<InOutExpr>(argument->getSemanticsProvidingExpr());
-  auto lv = SGF.emitLValue(inout->getSubExpr(), SGFAccessKind::ReadWrite);
+  auto *argExpr = argument->getSemanticsProvidingExpr();
+  auto lv = SGF.emitLValue(argExpr, SGFAccessKind::ReadWrite);
   if (!lv.isPhysical() || !lv.isLoadingPure()) {
     SGF.SGM.diagnose(argument->getLoc(), diag::non_physical_addressof);
     return SGF.emitUndef(rawPointerType);
@@ -1306,9 +1306,8 @@ static ManagedValue emitBuiltinConvertStrongToUnownedUnsafe(
   SILValue objectSrcValue = object.borrow(SGF, loc).getValue();
 
   // Then create our inout.
-  auto inout = cast<InOutExpr>(args[1]->getSemanticsProvidingExpr());
-  auto lv =
-      SGF.emitLValue(inout->getSubExpr(), SGFAccessKind::BorrowedAddressRead);
+  auto *argExpr = args[1]->getSemanticsProvidingExpr();
+  auto lv = SGF.emitLValue(argExpr, SGFAccessKind::BorrowedAddressRead);
   lv.unsafelyDropLastComponent(PathComponent::OwnershipKind);
   if (!lv.isPhysical() || !lv.isLoadingPure()) {
     llvm::report_fatal_error("Builtin.convertStrongToUnownedUnsafe passed "

@@ -67,7 +67,6 @@ class GenericParamList;
 class GenericSignature;
 class GenericSignatureBuilder;
 class Identifier;
-class InOutType;
 class OpaqueTypeDecl;
 class OpenedArchetypeType;
 class PlaceholderTypeRepr;
@@ -1129,10 +1128,6 @@ public:
   /// getRValueType - For an @lvalue type, retrieves the underlying object type.
   /// Otherwise, returns the type itself.
   Type getRValueType();
-
-  /// getInOutObjectType - For an inout type, retrieves the underlying object
-  /// type.  Otherwise, returns the type itself.
-  Type getInOutObjectType();
 
   /// getWithoutSpecifierType - For a non-materializable type
   /// e.g. @lvalue or inout, retrieves the underlying object type.
@@ -2875,7 +2870,6 @@ public:
                    Identifier internalLabel = Identifier())
         : Ty(t), Label(l), InternalLabel(internalLabel), Flags(f) {
       assert(t && "param type must be non-null");
-      assert(!t->is<InOutType>() && "set flags instead");
     }
 
   private:
@@ -2900,12 +2894,6 @@ public:
     ParameterTypeFlags Flags = {};
     
   public:
-    /// FIXME: Remove this. Return the formal type of the parameter in the
-    /// function type, including the InOutType if there is one.
-    ///
-    /// For example, 'inout Int' => 'inout Int', 'Int...' => 'Int'.
-    Type getOldType() const;
-
     /// Return the formal type of the parameter.
     ///
     /// For example, 'inout Int' => 'Int', 'Int...' => 'Int'.
@@ -5533,37 +5521,6 @@ BEGIN_CAN_TYPE_WRAPPER(LValueType, Type)
     return CanLValueType(LValueType::get(type));
   }
 END_CAN_TYPE_WRAPPER(LValueType, Type)
-  
-/// InOutType - An inout qualified type is an argument to a function passed
-/// with an explicit "Address of" operator.  It is read in and then written back
-/// to after the callee function is done.  This also models the receiver of
-/// @mutable methods on value types.
-///
-class InOutType : public TypeBase {
-  Type ObjectTy;
-  
-  InOutType(Type objectTy, const ASTContext *canonicalContext,
-            RecursiveTypeProperties properties)
-  : TypeBase(TypeKind::InOut, canonicalContext, properties),
-    ObjectTy(objectTy) {}
-  
-public:
-  static InOutType *get(Type type);
-  
-  Type getObjectType() const { return ObjectTy; }
-  
-  // Implement isa/cast/dyncast/etc.
-  static bool classof(const TypeBase *type) {
-    return type->getKind() == TypeKind::InOut;
-  }
-};
-BEGIN_CAN_TYPE_WRAPPER(InOutType, Type)
-PROXY_CAN_TYPE_SIMPLE_GETTER(getObjectType)
-static CanInOutType get(CanType type) {
-  return CanInOutType(InOutType::get(type));
-}
-END_CAN_TYPE_WRAPPER(InOutType, Type)
-
 
 /// SubstitutableType - A reference to a type that can be substituted, i.e.,
 /// an archetype or a generic parameter.
@@ -6527,7 +6484,7 @@ inline bool TypeBase::isTypeSequenceParameter() {
 
 // TODO: This will become redundant once InOutType is removed.
 inline bool TypeBase::isMaterializable() {
-  return !(hasLValueType() || is<InOutType>());
+  return !hasLValueType();
 }
 
 inline GenericTypeParamType *TypeBase::getRootGenericParam() {
@@ -6685,14 +6642,6 @@ inline bool TypeBase::isBuiltinIntegerType(unsigned n) {
     return intTy->getWidth().isFixedWidth()
       && intTy->getWidth().getFixedWidth() == n;
   return false;
-}
-
-/// getInOutObjectType - For an inout type, retrieves the underlying object
-/// type.  Otherwise, returns the type itself.
-inline Type TypeBase::getInOutObjectType() {
-  if (auto iot = getAs<InOutType>())
-    return iot->getObjectType();
-  return this;
 }
 
 /// getWithoutSpecifierType - For a non-materializable type

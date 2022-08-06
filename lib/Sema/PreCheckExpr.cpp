@@ -823,8 +823,6 @@ TypeChecker::getSelfForInitDelegationInConstructor(DeclContext *DC,
   if (auto ctorContext =
           dyn_cast_or_null<ConstructorDecl>(DC->getInnermostMethodContext())) {
     auto nestedArg = ctorRef->getBase();
-    if (auto inout = dyn_cast<InOutExpr>(nestedArg))
-      nestedArg = inout->getSubExpr();
     if (nestedArg->isSuperExpr())
       return ctorContext->getImplicitSelfDecl();
     if (auto declRef = dyn_cast<DeclRefExpr>(nestedArg))
@@ -1154,30 +1152,6 @@ namespace {
     }
 
     std::pair<bool, Expr *> walkToExprPre(Expr *expr) override {
-      // FIXME(diagnostics): `InOutType` could appear here as a result
-      // of successful re-typecheck of the one of the sub-expressions e.g.
-      // `let _: Int = { (s: inout S) in s.bar() }`. On the first
-      // attempt to type-check whole expression `s.bar()` - is going
-      // to have a base which points directly to declaration of `S`.
-      // But when diagnostics attempts to type-check `s.bar()` standalone
-      // its base would be transformed into `InOutExpr -> DeclRefExr`,
-      // and `InOutType` is going to be recorded in constraint system.
-      // One possible way to fix this (if diagnostics still use typecheck)
-      // might be to make it so self is not wrapped into `InOutExpr`
-      // but instead used as @lvalue type in some case of mutable members.
-      if (!expr->isImplicit()) {
-        if (isa<MemberRefExpr>(expr) || isa<DynamicMemberRefExpr>(expr)) {
-          auto *LE = cast<LookupExpr>(expr);
-          if (auto *IOE = dyn_cast<InOutExpr>(LE->getBase()))
-            LE->setBase(IOE->getSubExpr());
-        }
-
-        if (auto *DSCE = dyn_cast<DotSyntaxCallExpr>(expr)) {
-          if (auto *IOE = dyn_cast<InOutExpr>(DSCE->getBase()))
-            DSCE->setBase(IOE->getSubExpr());
-        }
-      }
-
       // Local function used to finish up processing before returning. Every
       // return site should call through here.
       auto finish = [&](bool recursive, Expr *expr) {
@@ -1213,64 +1187,6 @@ namespace {
             getASTContext(), unresolved->getName().getBaseName());
         return finish(true, TypeChecker::resolveDeclRefExpr(unresolved, DC,
                                                             UseErrorExprs));
-      }
-
-      // Let's try to figure out if `InOutExpr` is out of place early
-      // otherwise there is a risk of producing solutions which can't
-      // be later applied to AST and would result in the crash in some
-      // cases. Such expressions are only allowed in argument positions
-      // of function/operator calls.
-      if (isa<InOutExpr>(expr)) {
-        // If this is an implicit `inout` expression we assume that
-        // compiler knowns what it's doing.
-        if (expr->isImplicit())
-          return finish(true, expr);
-
-        auto parents = ParentExpr->getParentMap();
-
-        auto result = parents.find(expr);
-        if (result != parents.end()) {
-          auto *parent = result->getSecond();
-
-          if (isa<SequenceExpr>(parent))
-            return finish(true, expr);
-
-          SourceLoc lastInnerParenLoc;
-          // Unwrap to the outermost paren in the sequence.
-          // e.g. `foo(((&bar))`
-          while (auto *PE = dyn_cast<ParenExpr>(parent)) {
-            auto nextParent = parents.find(parent);
-            if (nextParent == parents.end())
-              break;
-
-            lastInnerParenLoc = PE->getLParenLoc();
-            parent = nextParent->second;
-          }
-
-          if (isa<ApplyExpr>(parent) || isa<UnresolvedMemberExpr>(parent)) {
-            // If outermost paren is associated with a call or
-            // a member reference, it might be valid to have `&`
-            // before all of the parens.
-            if (lastInnerParenLoc.isValid()) {
-              auto &DE = getASTContext().Diags;
-              auto diag = DE.diagnose(expr->getStartLoc(),
-                                      diag::extraneous_address_of);
-              diag.fixItExchange(expr->getLoc(), lastInnerParenLoc);
-            }
-            return finish(true, expr);
-          }
-
-          if (isa<SubscriptExpr>(parent)) {
-            getASTContext().Diags.diagnose(
-                expr->getStartLoc(),
-                diag::cannot_pass_inout_arg_to_subscript);
-            return finish(false, nullptr);
-          }
-        }
-
-        getASTContext().Diags.diagnose(expr->getStartLoc(),
-                                       diag::extraneous_address_of);
-        return finish(false, nullptr);
       }
 
       if (auto *ISLE = dyn_cast<InterpolatedStringLiteralExpr>(expr)) {

@@ -138,7 +138,7 @@ public:
     case Kind::LValue:
       return asKnownLValue().getSubstFormalType();
     case Kind::Expr:
-      return asKnownExpr()->getType()->getInOutObjectType()->getCanonicalType();
+      return asKnownExpr()->getType()->getCanonicalType();
     }
     llvm_unreachable("bad kind");
   }

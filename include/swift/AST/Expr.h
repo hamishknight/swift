@@ -498,15 +498,6 @@ public:
   /// a base class.
   bool isSuperExpr() const;
 
-  /// Returns whether the semantically meaningful content of this expression is
-  /// an inout expression.
-  ///
-  /// FIXME(Remove InOutType): This should eventually sub-in for
-  /// 'E->getType()->is<InOutType>()' in all cases.
-  bool isSemanticallyInOutExpr() const {
-    return getSemanticsProvidingExpr()->getKind() == ExprKind::InOut;
-  }
-
   bool printConstExprValue(llvm::raw_ostream *OS, llvm::function_ref<bool(Expr*)> additionalCheck) const;
   bool isSemanticallyConstExpr(llvm::function_ref<bool(Expr*)> additionalCheck = nullptr) const;
 
@@ -3470,28 +3461,6 @@ public:
   }
 };
 
-/// The builtin unary '&' operator, which converts the
-/// given lvalue into an 'inout' argument value.
-class InOutExpr : public Expr {
-  Expr *SubExpr;
-  SourceLoc OperLoc;
-
-public:
-  InOutExpr(SourceLoc operLoc, Expr *subExpr, Type baseType,
-            bool isImplicit = false);
-
-  SourceLoc getStartLoc() const { return OperLoc; }
-  SourceLoc getEndLoc() const { return SubExpr->getEndLoc(); }
-  SourceLoc getLoc() const { return OperLoc; }
-
-  Expr *getSubExpr() const { return SubExpr; }
-  void setSubExpr(Expr *e) { SubExpr = e; }
-
-  static bool classof(const Expr *E) {
-    return E->getKind() == ExprKind::InOut;
-  }
-};
-
 /// The not-yet-actually-surfaced '...' varargs expansion operator,
 /// which splices an array into a sequence of variadic arguments.
 class VarargExpansionExpr : public Expr {
@@ -4710,7 +4679,7 @@ public:
   /// Create a new method reference to \p fnExpr on the base value \p baseArg.
   /// 
   /// If this is for a 'mutating' method, \p baseArg should be created using
-  /// \c Argument::implicitInOut. Otherwise, \p Argument::unlabeled should be
+  /// \c Argument::inout. Otherwise, \p Argument::unlabeled should be
   /// used. \p baseArg must not be labeled.
   static DotSyntaxCallExpr *create(ASTContext &ctx, Expr *fnExpr,
                                    SourceLoc dotLoc, Argument baseArg,

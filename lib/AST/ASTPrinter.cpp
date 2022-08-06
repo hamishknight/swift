@@ -4554,10 +4554,6 @@ void PrintAST::visitMoveExpr(MoveExpr *expr) {
   visit(expr->getSubExpr());
 }
 
-void PrintAST::visitInOutExpr(InOutExpr *expr) {
-  visit(expr->getSubExpr());
-}
-
 void PrintAST::visitParenExpr(ParenExpr *expr) {
   Printer << "(";
   visit(expr->getSubExpr());
@@ -5534,7 +5530,7 @@ public:
 
   void visitParenType(ParenType *T) {
     Printer << "(";
-    visit(T->getUnderlyingType()->getInOutObjectType());
+    visit(T->getUnderlyingType());
     Printer << ")";
   }
 

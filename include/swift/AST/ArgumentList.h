@@ -34,25 +34,41 @@ Type __Expr_getType(Expr *E);
 /// foo.bar(arg, label: arg2, other: &arg3)
 ///         ^^^               ^^^^^^^^^^^^
 ///         an unlabeled      'other' is the label, 'arg3' is the expr,
-///         argument          and isInout() is true.
+///         argument          and isInOut() is true.
 /// \endcode
 class Argument final {
-  SourceLoc LabelLoc;
-  Identifier Label;
-  Expr *ArgExpr;
-  // TODO: Store inout bit here.
+  friend class ArgumentList;
 
 public:
-  Argument(SourceLoc labelLoc, Identifier label, Expr *expr)
-      : LabelLoc(labelLoc), Label(label), ArgExpr(expr) {}
+  enum class Specifier : unsigned {
+    Default = 0,
+    InOut
+  };
+
+private:
+  using ExprStorage = llvm::PointerIntPair<Expr *, 1, Specifier>;
+
+  SourceLoc LabelLoc;
+  Identifier Label;
+  ExprStorage ExprAndSpecifier;
+
+public:
+  Argument(SourceLoc labelLoc, Identifier label, Expr *expr,
+           Specifier specifier = Specifier::Default)
+      : LabelLoc(labelLoc), Label(label), ExprAndSpecifier(expr, specifier) {}
 
   /// Make an unlabeled argument.
   static Argument unlabeled(Expr *expr) {
     return Argument(SourceLoc(), Identifier(), expr);
   }
 
-  /// Make an implicit unlabeled 'inout' argument.
-  static Argument implicitInOut(ASTContext &ctx, Expr *expr);
+  /// Make an 'inout' argument, denoted with prefix '&'.
+  static Argument inout(Expr *expr) {
+    return Argument(SourceLoc(), Identifier(), expr, Specifier::InOut);
+  }
+  static Argument inout(SourceLoc labelLoc, Identifier label, Expr *expr) {
+    return Argument(labelLoc, label, expr, Specifier::InOut);
+  }
 
   SourceLoc getStartLoc() const { return getSourceRange().Start; }
   SourceLoc getEndLoc() const { return getSourceRange().End; }
@@ -80,23 +96,23 @@ public:
   void setLabel(Identifier newLabel) & { Label = newLabel; }
 
   /// The argument expression.
-  Expr *getExpr() const { return ArgExpr; }
+  Expr *getExpr() const { return ExprAndSpecifier.getPointer(); }
 
   /// Set a new argument expression.
   ///
   /// Note this is marked \c & to prevent its use on an rvalue Argument vended
   /// from an ArgumentList.
-  void setExpr(Expr *newExpr) & { ArgExpr = newExpr; }
+  void setExpr(Expr *newExpr) & { ExprAndSpecifier.setPointer(newExpr); }
 
   /// Whether the argument is \c inout, denoted with the '&' prefix.
-  bool isInOut() const;
+  bool isInOut() const { return ExprAndSpecifier.getInt() == Specifier::InOut; }
 
   /// Whether the argument is a compile-time constant value.
   bool isConst() const;
 
   bool operator==(const Argument &other) {
     return LabelLoc == other.LabelLoc && Label == other.Label &&
-           ArgExpr == other.ArgExpr;
+           ExprAndSpecifier == other.ExprAndSpecifier;
   }
   bool operator!=(const Argument &other) { return !(*this == other); }
 };
@@ -111,9 +127,10 @@ public:
 /// ArgumentList's memory footprint for the unlabeled cases.
 class alignas(Argument) ArgumentList final
     : public ASTAllocated<ArgumentList>,
-      private llvm::TrailingObjects<ArgumentList, Expr *, Identifier,
-                                    SourceLoc, ArgumentList *> {
+      private llvm::TrailingObjects<ArgumentList, Argument::ExprStorage,
+                                    Identifier, SourceLoc, ArgumentList *> {
   friend TrailingObjects;
+  using ExprStorage = Argument::ExprStorage;
 
   SourceLoc LParenLoc;
   SourceLoc RParenLoc;
@@ -173,11 +190,11 @@ class alignas(Argument) ArgumentList final
     return HasOriginalArgs ? 1 : 0;
   }
 
-  ArrayRef<Expr *> getExprsBuffer() const {
-    return {getTrailingObjects<Expr *>(), NumArgs};
+  ArrayRef<ExprStorage> getExprStorageBuffer() const {
+    return {getTrailingObjects<ExprStorage>(), NumArgs};
   }
-  MutableArrayRef<Expr *> getExprsBuffer() {
-    return {getTrailingObjects<Expr *>(), NumArgs};
+  MutableArrayRef<ExprStorage> getExprStorageBuffer() {
+    return {getTrailingObjects<ExprStorage>(), NumArgs};
   }
 
   ArrayRef<Identifier> getLabelsBuffer() const {
@@ -308,8 +325,12 @@ public:
   SourceRange getSourceRange() const;
 
   /// Retrieve the argument expression at a given index.
-  Expr *getExpr(unsigned idx) const { return getExprsBuffer()[idx]; }
-  void setExpr(unsigned idx, Expr *newExpr) { getExprsBuffer()[idx] = newExpr; }
+  Expr *getExpr(unsigned idx) const {
+    return getExprStorageBuffer()[idx].getPointer();
+  }
+  void setExpr(unsigned idx, Expr *newExpr) {
+    getExprStorageBuffer()[idx].setPointer(newExpr);
+  }
 
   /// Retrieve the argument label at a given index.
   Identifier getLabel(unsigned idx) const {
@@ -515,7 +536,7 @@ public:
   }
 
   /// Retrieve an array of the argument expressions used in the argument list.
-  ArrayRef<Expr *> getArgExprs() const { return getExprsBuffer(); }
+  ArrayRef<Expr *> getArgExprs(SmallVectorImpl<Expr *> &scratch) const;
 
   /// Retrieve an array of the argument labels used in the argument list.
   ArrayRef<Identifier>

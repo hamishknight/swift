@@ -806,9 +806,9 @@ public:
 
     for (auto i : indices(*yieldArgs)) {
       Type yieldType = yieldResults[i].getType();
-      auto exprToCheck = yieldArgs->getExpr(i);
 
-      InOutExpr *inout = nullptr;
+      auto &yieldArg = yieldArgs->get(i);
+      auto yieldExpr = yieldArg.getExpr();
 
       // Classify whether we're yielding by reference or by value.
       ContextualTypePurpose contextTypePurpose;
@@ -818,32 +818,18 @@ public:
         contextType = LValueType::get(contextType);
 
         // Check that the yielded expression is a &.
-        if ((inout = dyn_cast<InOutExpr>(exprToCheck))) {
-          // Strip the & off so that the constraint system doesn't complain
-          // about the unparented &.
-          exprToCheck = inout->getSubExpr();
-        } else {
+        if (!yieldArg.isInOut()) {
           getASTContext().Diags.diagnose(exprToCheck->getLoc(),
-                      diag::missing_address_of_yield, yieldType)
-            .highlight(exprToCheck->getSourceRange());
-          inout = new (getASTContext()) InOutExpr(exprToCheck->getStartLoc(),
-                                             exprToCheck,
-                                             Type(), /*implicit*/ true);
+                                         diag::missing_address_of_yield,
+                                         yieldType)
+          .highlight(exprToCheck->getSourceRange());
         }
       } else {
         contextTypePurpose = CTP_YieldByValue;
       }
-
-      TypeChecker::typeCheckExpression(exprToCheck, DC,
+      TypeChecker::typeCheckExpression(yieldExpr, DC,
                                        {contextType, contextTypePurpose});
-
-      // Propagate the change into the inout expression we stripped before.
-      if (inout) {
-        inout->setSubExpr(exprToCheck);
-        inout->setType(InOutType::get(yieldType));
-        exprToCheck = inout;
-      }
-      yieldArgs->setExpr(i, exprToCheck);
+      yieldArgs->setExpr(i, yieldExpr);
     }
     return YS;
   }

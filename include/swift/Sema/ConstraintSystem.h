@@ -705,7 +705,6 @@ struct SelectedOverload {
 /// parameter.
 class FunctionArgApplyInfo {
   ArgumentList *ArgList;
-  Expr *ArgExpr;
   unsigned ArgIdx;
   Type ArgType;
 
@@ -715,18 +714,16 @@ class FunctionArgApplyInfo {
   FunctionType *FnType;
   const ValueDecl *Callee;
 
-  FunctionArgApplyInfo(ArgumentList *argList, Expr *argExpr, unsigned argIdx,
-                       Type argType, unsigned paramIdx, Type fnInterfaceType,
+  FunctionArgApplyInfo(ArgumentList *argList, unsigned argIdx, Type argType,
+                       unsigned paramIdx, Type fnInterfaceType,
                        FunctionType *fnType, const ValueDecl *callee)
-      : ArgList(argList), ArgExpr(argExpr), ArgIdx(argIdx), ArgType(argType),
-        ParamIdx(paramIdx), FnInterfaceType(fnInterfaceType), FnType(fnType),
-        Callee(callee) {}
+      : ArgList(argList), ArgIdx(argIdx), ArgType(argType), ParamIdx(paramIdx),
+        FnInterfaceType(fnInterfaceType), FnType(fnType), Callee(callee) {}
 
 public:
   static Optional<FunctionArgApplyInfo>
-  get(ArgumentList *argList, Expr *argExpr, unsigned argIdx, Type argType,
-      unsigned paramIdx, Type fnInterfaceType, FunctionType *fnType,
-      const ValueDecl *callee) {
+  get(ArgumentList *argList, unsigned argIdx, Type argType, unsigned paramIdx,
+      Type fnInterfaceType, FunctionType *fnType, const ValueDecl *callee) {
     assert(fnType);
 
     if (argIdx >= argList->size())
@@ -735,7 +732,7 @@ public:
     if (paramIdx >= fnType->getNumParams())
       return None;
 
-    return FunctionArgApplyInfo(argList, argExpr, argIdx, argType, paramIdx,
+    return FunctionArgApplyInfo(argList, argIdx, argType, paramIdx,
                                 fnInterfaceType, fnType, callee);
   }
 
@@ -743,7 +740,10 @@ public:
   ArgumentList *getArgList() const { return ArgList; }
 
   /// \returns The argument being applied.
-  Expr *getArgExpr() const { return ArgExpr; }
+  Argument getArg() const { return ArgList->get(ArgIdx); }
+
+  /// \returns The argument expression being applied.
+  Expr *getArgExpr() const { return ArgList->getExpr(ArgIdx); }
 
   /// \returns The position of the argument, starting at 1.
   unsigned getArgPosition() const { return ArgIdx + 1; }

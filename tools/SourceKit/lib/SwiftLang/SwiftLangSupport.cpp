@@ -907,7 +907,6 @@ void SwiftLangSupport::printMemberDeclDescription(const swift::ValueDecl *VD,
     // InOut.
     if (param->isInOut()) {
       OS << "&";
-      paramTy = paramTy->getInOutObjectType();
     }
 
     // Type.
