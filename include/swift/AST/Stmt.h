@@ -31,6 +31,7 @@
 namespace swift {
 
 class AnyPattern;
+class ArgumentList;
 class ASTContext;
 class ASTWalker;
 class Decl;
@@ -91,10 +92,7 @@ protected:
     CaseCount : 32
   );
 
-  SWIFT_INLINE_BITFIELD_FULL(YieldStmt, Stmt, 32,
-    : NumPadBits,
-    NumYields : 32
-  );
+  SWIFT_INLINE_BITFIELD_EMPTY(YieldStmt, Stmt);
 
   } Bits;
 
@@ -225,42 +223,30 @@ public:
 /// YieldStmt - A yield statement.  The yield-values sequence is not optional,
 /// but the parentheses are.
 ///    yield 42
-class YieldStmt final
-    : public Stmt, private llvm::TrailingObjects<YieldStmt, Expr*> {
-  friend TrailingObjects;
+class YieldStmt final : public Stmt {
 
   SourceLoc YieldLoc;
-  SourceLoc LPLoc;
-  SourceLoc RPLoc;
+  ArgumentList *Args;
 
-  YieldStmt(SourceLoc yieldLoc, SourceLoc lpLoc, ArrayRef<Expr *> yields,
-            SourceLoc rpLoc, Optional<bool> implicit = None)
-    : Stmt(StmtKind::Yield, getDefaultImplicitFlag(implicit, yieldLoc)),
-      YieldLoc(yieldLoc), LPLoc(lpLoc), RPLoc(rpLoc) {
-    Bits.YieldStmt.NumYields = yields.size();
-    memcpy(getMutableYields().data(), yields.data(),
-           yields.size() * sizeof(Expr*));
-  }
+  YieldStmt(SourceLoc yieldLoc, ArgumentList *args,
+            Optional<bool> implicit = None)
+      : Stmt(StmtKind::Yield, getDefaultImplicitFlag(implicit, yieldLoc)),
+        YieldLoc(yieldLoc), Args(args) {}
 
 public:
   static YieldStmt *create(const ASTContext &ctx, SourceLoc yieldLoc,
-                           SourceLoc lp, ArrayRef<Expr*> yields, SourceLoc rp,
-                           Optional<bool> implicit = None);
+                           ArgumentList *args, Optional<bool> implicit = None);
 
   SourceLoc getYieldLoc() const { return YieldLoc; }
-  SourceLoc getLParenLoc() const { return LPLoc; }
-  SourceLoc getRParenLoc() const { return RPLoc; }
+  SourceLoc getLParenLoc() const;
+  SourceLoc getRParenLoc() const;
 
   SourceLoc getStartLoc() const { return YieldLoc; }
   SourceLoc getEndLoc() const;
 
-  ArrayRef<Expr*> getYields() const {
-    return {getTrailingObjects<Expr*>(), Bits.YieldStmt.NumYields};
-  }
-  MutableArrayRef<Expr*> getMutableYields() {
-    return {getTrailingObjects<Expr*>(), Bits.YieldStmt.NumYields};
-  }
-  
+  ArgumentList *getArgs() const { return Args; }
+  void setArgs(ArgumentList *newArgs) { Args = newArgs; }
+
   static bool classof(const Stmt *S) { return S->getKind() == StmtKind::Yield; }
 };
 

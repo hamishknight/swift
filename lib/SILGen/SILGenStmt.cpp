@@ -630,7 +630,8 @@ void StmtEmitter::visitYieldStmt(YieldStmt *S) {
 
   SmallVector<ArgumentSource, 4> sources;
   SmallVector<AbstractionPattern, 4> origTypes;
-  for (auto yield : S->getYields()) {
+  for (auto arg : *S->getArgs()) {
+    auto *yield = arg.getExpr();
     sources.emplace_back(yield);
     origTypes.emplace_back(yield->getType());
   }

@@ -797,16 +797,16 @@ public:
     auto TheFunc = AnyFunctionRef::fromDeclContext(DC);
     auto yieldResults = TheFunc->getBodyYieldResults(buffer);
 
-    auto yieldExprs = YS->getMutableYields();
-    if (yieldExprs.size() != yieldResults.size()) {
+    auto yieldArgs = YS->getArgs();
+    if (yieldArgs->size() != yieldResults.size()) {
       getASTContext().Diags.diagnose(YS->getYieldLoc(), diag::bad_yield_count,
                   yieldResults.size());
       return YS;
     }
 
-    for (auto i : indices(yieldExprs)) {
+    for (auto i : indices(*yieldArgs)) {
       Type yieldType = yieldResults[i].getType();
-      auto exprToCheck = yieldExprs[i];
+      auto exprToCheck = yieldArgs->getExpr(i);
 
       InOutExpr *inout = nullptr;
 
@@ -843,9 +843,7 @@ public:
         inout->setType(InOutType::get(yieldType));
         exprToCheck = inout;
       }
-
-      // Note that this modifies the statement's expression list in-place.
-      yieldExprs[i] = exprToCheck;
+      yieldArgs->setExpr(i, exprToCheck);
     }
     return YS;
   }
