@@ -101,6 +101,7 @@ unsigned LocatorPathElt::getNewSummaryFlags() const {
   case ConstraintLocator::PackExpansionPattern:
   case ConstraintLocator::PatternBindingElement:
   case ConstraintLocator::NamedPatternDecl:
+  case ConstraintLocator::SingleValueStmtBranch:
   case ConstraintLocator::AnyPatternDecl:
     return 0;
 
@@ -381,6 +382,13 @@ void LocatorPathElt::dump(raw_ostream &out) const {
     break;
   }
 
+  case ConstraintLocator::SingleValueStmtBranch: {
+    auto branch = elt.castTo<LocatorPathElt::SingleValueStmtBranch>();
+    out << "expr branch [" << branch.getExprBranchIndex() << "] of "
+           "single value stmt";
+    break;
+  }
+
   case ConstraintLocator::PatternMatch:
     out << "pattern match";
     break;
@@ -589,6 +597,34 @@ bool ConstraintLocator::isForOptionalTry() const {
 
 bool ConstraintLocator::isForResultBuilderBodyResult() const {
   return isFirstElement<LocatorPathElt::ResultBuilderBodyResult>();
+}
+
+bool ConstraintLocator::isForSingleValueStmtConjunction() const {
+  auto *SVE = getAsExpr<SingleValueStmtExpr>(getAnchor());
+  if (!SVE)
+    return false;
+
+  // Ignore a trailing SyntacticElement path element for the statement.
+  auto path = getPath();
+  if (auto elt = getLastElementAs<LocatorPathElt::SyntacticElement>()) {
+    if (elt->getElement() == ASTNode(SVE->getStmt()))
+      path = path.drop_back();
+  }
+
+  // Other than the trailing SyntaticElement, we must be at the anchor.
+  return path.empty();
+}
+
+bool ConstraintLocator::isForSingleValueStmtBranchInSingleExprClosure() const {
+  if (!isLastElement<LocatorPathElt::SingleValueStmtBranch>())
+    return false;
+
+  auto *SVE = getAsExpr<SingleValueStmtExpr>(getAnchor());
+  if (!SVE)
+    return false;
+
+  auto *CE = dyn_cast<ClosureExpr>(SVE->getDeclContext());
+  return CE && CE->hasSingleExpressionBody();
 }
 
 GenericTypeParamType *ConstraintLocator::getGenericParameter() const {

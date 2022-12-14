@@ -54,6 +54,7 @@ class PropertyWrapperInitializerInfo;
 struct PropertyWrapperLValueness;
 struct PropertyWrapperMutability;
 class RequirementRepr;
+class ReturnStmt;
 class SpecializeAttr;
 class TrailingWhereClause;
 class TypeAliasDecl;
@@ -3736,6 +3737,24 @@ public:
   bool isCached() const { return true; }
 };
 
+/// Precheck a ReturnStmt, which involves some initial validation, as well as
+/// applying a conversion to a FailStmt if needed.
+class PreCheckReturnStmtRequest
+    : public SimpleRequest<PreCheckReturnStmtRequest,
+                           Stmt *(ReturnStmt *, DeclContext *DC),
+                           RequestFlags::Cached> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  Stmt *evaluate(Evaluator &evaluator, ReturnStmt *RS, DeclContext *DC) const;
+
+public:
+  bool isCached() const { return true; }
+};
+
 class GetTypeWrapperInitializer
     : public SimpleRequest<GetTypeWrapperInitializer,
                            ConstructorDecl *(NominalTypeDecl *),
@@ -3747,6 +3766,122 @@ private:
   friend SimpleRequest;
 
   ConstructorDecl *evaluate(Evaluator &evaluator, NominalTypeDecl *) const;
+
+public:
+  bool isCached() const { return true; }
+};
+
+/// The result of the query for whether a statement can produce a single value.
+class IsSingleValueStmtResult {
+public:
+  enum class Kind {
+    /// The statement may become a SingleValueStmtExpr.
+    Valid,
+
+    /// There is a non-single-expression branch that does not end in a return or
+    /// throw.
+    UnterminatedBranch,
+
+    /// The statement is an 'if' statement without an unconditional 'else'.
+    NonExhaustiveIf,
+
+    /// There are no single-expression branches.
+    NoExpressionBranches,
+
+    /// There is an unhandled statement branch. This should only be the case
+    /// for invalid AST.
+    UnhandledStmt,
+
+    /// There was a circular reference when evaluating the request. This can be
+    /// ignored, as we will have already diagnosed it.
+    CircularReference,
+
+    /// There is a 'break' or 'continue' within the statement that prevents it
+    /// from being treated as an expression.
+    InvalidJumps,
+
+    /// The statement has a jump label, which is invalid for an expression.
+    HasLabel
+  };
+
+private:
+  Kind TheKind;
+  Stmt *UnterminatedBranch;
+  std::vector<Stmt *> InvalidJumps;
+
+  IsSingleValueStmtResult(Kind kind)
+    : TheKind(kind), UnterminatedBranch(nullptr) {
+    assert(kind != Kind::UnterminatedBranch && kind != Kind::InvalidJumps);
+  }
+
+  IsSingleValueStmtResult(Kind kind, Stmt *unterminatedBranch)
+    : TheKind(kind), UnterminatedBranch(unterminatedBranch) {
+      assert(kind == Kind::UnterminatedBranch);
+    }
+
+  IsSingleValueStmtResult(Kind kind, std::vector<Stmt *> invalidJumps)
+    : TheKind(kind), InvalidJumps(std::move(invalidJumps)) {
+      assert(kind == Kind::InvalidJumps);
+    }
+
+public:
+  static IsSingleValueStmtResult valid() {
+    return IsSingleValueStmtResult(Kind::Valid);
+  }
+  static IsSingleValueStmtResult unterminatedBranch(Stmt *branch) {
+    return IsSingleValueStmtResult(Kind::UnterminatedBranch, branch);
+  }
+  static IsSingleValueStmtResult nonExhaustiveIf() {
+    return IsSingleValueStmtResult(Kind::NonExhaustiveIf);
+  }
+  static IsSingleValueStmtResult noExpressionBranches() {
+    return IsSingleValueStmtResult(Kind::NoExpressionBranches);
+  }
+  static IsSingleValueStmtResult unhandledStmt() {
+    return IsSingleValueStmtResult(Kind::UnhandledStmt);
+  }
+  static IsSingleValueStmtResult circularReference() {
+    return IsSingleValueStmtResult(Kind::CircularReference);
+  }
+  static IsSingleValueStmtResult invalidJumps(std::vector<Stmt *> jumps) {
+    return IsSingleValueStmtResult(Kind::InvalidJumps, std::move(jumps));
+  }
+  static IsSingleValueStmtResult hasLabel() {
+    return IsSingleValueStmtResult(Kind::HasLabel);
+  }
+
+  Kind getKind() const { return TheKind; }
+
+  /// For an unterminated branch kind, retrieves the branch.
+  Stmt *getUnterminatedBranch() const {
+    assert(TheKind == Kind::UnterminatedBranch);
+    return UnterminatedBranch;
+  }
+
+  /// For an invalid jump kind, retrieves the list of invalid jumps.
+  const std::vector<Stmt *> &getInvalidJumps() const {
+    assert(TheKind == Kind::InvalidJumps);
+    return InvalidJumps;
+  }
+
+  explicit operator bool() const {
+    return TheKind == Kind::Valid;
+  }
+};
+
+/// Computes whether a given statement can be treated as a SingleValueStmtExpr.
+class IsSingleValueStmtRequest
+    : public SimpleRequest<IsSingleValueStmtRequest,
+                           IsSingleValueStmtResult(const Stmt *),
+                           RequestFlags::Cached> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  IsSingleValueStmtResult
+  evaluate(Evaluator &evaluator, const Stmt *stmt) const;
 
 public:
   bool isCached() const { return true; }

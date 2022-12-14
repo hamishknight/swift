@@ -175,7 +175,7 @@ SourceFileParsingResult ParseSourceFileRequest::evaluate(Evaluator &evaluator,
   if (auto tokens = parser.takeTokenReceiver()->finalize())
     tokensRef = ctx.AllocateCopy(*tokens);
 
-#if SWIFT_SWIFT_PARSER
+#if 0
   if ((ctx.LangOpts.hasFeature(Feature::ParserRoundTrip) ||
        ctx.LangOpts.hasFeature(Feature::ParserValidation)) &&
       ctx.SourceMgr.getIDEInspectionTargetBufferID() != bufferID &&

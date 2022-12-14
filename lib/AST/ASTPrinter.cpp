@@ -2955,6 +2955,10 @@ static bool usesFeatureParserSequenceFolding(Decl *decl) {
   return false;
 }
 
+static bool usesFeatureStatementExpressions(Decl *decl) {
+  return false;
+}
+
 static void suppressingFeatureSpecializeAttributeWithAvailability(
                                         PrintOptions &options,
                                         llvm::function_ref<void()> action) {
@@ -4734,6 +4738,10 @@ void PrintAST::visitErasureExpr(ErasureExpr *expr) {
 }
 
 void PrintAST::visitKeyPathExpr(KeyPathExpr *expr) {
+}
+
+void PrintAST::visitSingleValueStmtExpr(SingleValueStmtExpr *expr) {
+  visit(expr->getStmt());
 }
 
 void PrintAST::visitForceTryExpr(ForceTryExpr *expr) {

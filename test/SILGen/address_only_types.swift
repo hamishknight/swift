@@ -46,6 +46,8 @@ func address_only_missing_return() -> Unloadable {
 
 // CHECK-LABEL: sil hidden [ossa] @$s18address_only_types0a1_B27_conditional_missing_return{{[_0-9a-zA-Z]*}}F
 func address_only_conditional_missing_return(_ x: Unloadable) -> Unloadable {
+  () // This is here to avoid us turning the following switch into an expression.
+
   // CHECK: bb0({{%.*}} : $*any Unloadable, {{%.*}} : $*any Unloadable):
   // CHECK:   switch_enum {{%.*}}, case #Bool.true_!enumelt: [[TRUE:bb[0-9]+]], case #Bool.false_!enumelt: [[FALSE:bb[0-9]+]]
   switch Bool.true_ {
@@ -57,8 +59,6 @@ func address_only_conditional_missing_return(_ x: Unloadable) -> Unloadable {
   case .false_:
     ()
   }
-  // CHECK: [[FALSE]]:
-  // CHECK:   unreachable
 }
 
 // CHECK-LABEL: sil hidden [ossa] @$s18address_only_types0a1_B29_conditional_missing_return_2
