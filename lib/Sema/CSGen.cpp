@@ -3728,6 +3728,10 @@ namespace {
       llvm_unreachable("found KeyPathDotExpr in CSGen");
     }
 
+    Type visitSingleValueStmtExpr(SingleValueStmtExpr *E) {
+      llvm_unreachable("Handled by the walker directly");
+    }
+
     Type visitOneWayExpr(OneWayExpr *expr) {
       auto locator = CS.getConstraintLocator(expr);
       auto resultTypeVar = CS.createTypeVariable(locator, 0);
@@ -3757,9 +3761,20 @@ namespace {
       SmallVector<std::pair<Type, ConstraintLocator *>, 4> elements;
       elements.reserve(expr->getNumElements());
 
-      for (auto *element : expr->getElements()) {
-        elements.emplace_back(CS.getType(element),
-                              CS.getConstraintLocator(element));
+      if (auto *SVE = expr->getSingleValueStmtExpr()) {
+        // If we have a SingleValueStmtExpr, form a join of the branch types.
+        SmallVector<Expr *, 4> scratch;
+        auto branches = SVE->getSingleExprBranches(scratch);
+        for (auto idx : indices(branches)) {
+          auto *eltLoc = CS.getConstraintLocator(
+              SVE, {LocatorPathElt::SingleValueStmtBranch(idx)});
+          elements.emplace_back(CS.getType(branches[idx]), eltLoc);
+        }
+      } else {
+        for (auto *element : expr->getElements()) {
+          elements.emplace_back(CS.getType(element),
+                                CS.getConstraintLocator(element));
+        }
       }
 
       Type resultTy;
@@ -4015,6 +4030,12 @@ namespace {
 
       if (CS.isArgumentIgnoredForCodeCompletion(expr)) {
         CG.setTypeForArgumentIgnoredForCompletion(expr);
+        return Action::SkipChildren(expr);
+      }
+
+      if (auto *SVE = dyn_cast<SingleValueStmtExpr>(expr)) {
+        if (CS.generateConstraints(SVE))
+          return Action::Stop();
         return Action::SkipChildren(expr);
       }
 
@@ -4464,8 +4485,14 @@ bool ConstraintSystem::generateConstraints(
     // constraint.
     if (Type convertType = target.getExprConversionType()) {
       ContextualTypePurpose ctp = target.getExprContextualTypePurpose();
-      auto *convertTypeLocator =
-          getConstraintLocator(expr, LocatorPathElt::ContextualType(ctp));
+
+      // If a custom locator wasn't specified, create a locator anchored on
+      // the expression itself.
+      auto *convertTypeLocator = target.getExprConvertTypeLocator();
+      if (!convertTypeLocator) {
+        convertTypeLocator =
+            getConstraintLocator(expr, LocatorPathElt::ContextualType(ctp));
+      }
 
       auto getLocator = [&](Type ty) -> ConstraintLocator * {
         // If we have a placeholder originating from a PlaceholderTypeRepr,
@@ -4503,7 +4530,8 @@ bool ConstraintSystem::generateConstraints(
         });
       }
 
-      addContextualConversionConstraint(expr, convertType, ctp);
+      addContextualConversionConstraint(expr, convertType, ctp,
+                                        convertTypeLocator);
     }
 
     // For an initialization target, generate constraints for the pattern.
