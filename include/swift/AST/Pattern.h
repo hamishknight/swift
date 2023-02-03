@@ -652,7 +652,10 @@ public:
                  SourceLoc questionLoc = SourceLoc());
 
   SourceLoc getQuestionLoc() const { return QuestionLoc; }
+
   SourceRange getSourceRange() const {
+    if (QuestionLoc.isInvalid())
+      return SubPattern->getSourceRange();
     return SourceRange(SubPattern->getStartLoc(), QuestionLoc);
   }
 

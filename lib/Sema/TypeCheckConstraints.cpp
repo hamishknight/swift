@@ -911,30 +911,6 @@ bool TypeChecker::typeCheckCondition(Expr *&expr, DeclContext *dc) {
   return !resultTy;
 }
 
-/// Find the `~=` operator that can compare an expression inside a pattern to a
-/// value of a given type.
-bool TypeChecker::typeCheckExprPattern(ExprPattern *EP, DeclContext *DC,
-                                       Type rhsType) {
-  auto &Context = DC->getASTContext();
-  FrontendStatsTracer StatsTracer(Context.Stats,
-                                  "typecheck-expr-pattern", EP);
-  PrettyStackTracePattern stackTrace(Context, "type-checking", EP);
-
-  EP->getMatchVar()->setInterfaceType(rhsType->mapTypeOutOfContext());
-
-  // Check the expression as a condition.
-  auto target = SyntacticElementTarget::forExprPattern(EP);
-  auto result = typeCheckExpression(target);
-  if (!result)
-    return true;
-
-  // Save the type-checked expression in the pattern.
-  EP->setMatchExpr(result->getAsExpr());
-  // Set the type on the pattern.
-  EP->setType(rhsType);
-  return false;
-}
-
 static Type replaceArchetypesWithTypeVariables(ConstraintSystem &cs,
                                                Type t) {
   llvm::DenseMap<SubstitutableType *, TypeVariableType *> types;

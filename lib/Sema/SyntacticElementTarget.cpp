@@ -214,30 +214,6 @@ SyntacticElementTarget::forExprPattern(ExprPattern *pattern) {
   return target;
 }
 
-ContextualPattern SyntacticElementTarget::getContextualPattern() const {
-  if (kind == Kind::uninitializedVar) {
-    assert(patternBinding);
-    return ContextualPattern::forPatternBindingDecl(patternBinding,
-                                                    uninitializedVar.index);
-  }
-
-  if (isForEachStmt()) {
-    return ContextualPattern::forRawPattern(forEachStmt.pattern,
-                                            forEachStmt.dc);
-  }
-
-  assert(kind == Kind::expression);
-  assert(expression.contextualPurpose == CTP_Initialization);
-  if (expression.contextualPurpose == CTP_Initialization &&
-      expression.initialization.patternBinding) {
-    return ContextualPattern::forPatternBindingDecl(
-        expression.initialization.patternBinding,
-        expression.initialization.patternBindingIndex);
-  }
-
-  return ContextualPattern::forRawPattern(expression.pattern, expression.dc);
-}
-
 bool SyntacticElementTarget::infersOpaqueReturnType() const {
   assert(kind == Kind::expression);
   switch (expression.contextualPurpose) {

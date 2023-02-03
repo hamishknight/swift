@@ -105,7 +105,15 @@ Solution ConstraintSystem::finalize() {
     if (!getFixedType(tv))
       continue;
 
-    solution.typeBindings[tv] = simplifyType(tv)->reconstituteSugar(false);
+    auto ty = simplifyType(tv);
+
+    // Reconsitute sugar, unless this is for a named pattern, in which case
+    // we want to preserve the type as written be the user.
+    auto *loc = tv->getImpl().getLocator();
+    if (!loc->isLastElement<LocatorPathElt::NamedPatternDecl>())
+      ty = ty->reconstituteSugar(/*recursive*/ false);
+
+    solution.typeBindings[tv] = ty;
   }
 
   // Copy over the resolved overloads.

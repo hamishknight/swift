@@ -627,6 +627,18 @@ bool ConstraintLocator::isForMacroExpansion() const {
   return directlyAt<MacroExpansionExpr>();
 }
 
+bool ConstraintLocator::isForEnumElementPatternMember() const {
+  if (!isPattern<EnumElementPattern>(getAnchor()))
+    return false;
+
+  if (getPath().size() != 1)
+    return false;
+
+  auto elt = getPath()[0];
+  return elt.is<LocatorPathElt::Member>() ||
+         elt.is<LocatorPathElt::UnresolvedMember>();
+}
+
 bool ConstraintLocator::isForSingleValueStmtConjunction() const {
   auto *SVE = getAsExpr<SingleValueStmtExpr>(getAnchor());
   if (!SVE)

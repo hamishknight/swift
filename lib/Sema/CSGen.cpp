@@ -2393,7 +2393,7 @@ namespace {
     /// variable will be ascribed or inferred.
     Optional<Type> getTypeForPattern(
        Pattern *pattern, ConstraintLocatorBuilder locator,
-       bool bindPatternVarsOneWay,
+       bool bindPatternVarsOneWay, bool openOpaqueTypes,
        PatternBindingDecl *patternBinding = nullptr,
        unsigned patternBindingIndex = 0) {
       assert(pattern);
@@ -2413,7 +2413,7 @@ namespace {
         auto underlyingType = getTypeForPattern(
             subPattern,
             locator.withPathElement(LocatorPathElt::PatternMatch(subPattern)),
-            bindPatternVarsOneWay);
+            bindPatternVarsOneWay, openOpaqueTypes);
 
         if (!underlyingType)
           return None;
@@ -2423,7 +2423,7 @@ namespace {
       case PatternKind::Binding: {
         auto *subPattern = cast<BindingPattern>(pattern)->getSubPattern();
         auto type = getTypeForPattern(subPattern, locator,
-                                      bindPatternVarsOneWay);
+                                      bindPatternVarsOneWay, openOpaqueTypes);
 
         if (!type)
           return None;
@@ -2611,7 +2611,9 @@ namespace {
 
         Type replacedType = CS.replaceInferableTypesWithTypeVars(type, locator);
         Type openedType =
-            CS.openOpaqueType(replacedType, CTP_Initialization, locator);
+            openOpaqueTypes
+                ? CS.openOpaqueType(replacedType, CTP_Initialization, locator)
+                : replacedType;
         assert(openedType);
 
         auto *subPattern = cast<TypedPattern>(pattern)->getSubPattern();
@@ -2620,7 +2622,7 @@ namespace {
         auto subPatternType = getTypeForPattern(
             subPattern,
             locator.withPathElement(LocatorPathElt::PatternMatch(subPattern)),
-            bindPatternVarsOneWay);
+            bindPatternVarsOneWay, openOpaqueTypes);
 
         if (!subPatternType)
           return None;
@@ -2652,7 +2654,7 @@ namespace {
           auto eltTy = getTypeForPattern(
               eltPattern,
               locator.withPathElement(LocatorPathElt::PatternMatch(eltPattern)),
-              bindPatternVarsOneWay);
+              bindPatternVarsOneWay, openOpaqueTypes);
 
           if (!eltTy)
             return None;
@@ -2669,7 +2671,7 @@ namespace {
         auto subPatternType = getTypeForPattern(
             subPattern,
             locator.withPathElement(LocatorPathElt::PatternMatch(subPattern)),
-            bindPatternVarsOneWay);
+            bindPatternVarsOneWay, openOpaqueTypes);
 
         if (!subPatternType)
           return None;
@@ -2683,6 +2685,7 @@ namespace {
         const Type castType = resolveTypeReferenceInExpression(
             isPattern->getCastTypeRepr(), TypeResolverContext::InExpression,
             locator.withPathElement(LocatorPathElt::PatternMatch(pattern)));
+        CS.setType(isPattern->getCastTypeRepr(), castType);
 
         // Allow `is` pattern to infer type from context which is then going
         // to be propaged down to its sub-pattern via conversion. This enables
@@ -2702,7 +2705,7 @@ namespace {
           auto subPatternType = getTypeForPattern(
               subPattern,
               locator.withPathElement(LocatorPathElt::PatternMatch(subPattern)),
-              bindPatternVarsOneWay);
+              bindPatternVarsOneWay,  openOpaqueTypes);
           if (!subPatternType)
             return None;
 
@@ -2778,11 +2781,20 @@ namespace {
             return None;
 
           // Perform member lookup into the parent's metatype.
+          auto *memberLoc =
+              CS.getConstraintLocator(pattern, ConstraintLocator::Member);
           Type parentMetaType = MetatypeType::get(parentType);
-          CS.addValueMemberConstraint(parentMetaType, enumPattern->getName(),
-                                      memberType, CurDC, functionRefKind, {},
-                                      patternLocator);
 
+          if (auto *eltDecl = enumPattern->getElementDecl()) {
+            // If we have been given the specific element decl, use it.
+            OverloadChoice choice(parentMetaType, eltDecl, functionRefKind);
+            CS.addBindOverloadConstraint(memberType, choice, memberLoc, CurDC);
+          } else {
+            // Otherwise, perform member lookup into the parent's metatype.
+            CS.addValueMemberConstraint(parentMetaType, enumPattern->getName(),
+                                        memberType, CurDC, functionRefKind, {},
+                                        memberLoc);
+          }
           // Parent type needs to be convertible to the pattern type; this
           // accounts for cases where the pattern type is existential.
           CS.addConstraint(
@@ -2793,9 +2805,12 @@ namespace {
           baseType = parentType;
         } else {
           // Use the pattern type for member lookup.
+          CS.recordAnyTypeVarAsPotentialHole(patternType);
           CS.addUnresolvedValueMemberConstraint(
               MetatypeType::get(patternType), enumPattern->getName(),
-              memberType, CurDC, functionRefKind, patternLocator);
+              memberType, CurDC, functionRefKind,
+              CS.getConstraintLocator(pattern,
+                                      ConstraintLocator::UnresolvedMember));
 
           baseType = patternType;
         }
@@ -2807,7 +2822,7 @@ namespace {
           auto subPatternType = getTypeForPattern(
               subPattern,
               locator.withPathElement(LocatorPathElt::PatternMatch(subPattern)),
-              bindPatternVarsOneWay);
+              bindPatternVarsOneWay, openOpaqueTypes);
 
           SmallVector<AnyFunctionType::Param, 4> params;
           decomposeTuple(*subPatternType, params);
@@ -4248,7 +4263,7 @@ static bool generateInitPatternConstraints(ConstraintSystem &cs,
   if (auto pattern = target.getInitializationPattern()) {
     auto ty = cs.generateConstraints(
         pattern, locator, target.shouldBindPatternVarsOneWay(),
-        target.getInitializationPatternBindingDecl(),
+        /*openOpaqueTypes*/ true, target.getInitializationPatternBindingDecl(),
         target.getInitializationPatternBindingIndex());
     if (!ty)
       return true;
@@ -4412,9 +4427,9 @@ generateForEachStmtConstraints(ConstraintSystem &cs,
   // Collect constraints from the element pattern.
   auto elementLocator = cs.getConstraintLocator(
       sequenceExpr, ConstraintLocator::SequenceElementType);
-  auto initType =
-      cs.generateConstraints(pattern, elementLocator,
-                             target.shouldBindPatternVarsOneWay(), nullptr, 0);
+  auto initType = cs.generateConstraints(pattern, elementLocator,
+                                         target.shouldBindPatternVarsOneWay(),
+                                         /*openOpaqueTypes*/ true, nullptr, 0);
   if (!initType)
     return None;
 
@@ -4566,7 +4581,6 @@ bool ConstraintSystem::generateConstraints(
     llvm_unreachable("Handled above");
 
   case SyntacticElementTarget::Kind::closure:
-  case SyntacticElementTarget::Kind::caseLabelItem:
   case SyntacticElementTarget::Kind::function:
   case SyntacticElementTarget::Kind::stmtCondition:
     llvm_unreachable("Handled separately");
@@ -4639,11 +4653,19 @@ bool ConstraintSystem::generateConstraints(
       // and verify the pattern.
       auto patternType = generateConstraints(
           pattern, locator, /*shouldBindPatternVarsOneWay*/ true,
+          /*openOpaqueTypes*/ false,
           target.getPatternBindingOfUninitializedVar(),
           target.getIndexOfUninitializedVar());
 
       return !patternType;
     }
+  }
+
+  case SyntacticElementTarget::Kind::caseLabelItem: {
+    auto *labelItem = *target.getAsCaseLabelItem();
+    auto convertTy = target.getCaseLabelItemConvertType();
+    return generateConstraints(labelItem, target.getDeclContext(), convertTy,
+                               getConstraintLocator(labelItem));
   }
 
   case SyntacticElementTarget::Kind::forEachStmt: {
@@ -4668,11 +4690,11 @@ Expr *ConstraintSystem::generateConstraints(
 
 Optional<Type> ConstraintSystem::generateConstraints(
     Pattern *pattern, ConstraintLocatorBuilder locator,
-    bool bindPatternVarsOneWay, PatternBindingDecl *patternBinding,
-    unsigned patternIndex) {
+    bool bindPatternVarsOneWay, bool openOpaqueTypes,
+    PatternBindingDecl *patternBinding, unsigned patternIndex) {
   ConstraintGenerator cg(*this, nullptr);
   return cg.getTypeForPattern(pattern, locator, bindPatternVarsOneWay,
-                              patternBinding, patternIndex);
+                              openOpaqueTypes, patternBinding, patternIndex);
 }
 
 bool ConstraintSystem::generateConstraints(StmtCondition condition,
@@ -4732,6 +4754,56 @@ bool ConstraintSystem::generateConstraints(StmtCondition condition,
     }
   }
 
+  return false;
+}
+
+bool ConstraintSystem::generateConstraints(CaseLabelItem *caseLabelItem,
+                                           DeclContext *dc, Type convertTy,
+                                           ConstraintLocator *locator) {
+  // Resolve the pattern.
+  auto *pattern = caseLabelItem->getPattern();
+  if (!caseLabelItem->isPatternResolved()) {
+    pattern =
+        TypeChecker::resolvePattern(pattern, dc, /*isStmtCondition=*/false);
+    if (!pattern)
+      return true;
+  }
+
+  TypeChecker::diagnoseDuplicateBoundVars(pattern);
+
+  // Generate constraints for the pattern, including one-way bindings for
+  // any variables that show up in this pattern, because those variables
+  // can be referenced in the guard expressions and the body.
+  auto patternType = generateConstraints(
+      pattern, locator, /* bindPatternVarsOneWay=*/true,
+      /*openOpaqueTypes*/ true,
+      /*patternBinding=*/nullptr, /*patternBindingIndex=*/0);
+
+  if (!patternType)
+    return true;
+
+  if (convertTy) {
+    // Convert the subject type to the pattern, which establishes the
+    // bindings.
+    addConstraint(ConstraintKind::Conversion, convertTy, *patternType, locator);
+  }
+
+  // Generate constraints for the guard expression, if there is one.
+  Expr *guardExpr = caseLabelItem->getGuardExpr();
+  if (guardExpr) {
+    auto &ctx = dc->getASTContext();
+    SyntacticElementTarget guardTarget(
+        guardExpr, dc, CTP_Condition, ctx.getBoolType(), /*discarded*/ false);
+
+    if (generateConstraints(guardTarget))
+      return true;
+
+    guardExpr = guardTarget.getAsExpr();
+    setTargetFor(guardExpr, guardTarget);
+  }
+
+  // Save this info.
+  setCaseLabelItemInfo(caseLabelItem, {pattern, guardExpr});
   return false;
 }
 
