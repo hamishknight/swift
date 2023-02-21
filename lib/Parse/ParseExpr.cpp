@@ -1655,20 +1655,31 @@ ParserResult<Expr> Parser::parseExprPrimary(Diag<> ID, bool isExprBasic) {
     // Parse and return this as an UnresolvedPatternExpr around a binding.  This
     // will be resolved (or rejected) by sema when the overall refutable pattern
     // it transformed from an expression into a pattern.
-    if ((InBindingPattern == PatternBindingState::ImplicitlyImmutable ||
-         InBindingPattern.getIntroducer().hasValue()) &&
-        // If we have "case let x." or "case let x(", we parse x as a normal
-        // name, not a binding, because it is the start of an enum pattern or
-        // call pattern.
-        peekToken().isNot(tok::period, tok::period_prefix, tok::l_paren)) {
-      Identifier name;
-      SourceLoc loc = consumeIdentifier(name, /*diagnoseDollarPrefix=*/false);
-      // If we have an inout/let/var, set that as our introducer. otherwise
-      // default to Let.
-      auto introducer =
-          InBindingPattern.getIntroducer().getValueOr(VarDecl::Introducer::Let);
-      auto pattern = createBindingFromPattern(loc, name, introducer);
-      return makeParserResult(new (Context) UnresolvedPatternExpr(pattern));
+    if (InBindingPattern == PatternBindingState::ImplicitlyImmutable ||
+        InBindingPattern.getIntroducer().has_value()) {
+      // If we have "case let x." or "case let x(", we parse x as a normal
+      // name, not a binding, because it is the start of an enum pattern or
+      // call pattern.
+      bool isForBinding = false;
+      {
+        BacktrackingScope B(*this);
+        consumeToken();
+        while (Tok.is(tok::question_postfix))
+          consumeToken();
+
+        isForBinding = Tok.isNot(tok::period, tok::period_prefix, tok::l_paren,
+                                 tok::l_square);
+      }
+      if (isForBinding) {
+        Identifier name;
+        SourceLoc loc = consumeIdentifier(name, /*diagnoseDollarPrefix=*/false);
+        // If we have an inout/let/var, set that as our introducer. otherwise
+        // default to Let.
+        auto introducer =
+            InBindingPattern.getIntroducer().value_or(VarDecl::Introducer::Let);
+        auto pattern = createBindingFromPattern(loc, name, introducer);
+        return makeParserResult(new (Context) UnresolvedPatternExpr(pattern));
+      }
     }
 
     // 'any' followed by another identifier is an existential type.
