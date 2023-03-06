@@ -2754,7 +2754,7 @@ public:
   }
 
   /// Walk the contents of the application target.
-  SolutionApplicationTarget walk(ASTWalker &walker);
+  Optional<SolutionApplicationTarget> walk(ASTWalker &walker) const;
 };
 
 /// A function that rewrites a solution application target in the context
