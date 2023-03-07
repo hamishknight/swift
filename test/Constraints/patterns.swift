@@ -540,3 +540,10 @@ func f60503() {
   let (key, _) = settings.enumerate() // expected-error{{cannot find 'settings' in scope}}
   let (_, _) = settings.enumerate() // expected-error{{cannot find 'settings' in scope}}
 }
+
+struct TestIUOMatchOp {
+  static func ~= (lhs: TestIUOMatchOp, rhs: TestIUOMatchOp) -> Bool! { nil }
+  func foo() {
+    if case self = self {}
+  }
+}
