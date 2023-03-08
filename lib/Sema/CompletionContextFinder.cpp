@@ -11,9 +11,18 @@
 //===----------------------------------------------------------------------===//
 
 #include "swift/Sema/CompletionContextFinder.h"
+#include "swift/Sema/ConstraintSystem.h"
 
 using namespace swift;
+using namespace constraints;
 using Fallback = CompletionContextFinder::Fallback;
+
+CompletionContextFinder::CompletionContextFinder(
+    SolutionApplicationTarget target, DeclContext *DC)
+    : InitialExpr(target.getAsExpr()), InitialDC(DC) {
+  assert(DC);
+  target.walk(*this);
+}
 
 ASTWalker::PreWalkResult<Expr *>
 CompletionContextFinder::walkToExprPre(Expr *E) {
