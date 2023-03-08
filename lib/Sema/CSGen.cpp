@@ -2359,12 +2359,7 @@ namespace {
        bool bindPatternVarsOneWay,
        PatternBindingDecl *patternBinding = nullptr,
        unsigned patternBindingIndex = 0) {
-      // If there's no pattern, then we have an unknown subpattern. Create a
-      // type variable.
-      if (!pattern) {
-        return CS.createTypeVariable(CS.getConstraintLocator(locator),
-                                     TVO_CanBindToNoEscape);
-      }
+      assert(pattern);
 
       // Local function that must be called for each "return" throughout this
       // function, to set the type of the pattern.
@@ -4166,18 +4161,21 @@ bool ConstraintSystem::generateWrappedPropertyTypeConstraints(
 }
 
 /// Generate additional constraints for the pattern of an initialization.
-static bool generateInitPatternConstraints(
-    ConstraintSystem &cs, SolutionApplicationTarget target, Expr *initializer) {
-  auto pattern = target.getInitializationPattern();
+static bool generateInitPatternConstraints(ConstraintSystem &cs,
+                                           SolutionApplicationTarget target,
+                                           Expr *initializer) {
   auto locator = cs.getConstraintLocator(
       initializer, LocatorPathElt::ContextualType(CTP_Initialization));
-  Type patternType = cs.generateConstraints(
-      pattern, locator, target.shouldBindPatternVarsOneWay(),
-      target.getInitializationPatternBindingDecl(),
-      target.getInitializationPatternBindingIndex());
 
-  if (!patternType)
-    return true;
+  Type patternType;
+  if (auto pattern = target.getInitializationPattern()) {
+    patternType = cs.generateConstraints(
+        pattern, locator, target.shouldBindPatternVarsOneWay(),
+        target.getInitializationPatternBindingDecl(),
+        target.getInitializationPatternBindingIndex());
+  } else {
+    patternType = cs.createTypeVariable(locator, TVO_CanBindToNoEscape);
+  }
 
   if (auto wrappedVar = target.getInitializationWrappedVar())
     return cs.generateWrappedPropertyTypeConstraints(
