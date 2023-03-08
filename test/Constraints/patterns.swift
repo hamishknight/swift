@@ -547,3 +547,7 @@ struct TestIUOMatchOp {
     if case self = self {}
   }
 }
+
+struct TestRecursiveVarRef<T> {
+  lazy var e: () -> Int = {e}()
+}
