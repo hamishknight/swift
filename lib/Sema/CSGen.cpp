@@ -2782,15 +2782,12 @@ namespace {
         return setType(patternType);
       }
 
-      // Refutable patterns occur when checking the PatternBindingDecls in an
-      // if/let or while/let condition.  They always require an initial value,
-      // so they always allow unspecified types.
-      case PatternKind::Expr:
-        // TODO: we could try harder here, e.g. for enum elements to provide the
-        // enum type.
-        return setType(
-            CS.createTypeVariable(
-              CS.getConstraintLocator(locator), TVO_CanBindToNoEscape));
+      case PatternKind::Expr: {
+        // We generate constraints for ExprPatterns in a separate pass. For
+        // now, just create a type variable.
+        return setType(CS.createTypeVariable(CS.getConstraintLocator(locator),
+                                             TVO_CanBindToNoEscape));
+      }
       }
 
       llvm_unreachable("Unhandled pattern kind");
@@ -4566,8 +4563,20 @@ Type ConstraintSystem::generateConstraints(
     bool bindPatternVarsOneWay, PatternBindingDecl *patternBinding,
     unsigned patternIndex) {
   ConstraintGenerator cg(*this, nullptr);
-  return cg.getTypeForPattern(pattern, locator, bindPatternVarsOneWay,
-                              patternBinding, patternIndex);
+  auto ty = cg.getTypeForPattern(pattern, locator, bindPatternVarsOneWay,
+                                 patternBinding, patternIndex);
+  assert(ty);
+
+  // Gather the ExprPatterns, and form a conjunction for their expressions.
+  SmallVector<ExprPattern *, 4> exprPatterns;
+  pattern->forEachNode([&](Pattern *P) {
+    if (auto *EP = dyn_cast<ExprPattern>(P))
+      exprPatterns.push_back(EP);
+  });
+  if (!exprPatterns.empty())
+    generateConstraints(exprPatterns, getConstraintLocator(pattern));
+
+  return ty;
 }
 
 bool ConstraintSystem::generateConstraints(StmtCondition condition,
