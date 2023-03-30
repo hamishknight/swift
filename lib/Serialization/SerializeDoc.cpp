@@ -688,16 +688,15 @@ public:
   }
 };
 
-struct BasicDeclLocsTableWriter : public ASTWalker {
+struct DeclRawLocsTableWriter : public ASTWalker {
   llvm::SmallString<1024> Buffer;
   DeclUSRsTableWriter &USRWriter;
   StringWriter &FWriter;
   DocRangeWriter &DocWriter;
-  BasicDeclLocsTableWriter(DeclUSRsTableWriter &USRWriter,
-                           StringWriter &FWriter,
-                           DocRangeWriter &DocWriter): USRWriter(USRWriter),
-                           FWriter(FWriter),
-                           DocWriter(DocWriter) {}
+  DeclRawLocsTableWriter(DeclUSRsTableWriter &USRWriter,
+                                StringWriter &FWriter,
+                                DocRangeWriter &DocWriter)
+      : USRWriter(USRWriter), FWriter(FWriter), DocWriter(DocWriter) {}
 
   PreWalkResult<Stmt *> walkToStmtPre(Stmt *S) override {
     return Action::SkipChildren(S);
@@ -765,14 +764,14 @@ struct BasicDeclLocsTableWriter : public ASTWalker {
   }
 };
 
-static void emitBasicLocsRecord(llvm::BitstreamWriter &Out,
-                                ModuleOrSourceFile MSF,
-                                DeclUSRsTableWriter &USRWriter,
-                                StringWriter &FWriter,
-                                DocRangeWriter &DocWriter) {
+static void emitRawDeclLocsRecord(llvm::BitstreamWriter &Out,
+                                         ModuleOrSourceFile MSF,
+                                         DeclUSRsTableWriter &USRWriter,
+                                         StringWriter &FWriter,
+                                         DocRangeWriter &DocWriter) {
   assert(MSF);
   const decl_locs_block::BasicDeclLocsLayout DeclLocsList(Out);
-  BasicDeclLocsTableWriter Writer(USRWriter, FWriter, DocWriter);
+  DeclRawLocsTableWriter Writer(USRWriter, FWriter, DocWriter);
   if (auto *SF = MSF.dyn_cast<SourceFile*>()) {
     SF->walk(Writer);
   } else {
@@ -926,7 +925,7 @@ void serialization::writeSourceInfoToStream(raw_ostream &os,
       StringWriter FPWriter;
       DocRangeWriter DocWriter(FPWriter);
       emitFileListRecord(S.Out, DC, FPWriter);
-      emitBasicLocsRecord(S.Out, DC, USRWriter, FPWriter, DocWriter);
+      emitRawDeclLocsRecord(S.Out, DC, USRWriter, FPWriter, DocWriter);
       // Emit USR table mapping from a USR to USR Id.
       // The basic locs record uses USR Id instead of actual USR, so that we
       // don't need to repeat USR texts for newly added records.
