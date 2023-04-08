@@ -3514,6 +3514,8 @@ ContextualFailure::getDiagnosticFor(ContextualTypePurpose context,
     return diag::cannot_convert_forget_value;
 
   case CTP_CaseStmt:
+    return diag::cannot_match_value_with_pattern;
+
   case CTP_ThrowStmt:
   case CTP_ForEachStmt:
   case CTP_ForEachSequence:
