@@ -5359,11 +5359,16 @@ public:
 class UnresolvedPatternExpr : public Expr {
   Pattern *subPattern;
 
+  UnresolvedPatternExpr(Pattern *subPattern, bool isImplicit)
+      : Expr(ExprKind::UnresolvedPattern, isImplicit), subPattern(subPattern) {}
+
 public:
-  explicit UnresolvedPatternExpr(Pattern *subPattern)
-    : Expr(ExprKind::UnresolvedPattern, /*Implicit=*/false),
-      subPattern(subPattern) { }
-  
+  static UnresolvedPatternExpr *createParsed(ASTContext &ctx,
+                                             Pattern *subPattern);
+
+  static UnresolvedPatternExpr *
+  createTemporaryForSolverDiagnostics(ASTContext &ctx, Pattern *subPattern);
+
   const Pattern *getSubPattern() const { return subPattern; }
   Pattern *getSubPattern() { return subPattern; }
   void setSubPattern(Pattern *p) { subPattern = p; }

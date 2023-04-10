@@ -53,7 +53,8 @@ ParserResult<Expr> Parser::parseExprImpl(Diag<> Message,
       return makeParserCodeCompletionResult<Expr>();
     if (pattern.isNull())
       return nullptr;
-    return makeParserResult(new (Context) UnresolvedPatternExpr(pattern.get()));
+    return makeParserResult(
+        UnresolvedPatternExpr::createParsed(Context, pattern.get()));
   }
 
   return parseExprSequence(Message, isExprBasic,
@@ -1669,7 +1670,8 @@ ParserResult<Expr> Parser::parseExprPrimary(Diag<> ID, bool isExprBasic) {
       auto introducer =
           InBindingPattern.getIntroducer().getValueOr(VarDecl::Introducer::Let);
       auto pattern = createBindingFromPattern(loc, name, introducer);
-      return makeParserResult(new (Context) UnresolvedPatternExpr(pattern));
+      return makeParserResult(
+          UnresolvedPatternExpr::createParsed(Context, pattern));
     }
 
     // 'any' followed by another identifier is an existential type.

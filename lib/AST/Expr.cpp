@@ -2188,6 +2188,18 @@ Expr *AutoClosureExpr::getUnwrappedCurryThunkExpr() const {
 
 FORWARD_SOURCE_LOCS_TO(UnresolvedPatternExpr, subPattern)
 
+UnresolvedPatternExpr *
+UnresolvedPatternExpr::createParsed(ASTContext &ctx, Pattern *subPattern) {
+  return new (ctx) UnresolvedPatternExpr(subPattern, /*isImplicit*/ false);
+}
+
+UnresolvedPatternExpr *
+UnresolvedPatternExpr::createTemporaryForSolverDiagnostics(
+    ASTContext &ctx, Pattern *subPattern) {
+  return new (ctx, AllocationArena::ConstraintSolver)
+      UnresolvedPatternExpr(subPattern, /*isImplicit*/ true);
+}
+
 TypeExpr::TypeExpr(TypeRepr *Repr)
   : Expr(ExprKind::Type, /*implicit*/false), Repr(Repr) {}
 

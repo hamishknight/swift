@@ -9261,11 +9261,7 @@ performMemberLookup(ConstraintKind constraintKind, DeclNameRef memberName,
   // If we are pattern-matching an enum element and we found any enum elements,
   // ignore anything that isn't an enum element.
   bool onlyAcceptEnumElements = false;
-  if (memberLocator &&
-      memberLocator->isLastElement<LocatorPathElt::PatternMatch>() &&
-      isa<EnumElementPattern>(
-          memberLocator->getLastElementAs<LocatorPathElt::PatternMatch>()
-            ->getPattern())) {
+  if (memberLocator && memberLocator->getLastElementEnumElementPattern()) {
     for (const auto &result: lookup) {
       if (isa<EnumElementDecl>(result.getValueDecl())) {
         onlyAcceptEnumElements = true;
@@ -10344,27 +10340,23 @@ ConstraintSystem::SolutionKind ConstraintSystem::simplifyMemberConstraint(
   // If there were no results from a direct enum lookup, let's attempt
   // to resolve this member via ~= operator application.
   if (candidates.empty()) {
-    if (auto patternLoc =
-            locator->getLastElementAs<LocatorPathElt::PatternMatch>()) {
-      if (auto *enumElement =
-              dyn_cast<EnumElementPattern>(patternLoc->getPattern())) {
-        auto enumType = baseObjTy->getMetatypeInstanceType();
+    if (auto *enumElement = locator->getLastElementEnumElementPattern()) {
+      auto enumType = baseObjTy->getMetatypeInstanceType();
 
-        // Optional base type does not trigger `~=` synthesis, but it tries
-        // to find member on both `Optional` and its wrapped type.
-        if (!enumType->getOptionalObjectType()) {
-          // If the synthesis of ~= resulted in errors (i.e. broken stdlib)
-          // that would be diagnosed inline, so let's just fall through and
-          // let this situation be diagnosed as a missing member.
-          auto hadErrors = inferEnumMemberThroughTildeEqualsOperator(
+      // Optional base type does not trigger `~=` synthesis, but it tries
+      // to find member on both `Optional` and its wrapped type.
+      if (!enumType->getOptionalObjectType()) {
+        // If the synthesis of ~= resulted in errors (i.e. broken stdlib)
+        // that would be diagnosed inline, so let's just fall through and
+        // let this situation be diagnosed as a missing member.
+        auto hadErrors = inferEnumMemberThroughTildeEqualsOperator(
             *this, enumElement, enumType, memberTy, locator);
 
-          // Let's consider current member constraint solved because it's
-          // replaced by a new set of constraints that would resolve member
-          // type.
-          if (!hadErrors)
-            return SolutionKind::Solved;
-        }
+        // Let's consider current member constraint solved because it's
+        // replaced by a new set of constraints that would resolve member
+        // type.
+        if (!hadErrors)
+          return SolutionKind::Solved;
       }
     }
   }

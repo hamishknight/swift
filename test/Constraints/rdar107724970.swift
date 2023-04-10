@@ -5,9 +5,9 @@ enum E {
   case e(Int)
 }
 func foo(_ x: E) {
-  let fn = { // expected-error {{unable to infer closure type in the current context}}
+  let fn = {
     switch x {
-    case E.e(_, _):
+    case E.e(_, _): // expected-error {{extra argument in call}}
       break
     }
   }

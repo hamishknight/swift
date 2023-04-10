@@ -34,6 +34,7 @@
 
 namespace swift {
 
+class EnumElementPattern;
 class Expr;
 class TypeLoc;
 class VarDecl;
@@ -315,6 +316,10 @@ public:
 
   /// Whether the locator in question is for a pattern match.
   bool isForPatternMatch() const;
+
+  /// If the last element of this locator is for an enum element pattern match,
+  /// returns the enum element pattern, otherwise \c nullptr.
+  EnumElementPattern *getLastElementEnumElementPattern() const;
 
   /// Returns true if \p locator is ending with either of the following
   ///  - Member
