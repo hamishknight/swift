@@ -671,6 +671,15 @@ bool ConstraintLocator::isForPatternMatch() const {
   return findLast<LocatorPathElt::PatternMatch>().has_value();
 }
 
+EnumElementPattern *
+ConstraintLocator::getLastElementEnumElementPattern() const {
+  auto elt = getLastElementAs<LocatorPathElt::PatternMatch>();
+  if (!elt)
+    return nullptr;
+
+  return dyn_cast<EnumElementPattern>(elt->getPattern());
+}
+
 bool ConstraintLocator::isMemberRef() const {
   if (isLastElement<LocatorPathElt::Member>()) {
     return true;

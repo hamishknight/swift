@@ -125,7 +125,37 @@ Expr *FailureDiagnostic::findParentExpr(const Expr *subExpr) const {
 
 ArgumentList *
 FailureDiagnostic::getArgumentListFor(ConstraintLocator *locator) const {
-  return S.getArgumentList(locator);
+  if (auto *args = S.getArgumentList(locator))
+    return args;
+
+  // If we have an enum element pattern, we can synthesize a mock argument list
+  // using UnresolvedPatternExprs that can be used for diagnostics. This lets
+  // us piggy back off the ArgumentList API without having to create our own
+  // bespoke AbstractArgumentList type for diagnostics.
+  if (auto *enumElement = locator->getLastElementEnumElementPattern()) {
+    auto *subPattern = enumElement->getSubPattern();
+    auto &ctx = getASTContext();
+
+    SmallVector<Argument, 4> args;
+    auto push = [&](SourceLoc labelLoc, Identifier label, Pattern *p) {
+      auto *expr =
+          UnresolvedPatternExpr::createTemporaryForSolverDiagnostics(ctx, p);
+      args.emplace_back(SourceLoc(), label, expr);
+    };
+    if (auto *paren = dyn_cast<ParenPattern>(subPattern)) {
+      push(SourceLoc(), Identifier(), paren->getSubPattern());
+    } else if (auto *tuple = dyn_cast<TuplePattern>(subPattern)) {
+      for (auto arg : tuple->getElements())
+        push(arg.getLabelLoc(), arg.getLabel(), arg.getPattern());
+    } else {
+      push(SourceLoc(), Identifier(), subPattern);
+    }
+    return ArgumentList::createImplicit(ctx, args,
+                                        /*firstTrailingClosureIndex*/ None,
+                                        AllocationArena::ConstraintSolver);
+  }
+
+  return nullptr;
 }
 
 Expr *FailureDiagnostic::getBaseExprFor(const Expr *anchor) const {
