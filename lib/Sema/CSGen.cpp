@@ -2725,6 +2725,9 @@ namespace {
         if (dyn_cast_or_null<TuplePattern>(enumPattern->getSubPattern()))
           functionRefKind = FunctionRefKind::Compound;
 
+        auto patternLocator =
+            locator.withPathElement(LocatorPathElt::PatternMatch(pattern));
+
         if (enumPattern->getParentType() || enumPattern->getParentTypeRepr()) {
           // Resolve the parent type.
           const auto parentType = [&] {
@@ -2752,25 +2755,23 @@ namespace {
 
           // Perform member lookup into the parent's metatype.
           Type parentMetaType = MetatypeType::get(parentType);
-          CS.addValueMemberConstraint(
-              parentMetaType, enumPattern->getName(), memberType, CurDC,
-              functionRefKind, {},
-              CS.getConstraintLocator(locator,
-                                      LocatorPathElt::PatternMatch(pattern)));
+          CS.addValueMemberConstraint(parentMetaType, enumPattern->getName(),
+                                      memberType, CurDC, functionRefKind, {},
+                                      patternLocator);
 
           // Parent type needs to be convertible to the pattern type; this
           // accounts for cases where the pattern type is existential.
           CS.addConstraint(
               ConstraintKind::Conversion, parentType, patternType,
-              locator.withPathElement(LocatorPathElt::PatternMatch(pattern)));
+              patternLocator.withPathElement(
+                  ConstraintLocator::EnumPatternImplicitCastMatch));
 
           baseType = parentType;
         } else {
           // Use the pattern type for member lookup.
           CS.addUnresolvedValueMemberConstraint(
               MetatypeType::get(patternType), enumPattern->getName(),
-              memberType, CurDC, functionRefKind,
-              locator.withPathElement(LocatorPathElt::PatternMatch(pattern)));
+              memberType, CurDC, functionRefKind, patternLocator);
 
           baseType = patternType;
         }
@@ -2779,10 +2780,8 @@ namespace {
           // When there is a subpattern, the member will have function type,
           // and we're matching the type of that subpattern to the parameter
           // types.
-          Type subPatternType = getTypeForPattern(
-              subPattern,
-              locator.withPathElement(LocatorPathElt::PatternMatch(subPattern)),
-              bindPatternVarsOneWay);
+          Type subPatternType = getTypeForPattern(subPattern, patternLocator,
+                                                  bindPatternVarsOneWay);
 
           SmallVector<AnyFunctionType::Param, 4> params;
           decomposeTuple(subPatternType, params);
@@ -2807,13 +2806,11 @@ namespace {
           // NOTE: The order here is important! Pattern matching equality is
           // not symmetric (we need to fix that either by using a different
           // constraint, or actually making it symmetric).
-          CS.addConstraint(
-              ConstraintKind::Equal, functionType, memberType,
-              locator.withPathElement(LocatorPathElt::PatternMatch(pattern)));
+          CS.addConstraint(ConstraintKind::Equal, functionType, memberType,
+                           patternLocator);
 
-          CS.addConstraint(
-              ConstraintKind::Conversion, outputType, baseType,
-              locator.withPathElement(LocatorPathElt::PatternMatch(pattern)));
+          CS.addConstraint(ConstraintKind::Conversion, outputType, baseType,
+                           patternLocator);
         }
 
         return setType(patternType);
