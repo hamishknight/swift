@@ -4304,11 +4304,6 @@ public:
   /// \returns \c true if constraint generation failed, \c false otherwise
   bool generateConstraints(SingleValueStmtExpr *E);
 
-  /// Generate constraints for an array of ExprPatterns, forming a conjunction
-  /// that solves each expression in turn.
-  void generateConstraints(ArrayRef<ExprPattern *> exprPatterns,
-                           ConstraintLocatorBuilder locator);
-
   /// Generate constraints for the given (unchecked) expression.
   ///
   /// \returns a possibly-sanitized expression, or null if an error occurred.
@@ -4316,15 +4311,15 @@ public:
   Expr *generateConstraints(Expr *E, DeclContext *dc,
                             bool isInputExpression = true);
 
-  /// Generate constraints for binding the given pattern to the
-  /// value of the given expression.
+  /// Generate constraints for a given pattern.
   ///
-  /// \returns a possibly-sanitized initializer, or null if an error occurred.
+  /// \returns The type of the pattern, or \c None if a failure occured.
   [[nodiscard]]
-  Type generateConstraints(Pattern *P, ConstraintLocatorBuilder locator,
-                           bool bindPatternVarsOneWay,
-                           PatternBindingDecl *patternBinding,
-                           unsigned patternIndex);
+  Optional<Type> generateConstraints(Pattern *P,
+                                     ConstraintLocatorBuilder locator,
+                                     bool bindPatternVarsOneWay,
+                                     PatternBindingDecl *patternBinding,
+                                     unsigned patternIndex);
 
   /// Generate constraints for a statement condition.
   ///

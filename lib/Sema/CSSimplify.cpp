@@ -5924,6 +5924,16 @@ bool ConstraintSystem::repairFailures(
     if (repairByConstructingRawRepresentableType(lhs, rhs))
       break;
 
+    // If this is for an initialization, but we don't have a contextual type,
+    // then this is a pattern match of something that isn't a TypedPattern. As
+    // such, this is more like a regular conversion than a contextual type
+    // conversion, and type mismatches ought be diagnosed elsewhere (e.g for an
+    // ExprPattern, we should diagnose an argument mismatch).
+    if (purpose == CTP_Initialization &&
+        getContextualTypeLoc(anchor).isNull()) {
+      break;
+    }
+
     conversionsOrFixes.push_back(IgnoreContextualType::create(
         *this, lhs, rhs, getConstraintLocator(locator)));
     break;
