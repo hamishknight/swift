@@ -696,10 +696,6 @@ public:
   /// Diagnose failed conversion in a `CoerceExpr`.
   bool diagnoseCoercionToUnrelatedType() const;
 
-  /// Diagnose cases where a pattern tried to match associated values but
-  /// the enum case had none.
-  bool diagnoseExtraneousAssociatedValues() const;
-
   /// Produce a specialized diagnostic if this is an invalid conversion to Bool.
   bool diagnoseConversionToBool() const;
 
@@ -2789,6 +2785,15 @@ class TupleLabelMismatchWarning final : public ContextualFailure {
 public:
   TupleLabelMismatchWarning(const Solution &solution, Type fromType,
                             Type toType, ConstraintLocator *locator)
+      : ContextualFailure(solution, fromType, toType, locator) {}
+
+  bool diagnoseAsError() override;
+};
+
+class AssociatedValueMismatchFailure final : public ContextualFailure {
+public:
+  AssociatedValueMismatchFailure(const Solution &solution, Type fromType,
+                                 Type toType, ConstraintLocator *locator)
       : ContextualFailure(solution, fromType, toType, locator) {}
 
   bool diagnoseAsError() override;
