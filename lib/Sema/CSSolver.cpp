@@ -187,6 +187,7 @@ Solution ConstraintSystem::finalize() {
 
   solution.targets = targets;
   solution.caseLabelItems = caseLabelItems;
+  solution.exprPatterns = exprPatterns;
   solution.isolatedParams.append(isolatedParams.begin(), isolatedParams.end());
   solution.preconcurrencyClosures.append(preconcurrencyClosures.begin(),
                                          preconcurrencyClosures.end());
@@ -313,6 +314,9 @@ void ConstraintSystem::applySolution(const Solution &solution) {
   for (auto param : solution.isolatedParams) {
     isolatedParams.insert(param);
   }
+
+  for (auto &pair : solution.exprPatterns)
+    exprPatterns.insert(pair);
 
   for (auto closure : solution.preconcurrencyClosures) {
     preconcurrencyClosures.insert(closure);
@@ -607,6 +611,7 @@ ConstraintSystem::SolverScope::SolverScope(ConstraintSystem &cs)
   numContextualTypes = cs.contextualTypes.size();
   numTargets = cs.targets.size();
   numCaseLabelItems = cs.caseLabelItems.size();
+  numExprPatterns = cs.exprPatterns.size();
   numIsolatedParams = cs.isolatedParams.size();
   numPreconcurrencyClosures = cs.preconcurrencyClosures.size();
   numImplicitValueConversions = cs.ImplicitValueConversions.size();
@@ -719,6 +724,9 @@ ConstraintSystem::SolverScope::~SolverScope() {
 
   // Remove any case label item infos.
   truncate(cs.caseLabelItems, numCaseLabelItems);
+
+  // Remove any ExprPattern mappings.
+  truncate(cs.exprPatterns, numExprPatterns);
 
   // Remove any isolated parameters.
   truncate(cs.isolatedParams, numIsolatedParams);
