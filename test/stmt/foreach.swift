@@ -268,3 +268,7 @@ do {
   for (x, y, z) in [] { // expected-error {{tuple pattern cannot match values of non-tuple type 'Any'}}
   }
 }
+
+do {
+  for (x, y) in [""] {} // expected-error {{tuple pattern cannot match values of non-tuple type 'String'}}
+}
