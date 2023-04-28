@@ -116,11 +116,20 @@ func test17875634() {
   var col = 2
   var coord = (row, col)
 
-  match += (1, 2) // expected-error{{binary operator '+=' cannot be applied to operands of type '[(Int, Int)]' and '(Int, Int)'}}
+  match += (1, 2)
+  // expected-error@-1 {{type '(Int, Int)' cannot conform to 'Sequence'}}
+  // expected-note@-2 {{required by operator function '+=' where 'Other' = '(Int, Int)'}}
+  // expected-note@-3 {{only concrete types such as structs, enums and classes can conform to protocols}}
 
-  match += (row, col) // expected-error{{binary operator '+=' cannot be applied to operands of type '[(Int, Int)]' and '(Int, Int)'}}
+  match += (row, col)
+  // expected-error@-1 {{type '(Int, Int)' cannot conform to 'Sequence'}}
+  // expected-note@-2 {{required by operator function '+=' where 'Other' = '(Int, Int)'}}
+  // expected-note@-3 {{only concrete types such as structs, enums and classes can conform to protocols}}
 
-  match += coord // expected-error{{binary operator '+=' cannot be applied to operands of type '[(Int, Int)]' and '(Int, Int)'}}
+  match += coord
+  // expected-error@-1 {{type '(Int, Int)' cannot conform to 'Sequence'}}
+  // expected-note@-2 {{required by operator function '+=' where 'Other' = '(Int, Int)'}}
+  // expected-note@-3 {{only concrete types such as structs, enums and classes can conform to protocols}}
 
   match.append(row, col) // expected-error {{instance method 'append' expects a single parameter of type '(Int, Int)'}} {{16-16=(}} {{24-24=)}}
 
