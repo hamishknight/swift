@@ -513,7 +513,10 @@ bool MissingConformanceFailure::diagnoseAsError() {
       llvm::SmallPtrSet<Expr *, 4> anchors;
       for (const auto *fix : getSolution().Fixes) {
         if (auto anchor = fix->getAnchor()) {
-          if (anchor.is<Expr *>())
+          auto path = fix->getLocator()->getPath();
+          SourceRange range;
+          simplifyLocator(anchor, path, range);
+          if (anchor && anchor.is<Expr *>())
             anchors.insert(getAsExpr(anchor));
         }
       }
@@ -654,8 +657,12 @@ bool MissingConformanceFailure::diagnoseAsAmbiguousOperatorRef() {
   if (!ODRE)
     return false;
 
+  auto isStandardType = [](Type ty) {
+    return ty->isStdlibType() || ty->is<TupleType>();
+  };
+
   auto name = ODRE->getDecls().front()->getBaseName();
-  if (!(name.isOperator() && getLHS()->isStdlibType() && getRHS()->isStdlibType()))
+  if (!(name.isOperator() && isStandardType(getLHS()) && isStandardType(getRHS())))
     return false;
 
   // If this is an operator reference and both types are from stdlib,
