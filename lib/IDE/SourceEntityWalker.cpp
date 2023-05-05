@@ -379,7 +379,8 @@ ASTWalker::PreWalkResult<Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
       return Action::Stop();
     }
     return Action::Continue(E);
-  } else if (auto CE = dyn_cast<CollectionExpr>(E)) {
+  }
+  if (auto CE = dyn_cast<CollectionExpr>(E)) {
     if (CE->getInitializer() &&
         !passReference(CE->getInitializer().getDecl(), CE->getType(), {},
                        CE->getSourceRange(),
@@ -388,7 +389,8 @@ ASTWalker::PreWalkResult<Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
       return Action::Stop();
     }
     return Action::Continue(E);
-  } else if (auto *DRE = dyn_cast<DeclRefExpr>(E)) {
+  }
+  if (auto *DRE = dyn_cast<DeclRefExpr>(E)) {
     if (auto *module = dyn_cast<ModuleDecl>(DRE->getDecl())) {
       if (!passReference(ModuleEntity(module),
                          {module->getName(), E->getLoc()}))
@@ -399,7 +401,9 @@ ASTWalker::PreWalkResult<Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
                                         OpAccess))) {
       return Action::Stop();
     }
-  } else if (auto *MRE = dyn_cast<MemberRefExpr>(E)) {
+    return Action::Continue(E);
+  }
+  if (auto *MRE = dyn_cast<MemberRefExpr>(E)) {
     {
       // This could be made more accurate if the member is nonmutating,
       // or whatever.
@@ -427,15 +431,17 @@ ASTWalker::PreWalkResult<Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
 
     // We already visited the children.
     return doSkipChildren();
-
-  } else if (auto OtherCtorE = dyn_cast<OtherConstructorDeclRefExpr>(E)) {
+  }
+  if (auto OtherCtorE = dyn_cast<OtherConstructorDeclRefExpr>(E)) {
     if (!passReference(OtherCtorE->getDecl(), OtherCtorE->getType(),
                        OtherCtorE->getConstructorLoc(),
                        ReferenceMetaData(SemaReferenceKind::DeclConstructorRef,
                                          OpAccess)))
       return Action::Stop();
 
-  } else if (auto *SE = dyn_cast<SubscriptExpr>(E)) {
+    return Action::Continue(E);
+  }
+  if (auto *SE = dyn_cast<SubscriptExpr>(E)) {
     // Visit in source order.
     if (!SE->getBase()->walk(*this))
       return Action::Stop();
@@ -462,8 +468,8 @@ ASTWalker::PreWalkResult<Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
 
     // We already visited the children.
     return doSkipChildren();
-
-  } else if (auto *KPE = dyn_cast<KeyPathExpr>(E)) {
+  }
+  if (auto *KPE = dyn_cast<KeyPathExpr>(E)) {
     for (auto &component : KPE->getComponents()) {
       switch (component.getKind()) {
       case KeyPathExpr::Component::Kind::Property:
@@ -495,7 +501,9 @@ ASTWalker::PreWalkResult<Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
         break;
       }
     }
-  } else if (auto *BinE = dyn_cast<BinaryExpr>(E)) {
+    return Action::Continue(E);
+  }
+  if (auto *BinE = dyn_cast<BinaryExpr>(E)) {
     // Visit in source order.
     if (!BinE->getLHS()->walk(*this))
       return Action::Stop();
@@ -506,7 +514,8 @@ ASTWalker::PreWalkResult<Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
 
     // We already visited the children.
     return doSkipChildren();
-  } else if (auto IOE = dyn_cast<InOutExpr>(E)) {
+  }
+  if (auto IOE = dyn_cast<InOutExpr>(E)) {
     llvm::SaveAndRestore<Optional<AccessKind>>
       C(this->OpAccess, AccessKind::ReadWrite);
 
@@ -515,7 +524,8 @@ ASTWalker::PreWalkResult<Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
 
     // We already visited the children.
     return doSkipChildren();
-  } else if (auto LE = dyn_cast<LoadExpr>(E)) {
+  }
+  if (auto LE = dyn_cast<LoadExpr>(E)) {
     llvm::SaveAndRestore<Optional<AccessKind>>
       C(this->OpAccess, AccessKind::Read);
 
@@ -524,7 +534,8 @@ ASTWalker::PreWalkResult<Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
 
     // We already visited the children.
     return doSkipChildren();
-  } else if (auto AE = dyn_cast<AssignExpr>(E)) {
+  }
+  if (auto AE = dyn_cast<AssignExpr>(E)) {
     {
       llvm::SaveAndRestore<Optional<AccessKind>>
         C(this->OpAccess, AccessKind::Write);
@@ -538,7 +549,8 @@ ASTWalker::PreWalkResult<Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
 
     // We already visited the children.
     return doSkipChildren();
-  } else if (auto OEE = dyn_cast<OpenExistentialExpr>(E)) {
+  }
+  if (auto OEE = dyn_cast<OpenExistentialExpr>(E)) {
     // Record opaque value.
     OpaqueValueMap[OEE->getOpaqueValue()] = OEE->getExistentialValue();
     SWIFT_DEFER {
@@ -549,7 +561,8 @@ ASTWalker::PreWalkResult<Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
       return Action::Stop();
 
     return doSkipChildren();
-  } else if (auto MTEE = dyn_cast<MakeTemporarilyEscapableExpr>(E)) {
+  }
+  if (auto MTEE = dyn_cast<MakeTemporarilyEscapableExpr>(E)) {
     // Manually walk to original arguments in order. We don't handle
     // OpaqueValueExpr here.
 
@@ -563,7 +576,8 @@ ASTWalker::PreWalkResult<Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
       return Action::Stop();
 
     return doSkipChildren();
-  } else if (auto CUCE = dyn_cast<CollectionUpcastConversionExpr>(E)) {
+  }
+  if (auto CUCE = dyn_cast<CollectionUpcastConversionExpr>(E)) {
     // Ignore conversion expressions. We don't handle OpaqueValueExpr here
     // because it's only in conversion expressions. Instead, just walk into
     // sub expression.
@@ -571,7 +585,8 @@ ASTWalker::PreWalkResult<Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
       return Action::Stop();
 
     return doSkipChildren();
-  } else if (auto OVE = dyn_cast<OpaqueValueExpr>(E)) {
+  }
+  if (auto OVE = dyn_cast<OpaqueValueExpr>(E)) {
     // Walk into mapped value.
     auto value = OpaqueValueMap.find(OVE);
     if (value != OpaqueValueMap.end()) {
@@ -580,7 +595,9 @@ ASTWalker::PreWalkResult<Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
 
       return doSkipChildren();
     }
-  } else if (auto DMRE = dyn_cast<DynamicMemberRefExpr>(E)) {
+    return Action::Continue(E);
+  }
+  if (auto DMRE = dyn_cast<DynamicMemberRefExpr>(E)) {
     // Visit in source order.
     if (!DMRE->getBase()->walk(*this))
       return Action::Stop();
@@ -591,7 +608,8 @@ ASTWalker::PreWalkResult<Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
       return Action::Stop();
     // We already visited the children.
     return doSkipChildren();
-  } else if (auto ME = dyn_cast<MacroExpansionExpr>(E)) {
+  }
+  if (auto ME = dyn_cast<MacroExpansionExpr>(E)) {
     // Add a reference to the macro
     auto macroRef = ME->getMacroRef();
     if (auto *macroDecl = dyn_cast_or_null<MacroDecl>(macroRef.getDecl())) {
@@ -601,8 +619,8 @@ ASTWalker::PreWalkResult<Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
               ReferenceMetaData(SemaReferenceKind::DeclRef, None)))
         return Action::Stop();
     }
+    return Action::Continue(E);
   }
-
   return Action::Continue(E);
 }
 
