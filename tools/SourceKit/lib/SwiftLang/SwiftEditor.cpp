@@ -990,7 +990,7 @@ public:
     : SM(SM), BufferID(BufferID) {}
 
   bool visitDeclReference(ValueDecl *D, CharSourceRange Range,
-                          TypeDecl *CtorTyRef, ExtensionDecl *ExtTyRef, Type T,
+                          ExtensionDecl *ExtTyRef, Type T,
                           ReferenceMetaData Data) override {
     if (Data.isImplicit)
       return true;
@@ -1011,9 +1011,6 @@ public:
       // highlighting 'nil' as a keyword and not as an enum element.
       return true;
     }
-
-    if (CtorTyRef)
-      D = CtorTyRef;
     annotate(D, /*IsRef=*/true, Range);
     return true;
   }
@@ -1022,7 +1019,7 @@ public:
                                ReferenceMetaData Data,
                                bool IsOpenBracket) override {
     // We should treat both open and close brackets equally
-    return visitDeclReference(D, Range, nullptr, nullptr, Type(), Data);
+    return visitDeclReference(D, Range, nullptr, Type(), Data);
   }
 
   void annotate(const Decl *D, bool IsRef, CharSourceRange Range) {

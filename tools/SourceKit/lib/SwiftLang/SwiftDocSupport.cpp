@@ -1181,7 +1181,7 @@ public:
   }
 
   bool visitDeclReference(ValueDecl *D, CharSourceRange Range,
-                          TypeDecl *CtorTyRef, ExtensionDecl *ExtTyRef, Type Ty,
+                          ExtensionDecl *ExtTyRef, Type Ty,
                           ReferenceMetaData Data) override {
     if (Data.isImplicit || !Range.isValid())
       return true;
@@ -1198,7 +1198,7 @@ public:
                                ReferenceMetaData Data,
                                bool IsOpenBracket) override {
     // Treat both open and close brackets equally
-    return visitDeclReference(D, Range, nullptr, nullptr, Type(), Data);
+    return visitDeclReference(D, Range, nullptr, Type(), Data);
   }
 
   bool isLocal(Decl *D) const {

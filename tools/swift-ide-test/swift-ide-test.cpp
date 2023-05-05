@@ -2327,17 +2327,22 @@ private:
   }
 
   bool visitDeclReference(ValueDecl *D, CharSourceRange Range,
-                          TypeDecl *CtorTyRef, ExtensionDecl *ExtTyRef, Type Ty,
+                          ExtensionDecl *ExtTyRef, Type Ty,
                           ReferenceMetaData Data) override {
     if (!Data.isImplicit)
-      annotateSourceEntity({ Range, D, CtorTyRef, /*IsRef=*/true });
+      annotateSourceEntity({ Range, D, /*CtorTyRef*/ nullptr, /*IsRef=*/true });
+    return true;
+  }
+
+  bool visitShortFormConstructor(TypeDecl *CtorTy, CharSourceRange Range, ValueDecl *Init, bool IsCtorTyImplicit) override {
+    annotateSourceEntity({ Range, Init, CtorTy, /*IsRef=*/true });
     return true;
   }
 
   bool visitSubscriptReference(ValueDecl *D, CharSourceRange Range,
                                ReferenceMetaData Data,
                                bool IsOpenBracket) override {
-    return visitDeclReference(D, Range, nullptr, nullptr, Type(), Data);
+    return visitDeclReference(D, Range, nullptr, Type(), Data);
   }
 
   bool visitCallArgName(Identifier Name, CharSourceRange Range,
@@ -3872,7 +3877,7 @@ public:
   }
 
   bool visitDeclReference(ValueDecl *D, CharSourceRange Range,
-                          TypeDecl *CtorTyRef, ExtensionDecl *ExtTyRef, Type T,
+                          ExtensionDecl *ExtTyRef, Type T,
                           ReferenceMetaData Data) override {
     if (SeenDecls.insert(D).second)
       tryDemangleDecl(D, Range, /*isRef=*/true);

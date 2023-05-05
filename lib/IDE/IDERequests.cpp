@@ -88,8 +88,10 @@ private:
   bool walkToStmtPre(Stmt *S) override;
   bool walkToStmtPost(Stmt *S) override;
   bool visitDeclReference(ValueDecl *D, CharSourceRange Range,
-                          TypeDecl *CtorTyRef, ExtensionDecl *ExtTyRef, Type T,
+                          ExtensionDecl *ExtTyRef, Type T,
                           ReferenceMetaData Data) override;
+  bool visitShortFormConstructor(TypeDecl *CtorTy, CharSourceRange Range,
+                                 ValueDecl *Init, bool IsCtorTyImplicit) override;
   bool visitCallArgName(Identifier Name, CharSourceRange Range,
                         ValueDecl *D) override;
   bool visitDeclarationArgumentName(Identifier Name, SourceLoc StartLoc,
@@ -203,7 +205,7 @@ bool CursorInfoResolver::visitSubscriptReference(ValueDecl *D,
                                                  ReferenceMetaData Data,
                                                  bool IsOpenBracket) {
   // We should treat both open and close brackets equally
-  return visitDeclReference(D, Range, nullptr, nullptr, Type(), Data);
+  return visitDeclReference(D, Range, nullptr, Type(), Data);
 }
 
 ResolvedCursorInfoPtr CursorInfoResolver::resolve(SourceLoc Loc) {
@@ -286,14 +288,29 @@ bool CursorInfoResolver::walkToStmtPost(Stmt *S) {
 
 bool CursorInfoResolver::visitDeclReference(ValueDecl *D,
                                             CharSourceRange Range,
-                                            TypeDecl *CtorTyRef,
                                             ExtensionDecl *ExtTyRef, Type T,
                                             ReferenceMetaData Data) {
   if (isDone())
     return false;
   if (Data.isImplicit || !Range.isValid())
     return true;
-  return !tryResolve(D, CtorTyRef, ExtTyRef, Range.getStart(), /*IsRef=*/true, T, Data);
+  return !tryResolve(D, /*CtorTy=*/nullptr, ExtTyRef, Range.getStart(),
+                     /*IsRef=*/true, T, Data);
+}
+
+
+bool CursorInfoResolver::visitShortFormConstructor(TypeDecl *CtorTy,
+                                                   CharSourceRange Range,
+                                                   ValueDecl *Init,
+                                                   bool IsCtorTyImplicit) {
+  if (isDone())
+    return false;
+
+  if (!Range.isValid())
+    return true;
+
+  return !tryResolve(Init, CtorTy, /*ExtTy=*/nullptr, Range.getStart(),
+                     /*isRef*/ true);
 }
 
 static bool isCursorOn(Expr *E, SourceLoc Loc) {
@@ -444,7 +461,7 @@ class RangeResolver : public SourceEntityWalker {
   bool walkToDeclPre(Decl *D, CharSourceRange Range) override;
   bool walkToDeclPost(Decl *D) override;
   bool visitDeclReference(ValueDecl *D, CharSourceRange Range,
-                          TypeDecl *CtorTyRef, ExtensionDecl *ExtTyRef, Type T,
+                          ExtensionDecl *ExtTyRef, Type T,
                           ReferenceMetaData Data) override;
   ResolvedRangeInfo moveArrayToASTContext(ResolvedRangeInfo Info);
 public:
@@ -792,7 +809,7 @@ public:
       return true;
     }
     bool visitDeclReference(ValueDecl *D, CharSourceRange Range,
-                            TypeDecl *CtorTyRef, ExtensionDecl *ExtTyRef, Type T,
+                            ExtensionDecl *ExtTyRef, Type T,
                             ReferenceMetaData Data) override {
       Impl->analyzeDeclRef(D, Range.getStart(), T, Data);
       return true;
@@ -806,7 +823,7 @@ public:
   class FurtherReferenceWalker : public SourceEntityWalker {
     Implementation *Impl;
     bool visitDeclReference(ValueDecl *D, CharSourceRange Range,
-                            TypeDecl *CtorTyRef, ExtensionDecl *ExtTyRef, Type T,
+                            ExtensionDecl *ExtTyRef, Type T,
                             ReferenceMetaData Data) override {
       // If the reference is after the given range, continue logic.
       if (!Impl->SM.isBeforeInBuffer(Impl->End, Range.getStart()))
@@ -1137,7 +1154,7 @@ bool RangeResolver::walkToDeclPost(Decl *D) {
 
 
 bool RangeResolver::
-visitDeclReference(ValueDecl *D, CharSourceRange Range, TypeDecl *CtorTyRef,
+visitDeclReference(ValueDecl *D, CharSourceRange Range,
                    ExtensionDecl *ExtTyRef, Type T, ReferenceMetaData Data) {
   Impl->analyzeDeclRef(D, Range.getStart(), T, Data);
   return true;

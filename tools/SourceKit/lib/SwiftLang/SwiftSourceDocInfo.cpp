@@ -2474,7 +2474,7 @@ private:
   }
 
   bool visitDeclReference(ValueDecl *D, CharSourceRange Range,
-                          TypeDecl *CtorTyRef, ExtensionDecl *ExtTyRef, Type T,
+                          ExtensionDecl *ExtTyRef, Type T,
                           ReferenceMetaData Data) override {
     if (Cancelled)
       return false;
@@ -2491,10 +2491,7 @@ private:
         D = Wrapped;
         Range = CharSourceRange(Range.getStart().getAdvancedLoc(1), Range.getByteLength() - 1);
       }
-    } else if (CtorTyRef) {
-      D = CtorTyRef;
     }
-
     if (D == Dcl)
       return passId(Range);
     return true;

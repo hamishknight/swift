@@ -135,14 +135,11 @@ public:
   ///
   /// \param D the referenced decl.
   /// \param Range the source range of the source reference.
-  /// \param CtorTyRef this is set when the entity is a reference to a
-  /// \c ConstructorDecl, to point to the type declaration that the source
-  /// refers to.
   /// \param ExtTyRef this is set when the entity is a reference to a type loc
   /// in \c ExtensionDecl.
   virtual bool visitDeclReference(ValueDecl *D, CharSourceRange Range,
-                                  TypeDecl *CtorTyRef, ExtensionDecl *ExtTyRef,
-                                  Type T, ReferenceMetaData Data);
+                                  ExtensionDecl *ExtTyRef, Type T,
+                                  ReferenceMetaData Data);
 
   /// This method is called when a ValueDecl for a subscript is referenced in
   /// source. If it returns false, the remaining traversal is terminated
@@ -159,6 +156,10 @@ public:
   virtual bool visitSubscriptReference(ValueDecl *D, CharSourceRange Range,
                                        ReferenceMetaData Data,
                                        bool IsOpenBracket);
+
+  virtual bool visitShortFormConstructor(TypeDecl *CtorTy,
+                                         CharSourceRange Range,
+                                         ValueDecl *Init, bool IsCtorTyImplicit);
 
   /// This method is called when a ValueDecl for a callAsFunction decl is
   /// referenced in source. If it returns false, the remaining traversal is
