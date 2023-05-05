@@ -460,12 +460,12 @@ struct APIDiffMigratorPass : public ASTMigratorPass, public SourceEntityWalker {
   }
 
   bool visitDeclReference(ValueDecl *D, CharSourceRange Range,
-                          TypeDecl *CtorTyRef, ExtensionDecl *ExtTyRef,
+                          ExtensionDecl *ExtTyRef,
                           Type T, ReferenceMetaData Data) override {
     if (Data.isImplicit)
       return true;
 
-    for (auto *Item: getRelatedDiffItems(CtorTyRef ? CtorTyRef: D)) {
+    for (auto *Item: getRelatedDiffItems(D)) {
       std::string RepText;
       if (isSimpleReplacement(Item, isDotMember(Range), RepText)) {
         Editor.replace(Range, RepText);
@@ -480,8 +480,8 @@ struct APIDiffMigratorPass : public ASTMigratorPass, public SourceEntityWalker {
     CharSourceRange Result;
     ReferenceCollector(ValueDecl* Target) : Target(Target) {}
     bool visitDeclReference(ValueDecl *D, CharSourceRange Range,
-                            TypeDecl *CtorTyRef, ExtensionDecl *ExtTyRef,
-                            Type T, ReferenceMetaData Data) override {
+                            ExtensionDecl *ExtTyRef, Type T,
+                            ReferenceMetaData Data) override {
       if (D == Target && !Data.isImplicit && Range.isValid()) {
         Result = Range;
         return false;

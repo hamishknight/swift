@@ -840,7 +840,7 @@ private:
   }
 
   bool visitDeclReference(ValueDecl *D, CharSourceRange Range,
-                          TypeDecl *CtorTyRef, ExtensionDecl *ExtTyRef, Type T,
+                          ExtensionDecl *ExtTyRef, Type T,
                           ReferenceMetaData Data) override {
     SourceLoc Loc = Range.getStart();
 
@@ -856,14 +856,6 @@ private:
 
     if (Data.isImplicit)
       Info.roles |= (unsigned)SymbolRole::Implicit;
-
-    if (CtorTyRef) {
-      IndexSymbol CtorInfo(Info);
-      if (Data.isImplicitCtorType)
-        CtorInfo.roles |= (unsigned)SymbolRole::Implicit;
-      if (!reportRef(CtorTyRef, Loc, CtorInfo, Data.AccKind))
-        return false;
-    }
 
     if (auto *GenParam = dyn_cast<GenericTypeParamDecl>(D)) {
       D = canonicalizeGenericTypeParamDeclForIndex(GenParam);
@@ -914,8 +906,7 @@ private:
   bool visitCallAsFunctionReference(ValueDecl *D, CharSourceRange Range,
                                     ReferenceMetaData Data) override {
     // Index implicit callAsFunction reference.
-    return visitDeclReference(D, Range, /*CtorTyRef*/ nullptr,
-                              /*ExtTyRef*/ nullptr, Type(), Data);
+    return visitDeclReference(D, Range, /*ExtTyRef*/ nullptr, Type(), Data);
   }
 
   Decl *getParentDecl() const {

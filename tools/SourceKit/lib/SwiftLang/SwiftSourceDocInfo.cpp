@@ -2540,7 +2540,7 @@ void SwiftLangSupport::findRelatedIdentifiersInFile(
         if (ValueRefCursorInfo->isKeywordArgument())
           return;
 
-        ValueDecl *VD = ValueRefCursorInfo->typeOrValue();
+        ValueDecl *VD = ValueRefCursorInfo->getDecl();
         if (!VD)
           return; // This was a module reference.
 

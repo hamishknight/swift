@@ -167,7 +167,6 @@ typedef llvm::IntrusiveRefCntPtr<ResolvedCursorInfo> ResolvedCursorInfoPtr;
 struct ResolvedValueRefCursorInfo : public ResolvedCursorInfo {
 private:
   ValueDecl *ValueD = nullptr;
-  TypeDecl *CtorTyRef = nullptr;
   ExtensionDecl *ExtTyRef = nullptr;
   bool IsRef = true;
   Type Ty;
@@ -193,24 +192,21 @@ private:
 public:
   ResolvedValueRefCursorInfo() = default;
   explicit ResolvedValueRefCursorInfo(
-      SourceFile *SF, SourceLoc Loc, ValueDecl *ValueD, TypeDecl *CtorTyRef,
+      SourceFile *SF, SourceLoc Loc, ValueDecl *ValueD,
       ExtensionDecl *ExtTyRef, bool IsRef, Type Ty, Type ContainerType,
       Optional<std::pair<const CustomAttr *, Decl *>> CustomAttrRef,
       bool IsKeywordArgument, bool IsDynamic,
       SmallVector<NominalTypeDecl *> ReceiverTypes,
       SmallVector<ValueDecl *> ShorthandShadowedDecls)
       : ResolvedCursorInfo(CursorInfoKind::ValueRef, SF, Loc), ValueD(ValueD),
-        CtorTyRef(CtorTyRef), ExtTyRef(ExtTyRef), IsRef(IsRef), Ty(Ty),
-        ContainerType(ContainerType), CustomAttrRef(CustomAttrRef),
-        IsKeywordArgument(IsKeywordArgument), IsDynamic(IsDynamic),
-        ReceiverTypes(ReceiverTypes),
+        ExtTyRef(ExtTyRef), IsRef(IsRef), Ty(Ty), ContainerType(ContainerType),
+        CustomAttrRef(CustomAttrRef), IsKeywordArgument(IsKeywordArgument),
+        IsDynamic(IsDynamic), ReceiverTypes(ReceiverTypes),
         ShorthandShadowedDecls(ShorthandShadowedDecls) {}
 
   ValueDecl *getValueD() const { return ValueD; }
 
   ExtensionDecl *getExtTyRef() const { return ExtTyRef; }
-
-  TypeDecl *getCtorTyRef() const { return CtorTyRef; }
 
   bool isRef() const { return IsRef; }
 
@@ -237,7 +233,7 @@ public:
     this->ShorthandShadowedDecls = ShorthandShadowedDecls;
   };
 
-  ValueDecl *typeOrValue() { return CtorTyRef ? CtorTyRef : ValueD; }
+  ValueDecl *getDecl() { return ValueD; }
 
   Optional<std::pair<const CustomAttr *, Decl *>> getCustomAttrRef() const {
     return CustomAttrRef;

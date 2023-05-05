@@ -726,7 +726,7 @@ static Optional<RenameInfo> getRenameInfo(ResolvedCursorInfoPtr cursorInfo) {
   if (!valueCursor)
     return None;
 
-  ValueDecl *VD = valueCursor->typeOrValue();
+  ValueDecl *VD = valueCursor->getDecl();
   if (!VD)
     return None;
 
@@ -1572,8 +1572,8 @@ struct ReferenceCollector: public SourceEntityWalker {
 
   ReferenceCollector(Expr *E) { walk(E); }
   bool visitDeclReference(ValueDecl *D, CharSourceRange Range,
-                          TypeDecl *CtorTyRef, ExtensionDecl *ExtTyRef,
-                          Type T, ReferenceMetaData Data) override {
+                          ExtensionDecl *ExtTyRef, Type T,
+                          ReferenceMetaData Data) override {
     References.emplace_back(D);
     return true;
   }

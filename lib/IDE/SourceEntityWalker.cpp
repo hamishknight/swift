@@ -350,16 +350,33 @@ ASTWalker::PreWalkResult<Expr *> SemaAnnotator::walkToExprPre(Expr *E) {
   if (auto *CtorRefE = dyn_cast<ConstructorRefCallExpr>(E))
     CtorRefs.push_back(CtorRefE);
 
+  // Handle implicit DeclRefExprs that we still want to visit.
   if (auto *DRE = dyn_cast<DeclRefExpr>(E)) {
-    auto *FD = dyn_cast<FuncDecl>(DRE->getDecl());
-    // Handle implicit callAsFunction reference. An explicit reference will be
-    // handled by the usual DeclRefExpr case below.
-    if (DRE->isImplicit() && FD && FD->isCallAsFunctionMethod()) {
-      ReferenceMetaData data(SemaReferenceKind::DeclMemberRef, OpAccess);
-      if (!passCallAsFunctionReference(FD, DRE->getLoc(), data))
-        return Action::Stop();
+    if (DRE->isImplicit()) {
+      // The init reference for a short-form constructor call.
+      if (!CtorRefs.empty() && !CtorRefs.back()->isImplicit()) {
+        auto *Fn = CtorRefs.back()->getFn();
+        auto *D = ide::getReferencedDecl(Fn).second.getDecl();
+        if (D == DRE->getDecl()) {
+          ReferenceMetaData Data(SemaReferenceKind::DeclConstructorRef,
+                                 /*accessKind*/ None);
+          if (!passReference(D, DRE->getType(), DRE->getNameLoc(), Data))
+            return Action::Stop();
 
-      return Action::Continue(E);
+          return Action::Continue(E);
+        }
+      }
+
+      // Handle implicit callAsFunction reference. An explicit reference will be
+      // handled by the usual DeclRefExpr case below.
+      auto *FD = dyn_cast<FuncDecl>(DRE->getDecl());
+      if (FD && FD->isCallAsFunctionMethod()) {
+        ReferenceMetaData data(SemaReferenceKind::DeclMemberRef, OpAccess);
+        if (!passCallAsFunctionReference(FD, DRE->getLoc(), data))
+          return Action::Stop();
+
+        return Action::Continue(E);
+      }
     }
   }
 
@@ -639,8 +656,8 @@ ASTWalker::PreWalkAction SemaAnnotator::walkToTypeReprPre(TypeRepr *T) {
       VD = DT->getSelfType()->getAnyGeneric();
 
     if (VD) {
-      auto Data = ReferenceMetaData(SemaReferenceKind::TypeRef, None);
-      Data.isImplicitCtorType = true;
+      auto Data = ReferenceMetaData(SemaReferenceKind::TypeRef, None,
+                                    /*isImplicit*/ true);
       auto Continue = passReference(VD, FT->getType(), FT->getLoc(),
                                     FT->getSourceRange(), Data);
       return Action::StopIf(!Continue);
@@ -822,22 +839,9 @@ passReference(ValueDecl *D, Type Ty, DeclNameLoc Loc, ReferenceMetaData Data) {
 bool SemaAnnotator::
 passReference(ValueDecl *D, Type Ty, SourceLoc BaseNameLoc, SourceRange Range,
               ReferenceMetaData Data) {
-  TypeDecl *CtorTyRef = nullptr;
   ExtensionDecl *ExtDecl = nullptr;
 
   if (auto *TD = dyn_cast<TypeDecl>(D)) {
-    if (!CtorRefs.empty() && BaseNameLoc.isValid()) {
-      Expr *Fn = CtorRefs.back()->getFn();
-      if (Fn->getLoc() == BaseNameLoc) {
-        D = ide::getReferencedDecl(Fn).second.getDecl();
-        if (D == nullptr) {
-          assert(false && "Unhandled constructor reference");
-          return true;
-        }
-        CtorTyRef = TD;
-      }
-    }
-
     if (!ExtDecls.empty() && BaseNameLoc.isValid()) {
       SourceLoc ExtTyLoc = SourceLoc();
       if (auto *repr = ExtDecls.back()->getExtendedTypeRepr())
@@ -852,7 +856,7 @@ passReference(ValueDecl *D, Type Ty, SourceLoc BaseNameLoc, SourceRange Range,
     Lexer::getCharSourceRangeFromSourceRange(D->getASTContext().SourceMgr,
                                              Range);
 
-  return SEWalker.visitDeclReference(D, CharRange, CtorTyRef, ExtDecl, Ty,
+  return SEWalker.visitDeclReference(D, CharRange, ExtDecl, Ty,
                                      Data);
 }
 
@@ -955,7 +959,6 @@ bool SourceEntityWalker::walk(ASTNode N) {
 }
 
 bool SourceEntityWalker::visitDeclReference(ValueDecl *D, CharSourceRange Range,
-                                            TypeDecl *CtorTyRef,
                                             ExtensionDecl *ExtTyRef, Type T,
                                             ReferenceMetaData Data) {
   return true;
@@ -969,7 +972,7 @@ bool SourceEntityWalker::visitSubscriptReference(ValueDecl *D,
   // regular reference when called on the open bracket and
   // ignore the closing one.
   return IsOpenBracket
-             ? visitDeclReference(D, Range, nullptr, nullptr, Type(), Data)
+             ? visitDeclReference(D, Range, nullptr, Type(), Data)
              : true;
 }
 

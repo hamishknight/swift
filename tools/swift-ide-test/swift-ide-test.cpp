@@ -2290,18 +2290,15 @@ private:
   struct SemanticSourceEntity {
     CharSourceRange Range;
     ValueDecl *Dcl = nullptr;
-    TypeDecl *CtorTyRef = nullptr;
     ModuleEntity Mod;
     Identifier ArgName;
     bool IsRef = true;
 
     SemanticSourceEntity(CharSourceRange Range,
                          ValueDecl *Dcl,
-                         TypeDecl *CtorTyRef,
                          bool IsRef)
       : Range(Range),
         Dcl(Dcl),
-        CtorTyRef(CtorTyRef),
         IsRef(IsRef) {}
 
     SemanticSourceEntity(CharSourceRange Range,
@@ -2322,22 +2319,22 @@ private:
     if (Range.getByteLength() == 0)
       return true;
     if (auto *VD = dyn_cast<ValueDecl>(D))
-      annotateSourceEntity({ Range, VD, nullptr, /*IsRef=*/false});
+      annotateSourceEntity({ Range, VD, /*IsRef=*/false});
     return true;
   }
 
   bool visitDeclReference(ValueDecl *D, CharSourceRange Range,
-                          TypeDecl *CtorTyRef, ExtensionDecl *ExtTyRef, Type Ty,
+                          ExtensionDecl *ExtTyRef, Type Ty,
                           ReferenceMetaData Data) override {
     if (!Data.isImplicit)
-      annotateSourceEntity({ Range, D, CtorTyRef, /*IsRef=*/true });
+      annotateSourceEntity({ Range, D, /*IsRef=*/true });
     return true;
   }
 
   bool visitSubscriptReference(ValueDecl *D, CharSourceRange Range,
                                ReferenceMetaData Data,
                                bool IsOpenBracket) override {
-    return visitDeclReference(D, Range, nullptr, nullptr, Type(), Data);
+    return visitDeclReference(D, Range, nullptr, Type(), Data);
   }
 
   bool visitCallArgName(Identifier Name, CharSourceRange Range,
@@ -2403,19 +2400,10 @@ private:
       IsInSystemModule = D->getModuleContext()->isNonUserModule();
       if (IsInSystemModule)
         OS << 'i';
-      if (isa<ConstructorDecl>(D) && Entity.IsRef) {
-        OS << "Ctor";
+
+      OS << Decl::getKindName(D->getKind());
+      if (Entity.IsRef)
         printLoc(D->getLoc(/*SerializedOK*/false), OS);
-        if (Entity.CtorTyRef) {
-          OS << '-';
-          OS << Decl::getKindName(Entity.CtorTyRef->getKind());
-          printLoc(Entity.CtorTyRef->getLoc(/*SerializedOK*/false), OS);
-        }
-      } else {
-        OS << Decl::getKindName(D->getKind());
-        if (Entity.IsRef)
-          printLoc(D->getLoc(/*SerializedOK*/false), OS);
-      }
 
     } else {
       if (Entity.Mod.isNonUserModule())
@@ -3872,7 +3860,7 @@ public:
   }
 
   bool visitDeclReference(ValueDecl *D, CharSourceRange Range,
-                          TypeDecl *CtorTyRef, ExtensionDecl *ExtTyRef, Type T,
+                          ExtensionDecl *ExtTyRef, Type T,
                           ReferenceMetaData Data) override {
     if (SeenDecls.insert(D).second)
       tryDemangleDecl(D, Range, /*isRef=*/true);

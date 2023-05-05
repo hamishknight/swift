@@ -353,7 +353,6 @@ public:
     typeCheckDeclAndParentClosures(DeclResult->getDecl());
     auto CursorInfo = new ResolvedValueRefCursorInfo(
         SrcFile, RequestedLoc, DeclResult->getDecl(),
-        /*CtorTyRef=*/nullptr,
         /*ExtTyRef=*/nullptr, /*IsRef=*/false, /*Ty=*/Type(),
         /*ContainerType=*/Type(),
         /*CustomAttrRef=*/None,
@@ -413,7 +412,6 @@ public:
 
       auto CursorInfo = new ResolvedValueRefCursorInfo(
           SrcFile, RequestedLoc, Res.ReferencedDecl,
-          /*CtorTyRef=*/nullptr,
           /*ExtTyRef=*/nullptr, /*IsRef=*/true, /*Ty=*/Type(),
           /*ContainerType=*/Res.BaseType,
           /*CustomAttrRef=*/None,
