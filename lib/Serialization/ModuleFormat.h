@@ -58,7 +58,7 @@ const uint16_t SWIFTMODULE_VERSION_MAJOR = 0;
 /// describe what change you made. The content of this comment isn't important;
 /// it just ensures a conflict if two people change the module format.
 /// Don't worry about adhering to the 80-column limit for this line.
-const uint16_t SWIFTMODULE_VERSION_MINOR = 781; // compound introduced names
+const uint16_t SWIFTMODULE_VERSION_MINOR = 782; // yeet PatternBindingDecl
 
 /// A standard hash seed used for all string hashes in a serialized module.
 ///
@@ -1645,17 +1645,6 @@ namespace decls_block {
     // - inlinable body text, if any
   >;
 
-  using PatternBindingLayout = BCRecordLayout<
-    PATTERN_BINDING_DECL,
-    DeclContextIDField, // context decl
-    BCFixed<1>,  // implicit flag
-    BCFixed<1>,  // static?
-    StaticSpellingKindField, // spelling of 'static' or 'class'
-    BCVBR<3>,    // numpatterns
-    BCArray<DeclContextIDField> // init contexts
-    // The patterns trail the record.
-  >;
-
   template <unsigned Code>
   using UnaryOperatorLayout = BCRecordLayout<
     Code, // ID field
@@ -1796,49 +1785,6 @@ namespace decls_block {
   using ParameterListLayout = BCRecordLayout<
     PARAMETERLIST,
     BCArray<DeclIDField> // params
-  >;
-
-  using ParenPatternLayout = BCRecordLayout<
-    PAREN_PATTERN
-    // The sub-pattern trails the record.
-  >;
-
-  using TuplePatternLayout = BCRecordLayout<
-    TUPLE_PATTERN,
-    TypeIDField, // type
-    BCVBR<5>     // arity
-    // The elements trail the record.
-  >;
-
-  using TuplePatternEltLayout = BCRecordLayout<
-    TUPLE_PATTERN_ELT,
-    IdentifierIDField     // label
-    // The element pattern trails the record.
-  >;
-
-  using NamedPatternLayout = BCRecordLayout<
-    NAMED_PATTERN,
-    DeclIDField, // associated VarDecl
-    TypeIDField  // type
-  >;
-
-  using AnyPatternLayout = BCRecordLayout<
-    ANY_PATTERN,
-    TypeIDField, // type
-    BCFixed<1>   // isAsyncLet
-    // FIXME: is the type necessary?
-  >;
-
-  using TypedPatternLayout = BCRecordLayout<
-    TYPED_PATTERN,
-    TypeIDField  // associated type
-    // The sub-pattern trails the record.
-  >;
-
-  using BindingPatternLayout = BCRecordLayout<
-    VAR_PATTERN,
-    BCFixed<1>  // isLet?
-    // The sub-pattern trails the record.
   >;
 
   using GenericParamListLayout = BCRecordLayout<

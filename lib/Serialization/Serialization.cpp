@@ -1904,6 +1904,7 @@ static bool shouldSerializeMember(Decl *D) {
   case DeclKind::EnumCase:
   case DeclKind::Macro:
   case DeclKind::MacroExpansion:
+  case DeclKind::PatternBinding:
     return false;
 
   case DeclKind::OpaqueType:
@@ -1913,7 +1914,6 @@ static bool shouldSerializeMember(Decl *D) {
   case DeclKind::Protocol:
   case DeclKind::Constructor:
   case DeclKind::Destructor:
-  case DeclKind::PatternBinding:
   case DeclKind::Subscript:
   case DeclKind::TypeAlias:
   case DeclKind::GenericTypeParam:
@@ -3452,97 +3452,6 @@ class Serializer::DeclSerializer : public DeclVisitor<DeclSerializer> {
     MembersLayout::emitRecord(S.Out, S.ScratchRecord, abbrCode, memberIDs);
   }
 
-  /// Writes the given pattern, recursively.
-  void writePattern(const Pattern *pattern) {
-    using namespace decls_block;
-
-    // Retrieve the type of the pattern.
-    auto getPatternType = [&] {
-      if (!pattern->hasType()) {
-        if (S.allowCompilerErrors())
-          return ErrorType::get(S.getASTContext());
-        llvm_unreachable("all nodes should have types");
-      }
-
-      Type type = pattern->getType();
-
-      // If we have a contextual type, map out to an interface type.
-      if (type->hasArchetype())
-        type = type->mapTypeOutOfContext();
-
-      return type;
-    };
-
-    assert(pattern && "null pattern");
-    switch (pattern->getKind()) {
-    case PatternKind::Paren: {
-      unsigned abbrCode = S.DeclTypeAbbrCodes[ParenPatternLayout::Code];
-      ParenPatternLayout::emitRecord(S.Out, S.ScratchRecord, abbrCode);
-      writePattern(cast<ParenPattern>(pattern)->getSubPattern());
-      break;
-    }
-    case PatternKind::Tuple: {
-      auto tuple = cast<TuplePattern>(pattern);
-
-      unsigned abbrCode = S.DeclTypeAbbrCodes[TuplePatternLayout::Code];
-      TuplePatternLayout::emitRecord(S.Out, S.ScratchRecord, abbrCode,
-                                     S.addTypeRef(getPatternType()),
-                                     tuple->getNumElements());
-
-      abbrCode = S.DeclTypeAbbrCodes[TuplePatternEltLayout::Code];
-      for (auto &elt : tuple->getElements()) {
-        // FIXME: Default argument expressions?
-        TuplePatternEltLayout::emitRecord(S.Out, S.ScratchRecord, abbrCode,
-                                          S.addDeclBaseNameRef(elt.getLabel()));
-        writePattern(elt.getPattern());
-      }
-      break;
-    }
-    case PatternKind::Named: {
-      auto named = cast<NamedPattern>(pattern);
-
-      unsigned abbrCode = S.DeclTypeAbbrCodes[NamedPatternLayout::Code];
-      NamedPatternLayout::emitRecord(S.Out, S.ScratchRecord, abbrCode,
-                                     S.addDeclRef(named->getDecl()),
-                                     S.addTypeRef(getPatternType()));
-      break;
-    }
-    case PatternKind::Any: {
-      unsigned abbrCode = S.DeclTypeAbbrCodes[AnyPatternLayout::Code];
-      auto anyPattern = cast<AnyPattern>(pattern);
-      AnyPatternLayout::emitRecord(S.Out, S.ScratchRecord, abbrCode,
-                                   S.addTypeRef(getPatternType()),
-                                   anyPattern->isAsyncLet());
-      break;
-    }
-    case PatternKind::Typed: {
-      auto typed = cast<TypedPattern>(pattern);
-
-      unsigned abbrCode = S.DeclTypeAbbrCodes[TypedPatternLayout::Code];
-      TypedPatternLayout::emitRecord(S.Out, S.ScratchRecord, abbrCode,
-                                     S.addTypeRef(getPatternType()));
-      writePattern(typed->getSubPattern());
-      break;
-    }
-    case PatternKind::Is:
-    case PatternKind::EnumElement:
-    case PatternKind::OptionalSome:
-    case PatternKind::Bool:
-    case PatternKind::Expr:
-      llvm_unreachable("Refutable patterns cannot be serialized");
-
-    case PatternKind::Binding: {
-      auto var = cast<BindingPattern>(pattern);
-
-      unsigned abbrCode = S.DeclTypeAbbrCodes[BindingPatternLayout::Code];
-      BindingPatternLayout::emitRecord(S.Out, S.ScratchRecord, abbrCode,
-                                       var->isLet());
-      writePattern(var->getSubPattern());
-      break;
-    }
-    }
-  }
-
   void writeDefaultWitnessTable(const ProtocolDecl *proto) {
     using namespace decls_block;
 
@@ -3778,34 +3687,7 @@ public:
   }
 
   void visitPatternBindingDecl(const PatternBindingDecl *binding) {
-    using namespace decls_block;
-    verifyAttrSerializable(binding);
-
-    auto contextID = S.addDeclContextRef(binding->getDeclContext());
-    SmallVector<uint64_t, 2> initContextIDs;
-    for (unsigned i : range(binding->getNumPatternEntries())) {
-      auto initContextID =
-          S.addDeclContextRef(binding->getInitContext(i));
-      if (!initContextIDs.empty()) {
-        initContextIDs.push_back(initContextID.getOpaqueValue());
-      } else if (initContextID) {
-        initContextIDs.append(i, 0);
-        initContextIDs.push_back(initContextID.getOpaqueValue());
-      }
-    }
-
-    unsigned abbrCode = S.DeclTypeAbbrCodes[PatternBindingLayout::Code];
-    PatternBindingLayout::emitRecord(
-        S.Out, S.ScratchRecord, abbrCode, contextID.getOpaqueValue(),
-        binding->isImplicit(), binding->isStatic(),
-        uint8_t(getStableStaticSpelling(binding->getStaticSpelling())),
-        binding->getNumPatternEntries(),
-        initContextIDs);
-
-    for (auto entryIdx : range(binding->getNumPatternEntries())) {
-      writePattern(binding->getPattern(entryIdx));
-      // Ignore initializer; external clients don't need to know about it.
-    }
+    llvm_unreachable("should not be serialized");
   }
 
   void visitPrecedenceGroupDecl(const PrecedenceGroupDecl *group) {
@@ -5653,7 +5535,6 @@ void Serializer::writeAllDeclsAndTypes() {
   registerDeclTypeAbbr<FuncLayout>();
   registerDeclTypeAbbr<AccessorLayout>();
   registerDeclTypeAbbr<OpaqueTypeLayout>();
-  registerDeclTypeAbbr<PatternBindingLayout>();
   registerDeclTypeAbbr<ProtocolLayout>();
   registerDeclTypeAbbr<AssociatedTypeLayout>();
   registerDeclTypeAbbr<PrimaryAssociatedTypeLayout>();
@@ -5672,13 +5553,6 @@ void Serializer::writeAllDeclsAndTypes() {
 
   registerDeclTypeAbbr<ParameterListLayout>();
 
-  registerDeclTypeAbbr<ParenPatternLayout>();
-  registerDeclTypeAbbr<TuplePatternLayout>();
-  registerDeclTypeAbbr<TuplePatternEltLayout>();
-  registerDeclTypeAbbr<NamedPatternLayout>();
-  registerDeclTypeAbbr<BindingPatternLayout>();
-  registerDeclTypeAbbr<AnyPatternLayout>();
-  registerDeclTypeAbbr<TypedPatternLayout>();
   registerDeclTypeAbbr<InlinableBodyTextLayout>();
   registerDeclTypeAbbr<GenericParamListLayout>();
   registerDeclTypeAbbr<GenericSignatureLayout>();
@@ -6248,7 +6122,7 @@ void Serializer::writeAST(ModuleOrSourceFile DC) {
     for (auto D : fileDecls) {
       if (isa<ImportDecl>(D) || isa<IfConfigDecl>(D) ||
           isa<PoundDiagnosticDecl>(D) || isa<TopLevelCodeDecl>(D) ||
-          isa<MacroExpansionDecl>(D)) {
+          isa<MacroExpansionDecl>(D) || isa<PatternBindingDecl>(D)) {
         continue;
       }
 
@@ -6269,8 +6143,6 @@ void Serializer::writeAST(ModuleOrSourceFile DC) {
       } else if (auto PGD = dyn_cast<PrecedenceGroupDecl>(D)) {
         precedenceGroupDecls[PGD->getName()]
           .push_back({ decls_block::PRECEDENCE_GROUP_DECL, addDeclRef(D) });
-      } else if (isa<PatternBindingDecl>(D)) {
-        // No special handling needed.
       } else {
         llvm_unreachable("all top-level declaration kinds accounted for");
       }
