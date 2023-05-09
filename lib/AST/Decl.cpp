@@ -666,7 +666,8 @@ void Decl::setInvalid() {
   llvm_unreachable("Unknown decl kind");
 }
 
-void Decl::setDeclContext(DeclContext *DC) { 
+void Decl::setDeclContext(DeclContext *DC) {
+  assert(!isa<PatternBindingDecl>(this) || DC);
   Context = DC;
 }
 
@@ -1693,6 +1694,7 @@ PatternBindingDecl::PatternBindingDecl(SourceLoc StaticLoc,
                                        DeclContext *Parent)
   : Decl(DeclKind::PatternBinding, Parent),
     StaticLoc(StaticLoc), VarLoc(VarLoc) {
+      assert(Parent);
   Bits.PatternBindingDecl.IsStatic = StaticLoc.isValid();
   Bits.PatternBindingDecl.StaticSpelling =
        static_cast<unsigned>(StaticSpelling);

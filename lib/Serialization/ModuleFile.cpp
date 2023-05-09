@@ -324,8 +324,9 @@ ModuleFile::~ModuleFile() { }
 
 PatternBindingDecl *ModuleFile::getParentPatternBinding(const VarDecl *VD) {
   auto iter = VarParentPBDs.find(VD);
-  assert(iter != VarParentPBDs.end() &&
-         "VarDecl not deserialized from this module?");
+  if (iter == VarParentPBDs.end())
+    return nullptr;
+
   return cast<PatternBindingDecl>(getDecl(iter->second));
 }
 
