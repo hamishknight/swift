@@ -343,8 +343,9 @@ private:
   void writeASTBlockEntity(const DeclContext *DC);
 
   /// Write the components of a PatternBindingInitializer as a local context.
-  void writePatternBindingInitializer(PatternBindingDecl *binding,
-                                      unsigned bindingIndex);
+  void writePatternBindingInitializer(VarDecl *firstVarInPBD,
+                                      unsigned bindingIndex,
+                                      DeclContext *parentDC);
 
   /// Write the components of a DefaultArgumentInitializer as a local context.
   void writeDefaultArgumentInitializer(const DeclContext *parentContext, unsigned index);

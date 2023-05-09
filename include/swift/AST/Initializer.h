@@ -127,19 +127,20 @@ public:
 /// class only to maintain the correct AST structure and remangling after
 /// deserialization.
 class SerializedPatternBindingInitializer : public SerializedLocalDeclContext {
-  PatternBindingDecl *Binding;
+  VarDecl *FirstVarInPBD;
 
 public:
-  SerializedPatternBindingInitializer(PatternBindingDecl *Binding,
-                                      unsigned bindingIndex)
+  SerializedPatternBindingInitializer(VarDecl *firstVarInPBD,
+                                      unsigned bindingIndex,
+                                      DeclContext *parentDC)
     : SerializedLocalDeclContext(LocalDeclContextKind::PatternBindingInitializer,
-                                 Binding->getDeclContext()),
-      Binding(Binding) {
+                                 parentDC),
+      FirstVarInPBD(firstVarInPBD) {
     SpareBits = bindingIndex;
   }
 
-  PatternBindingDecl *getBinding() const {
-    return Binding;
+  VarDecl *getFirstVarInPBD() const {
+    return FirstVarInPBD;
   }
 
   unsigned getBindingIndex() const { return SpareBits; }

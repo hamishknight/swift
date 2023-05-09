@@ -2350,8 +2350,9 @@ bool Serializer::isDeclXRef(const Decl *D) const {
   return true;
 }
 
-void Serializer::writePatternBindingInitializer(PatternBindingDecl *binding,
-                                                unsigned bindingIndex) {
+void Serializer::writePatternBindingInitializer(VarDecl *firstVarInPBD,
+                                                unsigned bindingIndex,
+                                                DeclContext *parentDC) {
   using namespace decls_block;
   auto abbrCode = DeclTypeAbbrCodes[PatternBindingInitializerLayout::Code];
 
@@ -2365,8 +2366,12 @@ void Serializer::writePatternBindingInitializer(PatternBindingDecl *binding,
     initStr = binding->getInitStringRepresentation(bindingIndex, scratch);
   }
 
+  auto parentID = addDeclContextRef(parentDC);
+
   PatternBindingInitializerLayout::emitRecord(Out, ScratchRecord,
-                                              abbrCode, addDeclRef(binding),
+                                              abbrCode,
+                                              addDeclRef(firstVarInPBD),
+                                              parentID,
                                               bindingIndex, initStr);
 }
 

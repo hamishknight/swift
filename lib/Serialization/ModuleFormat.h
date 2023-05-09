@@ -2051,9 +2051,9 @@ namespace decls_block {
 
   using PatternBindingInitializerLayout = BCRecordLayout<
     PATTERN_BINDING_INITIALIZER_CONTEXT,
-    DeclIDField, // parent pattern binding decl
-    BCVBR<3>,    // binding index in the pattern binding decl
-    BCBlob       // initializer text, if present
+    DeclIDField, // first var in PBD
+    DeclContextIDField, // parent context decl
+    BCVBR<3>    // binding index in the pattern binding decl
   >;
 
   using DefaultArgumentInitializerLayout = BCRecordLayout<
