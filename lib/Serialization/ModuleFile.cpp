@@ -322,6 +322,13 @@ bool ModuleFile::mayHaveDiagnosticsPointingAtBuffer() const {
 
 ModuleFile::~ModuleFile() { }
 
+PatternBindingDecl *ModuleFile::getParentPatternBinding(const VarDecl *VD) {
+  auto iter = VarParentPBDs.find(VD);
+  assert(iter != VarParentPBDs.end() &&
+         "VarDecl not deserialized from this module?");
+  return cast<PatternBindingDecl>(getDecl(iter->second));
+}
+
 void ModuleFile::lookupValue(DeclName name,
                              SmallVectorImpl<ValueDecl*> &results) {
   PrettyStackTraceModuleFile stackEntry(*this);

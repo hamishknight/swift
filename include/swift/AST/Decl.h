@@ -5564,7 +5564,7 @@ public:
   };
 
 protected:
-  PointerUnion<PatternBindingDecl *,
+  mutable PointerUnion<PatternBindingDecl *,
                Stmt *,
                VarDecl *,
                CaptureListExpr *> Parent;
@@ -5616,11 +5616,8 @@ public:
 
   /// Return the parent pattern binding that may provide an initializer for this
   /// VarDecl.  This returns null if there is none associated with the VarDecl.
-  PatternBindingDecl *getParentPatternBinding() const {
-    if (!Parent)
-      return nullptr;
-    return Parent.dyn_cast<PatternBindingDecl *>();
-  }
+  PatternBindingDecl *getParentPatternBinding() const;
+
   void setParentPatternBinding(PatternBindingDecl *PBD) {
     assert(PBD);
     Parent = PBD;

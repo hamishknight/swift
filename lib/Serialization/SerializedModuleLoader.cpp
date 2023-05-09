@@ -1621,6 +1621,11 @@ SerializedASTFile::getCommentForDecl(const Decl *D) const {
   return File.getCommentForDecl(D);
 }
 
+PatternBindingDecl *
+SerializedASTFile::getParentPatternBinding(const VarDecl *VD) const {
+  return File.getParentPatternBinding(VD);
+}
+
 bool SerializedASTFile::hasLoadedSwiftDoc() const {
   return File.hasLoadedSwiftDoc();
 }

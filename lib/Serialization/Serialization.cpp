@@ -4230,6 +4230,7 @@ public:
                           S.addTypeRef(ty),
                           var->isImplicitlyUnwrappedOptional(),
                           S.addDeclRef(var->getOverriddenDecl()),
+                          S.addDeclRef(var->getParentPatternBinding()),
                           rawAccessLevel, rawSetterAccessLevel,
                           S.addDeclRef(var->getOpaqueResultTypeDecl()),
                           numBackingProperties,

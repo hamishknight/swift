@@ -167,6 +167,11 @@ public:
     return None;
   }
 
+  virtual PatternBindingDecl *
+  getParentPatternBinding(const VarDecl *VD) const {
+    return nullptr;
+  }
+
   /// For a serialized AST file, returns \c true if an adjacent swiftdoc has been
   /// loaded. Otherwise, returns \c false.
   virtual bool hasLoadedSwiftDoc() const { return false; }

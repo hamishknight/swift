@@ -307,6 +307,11 @@ private:
   llvm::DenseMap<const Decl *, Identifier> PrivateDiscriminatorsByValue;
   llvm::DenseMap<const Decl *, StringRef> FilenamesForPrivateValues;
 
+  /// A mapping of VarDecls to their parent PatternBindingDecls. This is needed
+  /// to allow us to lazily deserialize parent PBDs. Deserializing eagerly would
+  /// be very cycle prone.
+  llvm::DenseMap<const VarDecl *, serialization::DeclID> VarParentPBDs;
+
   TinyPtrVector<Decl *> ImportDecls;
 
   /// Maps USRs to their deserialized comment object.
@@ -685,6 +690,9 @@ public:
 
   /// The module that this module is an overlay for, if any.
   ModuleDecl *getUnderlyingModule() const { return UnderlyingModule; }
+
+  /// Retrieve the parent pattern binding for a given VarDecl.
+  PatternBindingDecl *getParentPatternBinding(const VarDecl *VD);
 
   /// Searches the module's top-level decls for the given identifier.
   void lookupValue(DeclName name, SmallVectorImpl<ValueDecl*> &results);

@@ -3335,7 +3335,7 @@ public:
     TypeID interfaceTypeID;
     bool isIUO;
     ModuleFile::AccessorRecord accessors;
-    DeclID overriddenID, opaqueReturnTypeID;
+    DeclID overriddenID, parentPatternBindingID, opaqueReturnTypeID;
     unsigned numVTableEntries;
     ArrayRef<uint64_t> arrayFieldIDs;
 
@@ -3351,6 +3351,7 @@ public:
                                        interfaceTypeID,
                                        isIUO,
                                        overriddenID,
+                                       parentPatternBindingID,
                                        rawAccessLevel, rawSetterAccessLevel,
                                        opaqueReturnTypeID,
                                        numBackingProperties,
@@ -3420,6 +3421,11 @@ public:
     var->setIsGetterMutating(isGetterMutating);
     var->setIsSetterMutating(isSetterMutating);
     declOrOffset = var;
+
+    // Remember the decl ID for the parent pattern binding decl to allow its
+    // lazy deserialization. Attempting to eagerly deserialize would be pretty
+    // cycle prone.
+    MF.VarParentPBDs[var] = parentPatternBindingID;
 
     auto interfaceTypeOrError = MF.getTypeChecked(interfaceTypeID);
     if (!interfaceTypeOrError)

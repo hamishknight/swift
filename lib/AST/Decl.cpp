@@ -6852,6 +6852,18 @@ Stmt *VarDecl::getRecursiveParentPatternStmt() const {
   return result->first;
 }
 
+
+PatternBindingDecl *VarDecl::getParentPatternBinding() const {
+  if (!Parent) {
+    if (auto *FU = dyn_cast<FileUnit>(getDeclContext()->getModuleScopeContext()))
+      Parent = FU->getParentPatternBinding(this);
+
+    if (!Parent)
+      return nullptr;
+  }
+  return Parent.dyn_cast<PatternBindingDecl *>();
+}
+
 /// Return the Pattern involved in initializing this VarDecl.  Recall that the
 /// Pattern may be involved in initializing more than just this one vardecl
 /// though.  For example, if this is a VarDecl for "x", the pattern may be
