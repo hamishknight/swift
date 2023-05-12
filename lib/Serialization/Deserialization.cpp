@@ -2778,15 +2778,13 @@ static Optional<swift::Associativity> getActualAssociativity(uint8_t assoc) {
   }
 }
 
-static Optional<swift::StaticSpellingKind>
-getActualStaticSpellingKind(uint8_t raw) {
-  switch (serialization::StaticSpellingKind(raw)) {
-  case serialization::StaticSpellingKind::None:
-    return swift::StaticSpellingKind::None;
-  case serialization::StaticSpellingKind::KeywordStatic:
-    return swift::StaticSpellingKind::KeywordStatic;
-  case serialization::StaticSpellingKind::KeywordClass:
-    return swift::StaticSpellingKind::KeywordClass;
+static Optional<swift::StaticAttr::Spelling>
+getActualStaticSpellingKind(StaticSpellingKind kind) {
+  switch (kind) {
+  case serialization::StaticSpellingKind::Static:
+    return swift::StaticAttr::Spelling::Static;
+  case serialization::StaticSpellingKind::Class:
+    return swift::StaticAttr::Spelling::Class;
   }
   return None;
 }
@@ -3648,8 +3646,7 @@ public:
     if (!introducer)
       return MF.diagnoseFatal();
 
-    auto var = MF.createDecl<VarDecl>(/*IsStatic*/ isStatic, *introducer,
-                                      SourceLoc(), name, DC);
+    auto var = MF.createDecl<VarDecl>(*introducer, SourceLoc(), name, DC);
     var->setIsGetterMutating(isGetterMutating);
     var->setIsSetterMutating(isSetterMutating);
     declOrOffset = var;
@@ -3831,8 +3828,7 @@ public:
                                       bool isAccessor) {
     DeclContextID contextID;
     bool isImplicit;
-    bool isStatic;
-    uint8_t rawStaticSpelling, rawAccessLevel, rawMutModifier;
+    uint8_t rawAccessLevel, rawMutModifier;
     uint8_t rawAccessorKind;
     bool isObjC, hasForcedStaticDispatch, async, throws;
     unsigned numNameComponentsBiased;
@@ -3850,7 +3846,7 @@ public:
 
     if (!isAccessor) {
       decls_block::FuncLayout::readRecord(scratch, contextID, isImplicit,
-                                          isStatic, rawStaticSpelling, isObjC,
+                                          isObjC,
                                           rawMutModifier,
                                           hasForcedStaticDispatch,
                                           async, throws,
@@ -3868,7 +3864,7 @@ public:
                                           nameAndDependencyIDs);
     } else {
       decls_block::AccessorLayout::readRecord(scratch, contextID, isImplicit,
-                                              isStatic, rawStaticSpelling, isObjC,
+                                              isObjC,
                                               rawMutModifier,
                                               hasForcedStaticDispatch,
                                               async, throws,
@@ -3974,10 +3970,6 @@ public:
     // DeclContext for now.
     GenericParamList *genericParams = MF.maybeReadGenericParams(DC);
 
-    auto staticSpelling = getActualStaticSpellingKind(rawStaticSpelling);
-    if (!staticSpelling.has_value())
-      return MF.diagnoseFatal();
-
     if (declOrOffset.isComplete())
       return declOrOffset;
 
@@ -3990,13 +3982,11 @@ public:
 
     FuncDecl *fn;
     if (!isAccessor) {
-      fn = FuncDecl::createDeserialized(ctx, staticSpelling.value(), name,
-                                        async, throws, genericParams,
+      fn = FuncDecl::createDeserialized(ctx, name, async, throws, genericParams,
                                         resultType, DC);
     } else {
       auto *accessor = AccessorDecl::createDeserialized(
-          ctx, accessorKind, storage, staticSpelling.value(), async, throws,
-          resultType, DC);
+          ctx, accessorKind, storage, async, throws, resultType, DC);
       accessor->setIsTransparent(isTransparent);
 
       fn = accessor;
@@ -4031,7 +4021,6 @@ public:
       }
     }
 
-    fn->setStatic(isStatic);
     fn->setImplicitlyUnwrappedOptional(isIUO);
 
     ParameterList *paramList = MF.readParameterList();
@@ -4248,21 +4237,13 @@ public:
                                              StringRef blobData) {
     DeclContextID contextID;
     bool isImplicit;
-    bool isStatic;
-    uint8_t RawStaticSpelling;
     unsigned numPatterns;
     ArrayRef<uint64_t> initContextIDs;
 
     decls_block::PatternBindingLayout::readRecord(scratch, contextID,
                                                   isImplicit,
-                                                  isStatic,
-                                                  RawStaticSpelling,
                                                   numPatterns,
                                                   initContextIDs);
-    auto StaticSpelling = getActualStaticSpellingKind(RawStaticSpelling);
-    if (!StaticSpelling.has_value())
-      return MF.diagnoseFatal();
-
     auto dc = MF.getDeclContext(contextID);
 
     SmallVector<std::pair<Pattern *, DeclContextID>, 4> patterns;
@@ -4286,13 +4267,9 @@ public:
       }
     }
 
-    auto binding =
-      PatternBindingDecl::createDeserialized(ctx, SourceLoc(),
-                                             StaticSpelling.value(),
-                                             SourceLoc(), patterns.size(), dc);
+    auto binding = PatternBindingDecl::createDeserialized(ctx, SourceLoc(),
+                                                          patterns.size(), dc);
     declOrOffset = binding;
-
-    binding->setStatic(isStatic);
 
     if (isImplicit)
       binding->setImplicit();
@@ -4751,7 +4728,7 @@ public:
     bool isIUO;
     ModuleFile::AccessorRecord accessors;
     DeclID overriddenID, opaqueReturnTypeID;
-    uint8_t rawAccessLevel, rawSetterAccessLevel, rawStaticSpelling;
+    uint8_t rawAccessLevel, rawSetterAccessLevel;
     uint8_t opaqueReadOwnership, readImpl, writeImpl, readWriteImpl;
     unsigned numArgNames, numAccessors;
     unsigned numVTableEntries;
@@ -4767,8 +4744,7 @@ public:
                                              elemInterfaceTypeID,
                                              isIUO,
                                              overriddenID, rawAccessLevel,
-                                             rawSetterAccessLevel,
-                                             rawStaticSpelling, numArgNames,
+                                             rawSetterAccessLevel, numArgNames,
                                              opaqueReturnTypeID,
                                              numVTableEntries,
                                              argNameAndDependencyIDs);
@@ -4816,17 +4792,13 @@ public:
     auto *genericParams = MF.maybeReadGenericParams(parent);
     if (declOrOffset.isComplete())
       return declOrOffset;
-    
-    auto staticSpelling = getActualStaticSpellingKind(rawStaticSpelling);
-    if (!staticSpelling.has_value())
-      return MF.diagnoseFatal();
 
     const auto elemInterfaceType = MF.getType(elemInterfaceTypeID);
     if (declOrOffset.isComplete())
       return declOrOffset;
 
     auto *const subscript = SubscriptDecl::createDeserialized(
-        ctx, name, *staticSpelling, elemInterfaceType, parent, genericParams);
+        ctx, name, elemInterfaceType, parent, genericParams);
     subscript->setIsGetterMutating(isGetterMutating);
     subscript->setIsSetterMutating(isSetterMutating);
     declOrOffset = subscript;
@@ -5446,6 +5418,21 @@ llvm::Error DeclDeserializer::deserializeDeclCommon() {
         }
         break;
       }
+
+      case decls_block::Static_DECL_ATTR: {
+        bool isImplicit;
+        uint8_t rawSpelling;
+        serialization::decls_block::StaticDeclAttrLayout::readRecord(
+            scratch, isImplicit, rawSpelling);
+
+        auto spelling = getActualStaticSpellingKind(StaticSpellingKind(rawSpelling));
+        if (!spelling.has_value())
+          return MF.diagnoseFatal();
+
+        Attr = StaticAttr::createDeserialized(ctx, *spelling, isImplicit);
+        break;
+      }
+
       case decls_block::OriginallyDefinedIn_DECL_ATTR: {
         bool isImplicit;
         unsigned Platform;

@@ -314,7 +314,7 @@ static ValueDecl *deriveDifferentiable_method(
 
   DeclName declName(C, methodName, params);
   auto *const funcDecl = FuncDecl::createImplicit(
-      C, StaticSpellingKind::None, declName, /*NameLoc=*/SourceLoc(),
+      C, StaticKind::None, declName, /*NameLoc=*/SourceLoc(),
       /*Async=*/false,
       /*Throws=*/false,
       /*GenericParams=*/nullptr, params, returnType, parentDC);
@@ -408,9 +408,10 @@ getOrSynthesizeTangentVectorStruct(DerivedConformance &derived, Identifier id) {
   for (auto *member : diffProperties) {
     // Add a tangent stored property to the `TangentVector` struct, with the
     // name and `TangentVector` type of the original property.
-    auto *tangentProperty = new (C) VarDecl(
-        member->isStatic(), member->getIntroducer(),
-        /*NameLoc*/ SourceLoc(), member->getName(), structDecl);
+    auto *tangentProperty =
+        VarDecl::createImplicit(C, member->getStaticKind(),
+                                member->getIntroducer(),
+                                member->getName(), structDecl);
     // Note: `tangentProperty` is not marked as implicit or synthesized here,
     // because that incorrectly affects memberwise initializer synthesis and
     // causes the type checker to not guarantee the order of these members.
@@ -425,8 +426,7 @@ getOrSynthesizeTangentVectorStruct(DerivedConformance &derived, Identifier id) {
         TypedPattern::createImplicit(C, memberPattern, memberTanType);
     memberPattern->setType(memberTanType);
     auto *memberBinding = PatternBindingDecl::createImplicit(
-        C, StaticSpellingKind::None, memberPattern, /*initExpr*/ nullptr,
-        structDecl);
+        C, memberPattern, /*initExpr*/ nullptr, structDecl);
     structDecl->addMember(tangentProperty);
     structDecl->addMember(memberBinding);
     tangentProperty->copyFormalAccessFrom(member,

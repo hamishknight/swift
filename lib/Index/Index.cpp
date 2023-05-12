@@ -1456,13 +1456,16 @@ bool IndexSwiftASTWalker::reportPseudoAccessor(AbstractStorageDecl *D,
       return true;
     Info.symInfo.Kind = SymbolKind::Function;
     if (D->getDeclContext()->isTypeContext()) {
-      if (D->isStatic()) {
-        if (D->getCorrectStaticSpelling() == StaticSpellingKind::KeywordClass)
-          Info.symInfo.Kind = SymbolKind::ClassMethod;
-        else
-          Info.symInfo.Kind = SymbolKind::StaticMethod;
-      } else {
+      switch (D->getStaticKind()) {
+      case StaticKind::None:
         Info.symInfo.Kind = SymbolKind::InstanceMethod;
+        break;
+      case StaticKind::Static:
+        Info.symInfo.Kind = SymbolKind::StaticMethod;
+        break;
+      case StaticKind::Class:
+        Info.symInfo.Kind = SymbolKind::ClassMethod;
+        break;
       }
     }
     Info.symInfo.SubKind = getSubKindForAccessor(AccKind);

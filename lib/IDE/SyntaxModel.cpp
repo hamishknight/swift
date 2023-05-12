@@ -927,13 +927,16 @@ ASTWalker::PreWalkAction ModelASTWalker::walkToDeclPre(Decl *D) {
     const DeclContext *DC = AFD->getDeclContext();
     auto *FD = dyn_cast<FuncDecl>(AFD);
     if (DC->isTypeContext()) {
-      if (FD && FD->isStatic()) {
-        if (FD->getStaticSpelling() == StaticSpellingKind::KeywordClass)
-          SN.Kind = SyntaxStructureKind::ClassFunction;
-        else
-          SN.Kind = SyntaxStructureKind::StaticFunction;
-      } else {
+      switch (FD->getStaticKind()) {
+      case StaticKind::None:
         SN.Kind = SyntaxStructureKind::InstanceFunction;
+        break;
+      case StaticKind::Static:
+        SN.Kind = SyntaxStructureKind::StaticFunction;
+        break;
+      case StaticKind::Class:
+        SN.Kind = SyntaxStructureKind::ClassFunction;
+        break;
       }
     }
     else
@@ -1040,16 +1043,16 @@ ASTWalker::PreWalkAction ModelASTWalker::walkToDeclPre(Decl *D) {
     if (DC->isLocalContext()) {
       SN.Kind = SyntaxStructureKind::LocalVariable;
     } else if (DC->isTypeContext()) {
-      if (VD->isStatic()) {
-        StaticSpellingKind Spell = StaticSpellingKind::KeywordStatic;
-        if (auto *PBD = VD->getParentPatternBinding())
-          Spell = PBD->getStaticSpelling();
-        if (Spell == StaticSpellingKind::KeywordClass)
-          SN.Kind = SyntaxStructureKind::ClassVariable;
-        else
-          SN.Kind = SyntaxStructureKind::StaticVariable;
-      } else {
+      switch (VD->getStaticKind()) {
+      case StaticKind::None:
         SN.Kind = SyntaxStructureKind::InstanceVariable;
+        break;
+      case StaticKind::Static:
+        SN.Kind = SyntaxStructureKind::StaticVariable;
+        break;
+      case StaticKind::Class:
+        SN.Kind = SyntaxStructureKind::ClassVariable;
+        break;
       }
     } else {
       SN.Kind = SyntaxStructureKind::GlobalVariable;

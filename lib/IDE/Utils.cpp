@@ -1024,12 +1024,10 @@ bool swift::ide::isDeclOverridable(ValueDecl *D) {
   // structs and enums are already covered by the more general check above.
   if (isa<ClassDecl>(NTD)) {
     if (auto *FD = dyn_cast<FuncDecl>(D)) {
-      if (FD->isStatic() &&
-          FD->getCorrectStaticSpelling() == StaticSpellingKind::KeywordStatic)
+      if (FD->isStatic() && FD->getStaticKind() == StaticKind::Static)
         return false;
     } else if (auto *ASD = dyn_cast<AbstractStorageDecl>(D)) {
-      if (ASD->isStatic() &&
-          ASD->getCorrectStaticSpelling() == StaticSpellingKind::KeywordStatic)
+      if (ASD->isStatic() && ASD->getStaticKind() == StaticKind::Static)
         return false;
     }
   }

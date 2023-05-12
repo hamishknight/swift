@@ -864,7 +864,7 @@ bool AreAllStoredPropertiesDefaultInitableRequest::evaluate(
     // generation of the default initializer.
     if (auto pbd = dyn_cast<PatternBindingDecl>(member)) {
       // Static variables are irrelevant.
-      if (pbd->isStatic()) {
+      if (pbd->hasStaticVar()) {
         continue;
       }
 

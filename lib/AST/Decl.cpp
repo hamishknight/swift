@@ -197,8 +197,8 @@ DescriptiveDeclKind Decl::getDescriptiveKind() const {
 
    case DeclKind::Var: {
      auto var = cast<VarDecl>(this);
-     switch (var->getCorrectStaticSpelling()) {
-     case StaticSpellingKind::None:
+     switch (var->getStaticKind()) {
+     case StaticKind::None:
        if (var->getDeclContext()->isTypeContext()) {
          if (var->isDistributed() && !var->isLet()) {
            return DescriptiveDeclKind::DistributedProperty;
@@ -208,21 +208,21 @@ DescriptiveDeclKind Decl::getDescriptiveKind() const {
        }
        return var->isLet() ? DescriptiveDeclKind::Let
                            : DescriptiveDeclKind::Var;
-     case StaticSpellingKind::KeywordStatic:
+     case StaticKind::Static:
        return DescriptiveDeclKind::StaticProperty;
-     case StaticSpellingKind::KeywordClass:
+     case StaticKind::Class:
        return DescriptiveDeclKind::ClassProperty;
      }
    }
 
    case DeclKind::Subscript: {
      auto subscript = cast<SubscriptDecl>(this);
-     switch (subscript->getCorrectStaticSpelling()) {
-     case StaticSpellingKind::None:
+     switch (subscript->getStaticKind()) {
+     case StaticKind::None:
        return DescriptiveDeclKind::Subscript;
-     case StaticSpellingKind::KeywordStatic:
+     case StaticKind::Static:
        return DescriptiveDeclKind::StaticSubscript;
-     case StaticSpellingKind::KeywordClass:
+     case StaticKind::Class:
        return DescriptiveDeclKind::ClassSubscript;
      }
    }
@@ -274,16 +274,16 @@ DescriptiveDeclKind Decl::getDescriptiveKind() const {
        return DescriptiveDeclKind::GlobalFunction;
 
      // We have a method.
-     switch (func->getCorrectStaticSpelling()) {
-     case StaticSpellingKind::None:
+     switch (func->getStaticKind()) {
+     case StaticKind::None:
        if (func->isDistributed()) {
          return DescriptiveDeclKind::DistributedMethod;
        } else {
          return DescriptiveDeclKind::Method;
        }
-     case StaticSpellingKind::KeywordStatic:
+     case StaticKind::Static:
        return DescriptiveDeclKind::StaticMethod;
-     case StaticSpellingKind::KeywordClass:
+     case StaticKind::Class:
        return DescriptiveDeclKind::ClassMethod;
      }
    }
@@ -540,17 +540,16 @@ bool Decl::hasBackDeployedAttr() const {
   return false;
 }
 
-llvm::raw_ostream &swift::operator<<(llvm::raw_ostream &OS,
-                                     StaticSpellingKind SSK) {
+llvm::raw_ostream &swift::operator<<(llvm::raw_ostream &OS, StaticKind SSK) {
   switch (SSK) {
-  case StaticSpellingKind::None:
+  case StaticKind::None:
     return OS << "<none>";
-  case StaticSpellingKind::KeywordStatic:
+  case StaticKind::Static:
     return OS << "'static'";
-  case StaticSpellingKind::KeywordClass:
+  case StaticKind::Class:
     return OS << "'class'";
   }
-  llvm_unreachable("bad StaticSpellingKind");
+  llvm_unreachable("bad StaticKind");
 }
 
 llvm::raw_ostream &swift::operator<<(llvm::raw_ostream &OS,
@@ -1696,30 +1695,23 @@ ExtensionDecl::getCategoryNameForObjCImplementation() const {
   return attr->CategoryName;
 }
 
-PatternBindingDecl::PatternBindingDecl(SourceLoc StaticLoc,
-                                       StaticSpellingKind StaticSpelling,
-                                       SourceLoc VarLoc,
+PatternBindingDecl::PatternBindingDecl(SourceLoc VarLoc,
                                        unsigned NumPatternEntries,
                                        DeclContext *Parent)
-  : Decl(DeclKind::PatternBinding, Parent),
-    StaticLoc(StaticLoc), VarLoc(VarLoc) {
-  Bits.PatternBindingDecl.IsStatic = StaticLoc.isValid();
-  Bits.PatternBindingDecl.StaticSpelling =
-       static_cast<unsigned>(StaticSpelling);
+    : Decl(DeclKind::PatternBinding, Parent), VarLoc(VarLoc) {
   Bits.PatternBindingDecl.NumPatternEntries = NumPatternEntries;
 }
 
-PatternBindingDecl *
-PatternBindingDecl::create(ASTContext &Ctx, SourceLoc StaticLoc,
-                           StaticSpellingKind StaticSpelling, SourceLoc VarLoc,
-                           Pattern *Pat, SourceLoc EqualLoc, Expr *E,
-                           DeclContext *Parent) {
+PatternBindingDecl *PatternBindingDecl::create(ASTContext &Ctx,
+                                               SourceLoc VarLoc, Pattern *Pat,
+                                               SourceLoc EqualLoc, Expr *E,
+                                               DeclContext *Parent) {
   DeclContext *BindingInitContext = nullptr;
   if (!Parent->isLocalContext())
     BindingInitContext = new (Ctx) PatternBindingInitializer(Parent);
 
   auto PBE = PatternBindingEntry(Pat, EqualLoc, E, BindingInitContext);
-  auto *Result = create(Ctx, StaticLoc, StaticSpelling, VarLoc, PBE, Parent);
+  auto *Result = create(Ctx, VarLoc, PBE, Parent);
 
   if (BindingInitContext)
     cast<PatternBindingInitializer>(BindingInitContext)->setBinding(Result, 0);
@@ -1727,39 +1719,39 @@ PatternBindingDecl::create(ASTContext &Ctx, SourceLoc StaticLoc,
   return Result;
 }
 
-PatternBindingDecl *PatternBindingDecl::createImplicit(
-    ASTContext &Ctx, StaticSpellingKind StaticSpelling, Pattern *Pat, Expr *E,
-    DeclContext *Parent, SourceLoc VarLoc) {
-  auto *Result = create(Ctx, /*StaticLoc*/ SourceLoc(), StaticSpelling, VarLoc,
-                        Pat, /*EqualLoc*/ SourceLoc(), nullptr, Parent);
+PatternBindingDecl *PatternBindingDecl::createImplicit(ASTContext &Ctx,
+                                                       Pattern *Pat, Expr *E,
+                                                       DeclContext *Parent,
+                                                       SourceLoc VarLoc) {
+  auto *Result =
+      create(Ctx, VarLoc, Pat, /*EqualLoc*/ SourceLoc(), nullptr, Parent);
   Result->setImplicit();
   Result->setInit(0, E);
   Result->setOriginalInit(0, E);
   return Result;
 }
 
-PatternBindingDecl *PatternBindingDecl::createForDebugger(
-    ASTContext &Ctx, StaticSpellingKind StaticSpelling, Pattern *Pat, Expr *E,
-    DeclContext *Parent) {
-  auto *Result = createImplicit(Ctx, StaticSpelling, Pat, E, Parent);
+PatternBindingDecl *
+PatternBindingDecl::createForDebugger(ASTContext &Ctx,
+                                      StaticKind StaticSpelling, Pattern *Pat,
+                                      Expr *E, DeclContext *Parent) {
+  auto *Result = createImplicit(Ctx, Pat, E, Parent);
   Result->Bits.PatternBindingDecl.IsDebugger = true;
   for (auto &entry : Result->getMutablePatternList()) {
     entry.setFromDebugger();
   }
+  // FIXME: Set static
   return Result;
 }
 
 PatternBindingDecl *
-PatternBindingDecl::create(ASTContext &Ctx, SourceLoc StaticLoc,
-                           StaticSpellingKind StaticSpelling,
-                           SourceLoc VarLoc,
+PatternBindingDecl::create(ASTContext &Ctx, SourceLoc VarLoc,
                            ArrayRef<PatternBindingEntry> PatternList,
                            DeclContext *Parent) {
   size_t Size = totalSizeToAlloc<PatternBindingEntry>(PatternList.size());
   void *D = allocateMemoryForDecl<PatternBindingDecl>(Ctx, Size,
                                                       /*ClangNode*/false);
-  auto PBD = ::new (D) PatternBindingDecl(StaticLoc, StaticSpelling, VarLoc,
-                                          PatternList.size(), Parent);
+  auto PBD = ::new (D) PatternBindingDecl(VarLoc, PatternList.size(), Parent);
 
   // Set up the patterns.
   auto entries = PBD->getMutablePatternList();
@@ -1780,17 +1772,14 @@ PatternBindingDecl::create(ASTContext &Ctx, SourceLoc StaticLoc,
   return PBD;
 }
 
-PatternBindingDecl *PatternBindingDecl::createDeserialized(
-                      ASTContext &Ctx, SourceLoc StaticLoc,
-                      StaticSpellingKind StaticSpelling,
-                      SourceLoc VarLoc,
-                      unsigned NumPatternEntries,
-                      DeclContext *Parent) {
+PatternBindingDecl *
+PatternBindingDecl::createDeserialized(ASTContext &Ctx, SourceLoc VarLoc,
+                                       unsigned NumPatternEntries,
+                                       DeclContext *Parent) {
   size_t Size = totalSizeToAlloc<PatternBindingEntry>(NumPatternEntries);
   void *D = allocateMemoryForDecl<PatternBindingDecl>(Ctx, Size,
                                                       /*ClangNode*/false);
-  auto PBD = ::new (D) PatternBindingDecl(StaticLoc, StaticSpelling, VarLoc,
-                                          NumPatternEntries, Parent);
+  auto PBD = ::new (D) PatternBindingDecl(VarLoc, NumPatternEntries, Parent);
   for (auto &entry : PBD->getMutablePatternList()) {
     entry = PatternBindingEntry(/*Pattern*/ nullptr, /*EqualLoc*/ SourceLoc(),
                                 /*Init*/ nullptr, /*InitContext*/ nullptr);
@@ -1984,24 +1973,6 @@ SourceRange PatternBindingDecl::getSourceRange() const {
   return { startLoc, endLoc };
 }
 
-static StaticSpellingKind getCorrectStaticSpellingForDecl(const Decl *D) {
-  if (auto classDecl = D->getDeclContext()->getSelfClassDecl()) {
-    if (!classDecl->isActor())
-      return StaticSpellingKind::KeywordClass;
-  }
-
-  return StaticSpellingKind::KeywordStatic;
-}
-
-StaticSpellingKind PatternBindingDecl::getCorrectStaticSpelling() const {
-  if (!isStatic())
-    return StaticSpellingKind::None;
-  if (getStaticSpelling() != StaticSpellingKind::None)
-    return getStaticSpelling();
-
-  return getCorrectStaticSpellingForDecl(this);
-}
-
 bool PatternBindingDecl::isAsyncLet() const {
   if (auto var = getAnchoringVarDecl(0))
     return var->isAsyncLet();
@@ -2029,6 +2000,21 @@ bool PatternBindingDecl::hasStorage() const {
     if (entry.getPattern()->hasStorage())
       return true;
   return false;
+}
+
+bool PatternBindingDecl::hasStaticVar() const {
+  Optional<bool> hasStatic;
+  for (auto entry : getPatternList()) {
+    auto *P = entry.getPattern();
+    P->forEachVariable([&](VarDecl *VD) {
+      if (!hasStatic.has_value()) {
+        hasStatic = VD->isStatic();
+      } else {
+        assert(*hasStatic == VD->isStatic() && "Inconsistent staticness?");
+      }
+    });
+  }
+  return hasStatic.value_or(false);
 }
 
 void PatternBindingDecl::setPattern(unsigned i, Pattern *P,
@@ -3472,6 +3458,11 @@ bool ValueDecl::isDynamic() const {
   return evaluateOrDefault(ctx.evaluator,
     IsDynamicRequest{const_cast<ValueDecl *>(this)},
     getAttrs().hasAttribute<DynamicAttr>());
+}
+
+StaticKind ValueDecl::getStaticKind() const {
+  auto &eval = getASTContext().evaluator;
+  return evaluateOrDefault(eval, IsStaticRequest{this}, StaticKind::None);
 }
 
 bool ValueDecl::isObjCDynamicInGenericClass() const {
@@ -6726,11 +6717,10 @@ bool AbstractStorageDecl::hasInitAccessor() const {
       HasInitAccessorRequest{const_cast<AbstractStorageDecl *>(this)}, false);
 }
 
-VarDecl::VarDecl(DeclKind kind, bool isStatic, VarDecl::Introducer introducer,
-                 SourceLoc nameLoc, Identifier name,
-                 DeclContext *dc, StorageIsMutable_t supportsMutation)
-  : AbstractStorageDecl(kind, isStatic, dc, name, nameLoc, supportsMutation)
-{
+VarDecl::VarDecl(DeclKind kind, VarDecl::Introducer introducer,
+                 SourceLoc nameLoc, Identifier name, DeclContext *dc,
+                 StorageIsMutable_t supportsMutation)
+    : AbstractStorageDecl(kind, dc, name, nameLoc, supportsMutation) {
   Bits.VarDecl.Introducer = unsigned(introducer);
   Bits.VarDecl.IsSelfParamCapture = false;
   Bits.VarDecl.IsDebuggerVar = false;
@@ -6872,6 +6862,30 @@ Expr *VarDecl::getParentExecutableInitializer() const {
   }
 
   return nullptr;
+}
+
+VarDecl *VarDecl::createParsed(ASTContext &ctx, Introducer introducer,
+                               SourceLoc nameLoc, Identifier name,
+                               DeclContext *dc) {
+  return new (ctx) VarDecl(introducer, nameLoc, name, dc);
+}
+
+VarDecl *VarDecl::createImplicit(ASTContext &ctx, StaticKind staticKind,
+                                 Introducer introducer, SourceLoc nameLoc,
+                                 Identifier name, DeclContext *dc) {
+  auto *VD = new (ctx) VarDecl(introducer, nameLoc, name, dc);
+  VD->setImplicit();
+
+  // Set the static kind, note this adds an implicit 'static' attribute.
+  ctx.evaluator.cacheOutput(IsStaticRequest{VD}, std::move(staticKind));
+  return VD;
+}
+
+VarDecl *VarDecl::createImplicit(ASTContext &ctx, StaticKind staticKind,
+                                 Introducer introducer, Identifier name,
+                                 DeclContext *dc) {
+  return VarDecl::createImplicit(ctx, staticKind, introducer,
+                                 /*nameLoc*/ SourceLoc(), name, dc);
 }
 
 SourceRange VarDecl::getSourceRange() const {
@@ -7324,21 +7338,6 @@ StringRef ParamDecl::getSpecifierSpelling(ParamSpecifier specifier) {
   llvm_unreachable("invalid ParamSpecifier");
 }
 
-StaticSpellingKind AbstractStorageDecl::getCorrectStaticSpelling() const {
-  if (!isStatic())
-    return StaticSpellingKind::None;
-  if (auto *VD = dyn_cast<VarDecl>(this)) {
-    if (auto *PBD = VD->getParentPatternBinding()) {
-      if (PBD->getStaticSpelling() != StaticSpellingKind::None)
-        return PBD->getStaticSpelling();
-    }
-  } else if (auto *SD = dyn_cast<SubscriptDecl>(this)) {
-    return SD->getStaticSpelling();
-  }
-
-  return getCorrectStaticSpellingForDecl(this);
-}
-
 llvm::TinyPtrVector<CustomAttr *> VarDecl::getAttachedPropertyWrappers() const {
   auto mutableThis = const_cast<VarDecl *>(this);
   return evaluateOrDefault(getASTContext().evaluator,
@@ -7682,17 +7681,14 @@ clang::PointerAuthQualifier VarDecl::getPointerAuthQualifier() const {
   return clang::PointerAuthQualifier();
 }
 
-ParamDecl::ParamDecl(SourceLoc specifierLoc,
-                     SourceLoc argumentNameLoc, Identifier argumentName,
-                     SourceLoc parameterNameLoc, Identifier parameterName,
-                     DeclContext *dc)
-    : VarDecl(DeclKind::Param,
-              /*IsStatic*/ false,
-              VarDecl::Introducer::Let, parameterNameLoc, parameterName, dc,
-              StorageIsNotMutable),
+ParamDecl::ParamDecl(SourceLoc specifierLoc, SourceLoc argumentNameLoc,
+                     Identifier argumentName, SourceLoc parameterNameLoc,
+                     Identifier parameterName, DeclContext *dc)
+    : VarDecl(DeclKind::Param, VarDecl::Introducer::Let, parameterNameLoc,
+              parameterName, dc, StorageIsNotMutable),
       ArgumentNameAndFlags(argumentName, None),
-      ParameterNameLoc(parameterNameLoc),
-      ArgumentNameLoc(argumentNameLoc), SpecifierLoc(specifierLoc) {
+      ParameterNameLoc(parameterNameLoc), ArgumentNameLoc(argumentNameLoc),
+      SpecifierLoc(specifierLoc) {
   Bits.ParamDecl.OwnershipSpecifier = 0;
   Bits.ParamDecl.defaultArgumentKind =
     static_cast<unsigned>(DefaultArgumentKind::None);
@@ -8338,41 +8334,34 @@ void SubscriptDecl::setElementInterfaceType(Type type) {
 
 SubscriptDecl *
 SubscriptDecl::createDeserialized(ASTContext &Context, DeclName Name,
-                                  StaticSpellingKind StaticSpelling,
                                   Type ElementTy, DeclContext *Parent,
                                   GenericParamList *GenericParams) {
   assert(ElementTy && "Deserialized element type must not be null");
   auto *const SD = new (Context)
-      SubscriptDecl(Name, SourceLoc(), StaticSpelling, SourceLoc(), nullptr,
-                    SourceLoc(), /*ElementTyR=*/nullptr, Parent, GenericParams);
+      SubscriptDecl(Name, SourceLoc(), nullptr, SourceLoc(),
+                    /*ElementTyR=*/nullptr, Parent, GenericParams);
   SD->setElementInterfaceType(ElementTy);
   return SD;
 }
 
 SubscriptDecl *SubscriptDecl::create(ASTContext &Context, DeclName Name,
-                                     SourceLoc StaticLoc,
-                                     StaticSpellingKind StaticSpelling,
                                      SourceLoc SubscriptLoc,
                                      ParameterList *Indices, SourceLoc ArrowLoc,
                                      TypeRepr *ElementTyR, DeclContext *Parent,
                                      GenericParamList *GenericParams) {
   assert(ElementTyR);
-  auto *const SD = new (Context)
-      SubscriptDecl(Name, StaticLoc, StaticSpelling, SubscriptLoc, Indices,
-                    ArrowLoc, ElementTyR, Parent, GenericParams);
+  auto *const SD = new (Context) SubscriptDecl(
+      Name, SubscriptLoc, Indices, ArrowLoc, ElementTyR, Parent, GenericParams);
   return SD;
 }
 
 SubscriptDecl *SubscriptDecl::create(ASTContext &Context, DeclName Name,
-                                     SourceLoc StaticLoc,
-                                     StaticSpellingKind StaticSpelling,
                                      SourceLoc SubscriptLoc,
                                      ParameterList *Indices, SourceLoc ArrowLoc,
                                      Type ElementTy, DeclContext *Parent,
                                      GenericParamList *GenericParams) {
-  auto *const SD = new (Context)
-      SubscriptDecl(Name, StaticLoc, StaticSpelling, SubscriptLoc, Indices,
-                    ArrowLoc, nullptr, Parent, GenericParams);
+  auto *const SD = new (Context) SubscriptDecl(
+      Name, SubscriptLoc, Indices, ArrowLoc, nullptr, Parent, GenericParams);
   SD->setElementInterfaceType(ElementTy);
   return SD;
 }
@@ -8387,10 +8376,10 @@ SubscriptDecl *SubscriptDecl::createImported(ASTContext &Context, DeclName Name,
   auto *DeclPtr = allocateMemoryForDecl<SubscriptDecl>(
       Context, sizeof(SubscriptDecl), /*includeSpaceForClangNode=*/true);
 
-  auto *const SD = ::new (DeclPtr)
-      SubscriptDecl(Name, SourceLoc(), StaticSpellingKind::None, SubscriptLoc,
-                    Indices, ArrowLoc, /*ElementTyR=*/nullptr, Parent,
-                    /*GenericParams=*/nullptr);
+  auto *const SD =
+      ::new (DeclPtr) SubscriptDecl(Name, SubscriptLoc, Indices, ArrowLoc,
+                                    /*ElementTyR=*/nullptr, Parent,
+                                    /*GenericParams=*/nullptr);
   SD->setElementInterfaceType(ElementTy);
   SD->setClangNode(ClangN);
   return SD;
@@ -9243,16 +9232,12 @@ void FuncDecl::setResultInterfaceType(Type type) {
                                         std::move(type));
 }
 
-FuncDecl *FuncDecl::createImpl(ASTContext &Context,
-                               SourceLoc StaticLoc,
-                               StaticSpellingKind StaticSpelling,
-                               SourceLoc FuncLoc,
-                               DeclName Name, SourceLoc NameLoc,
-                               bool Async, SourceLoc AsyncLoc,
-                               bool Throws, SourceLoc ThrowsLoc,
+FuncDecl *FuncDecl::createImpl(ASTContext &Context, SourceLoc FuncLoc,
+                               DeclName Name, SourceLoc NameLoc, bool Async,
+                               SourceLoc AsyncLoc, bool Throws,
+                               SourceLoc ThrowsLoc,
                                GenericParamList *GenericParams,
-                               DeclContext *Parent,
-                               ClangNode ClangN) {
+                               DeclContext *Parent, ClangNode ClangN) {
   bool HasImplicitSelfDecl = Parent->isTypeContext();
   size_t Size = sizeof(FuncDecl) + (HasImplicitSelfDecl
                                     ? sizeof(ParamDecl *)
@@ -9260,9 +9245,8 @@ FuncDecl *FuncDecl::createImpl(ASTContext &Context,
   void *DeclPtr = allocateMemoryForDecl<FuncDecl>(Context, Size,
                                                   !ClangN.isNull());
   auto D = ::new (DeclPtr)
-      FuncDecl(DeclKind::Func, StaticLoc, StaticSpelling, FuncLoc,
-               Name, NameLoc, Async, AsyncLoc, Throws, ThrowsLoc,
-               HasImplicitSelfDecl, GenericParams, Parent);
+      FuncDecl(DeclKind::Func, FuncLoc, Name, NameLoc, Async, AsyncLoc, Throws,
+               ThrowsLoc, HasImplicitSelfDecl, GenericParams, Parent);
   if (ClangN)
     D->setClangNode(ClangN);
   if (HasImplicitSelfDecl)
@@ -9271,63 +9255,69 @@ FuncDecl *FuncDecl::createImpl(ASTContext &Context,
   return D;
 }
 
-FuncDecl *FuncDecl::createDeserialized(ASTContext &Context,
-                                       StaticSpellingKind StaticSpelling,
-                                       DeclName Name, bool Async, bool Throws,
+FuncDecl *FuncDecl::createDeserialized(ASTContext &Context, DeclName Name,
+                                       bool Async, bool Throws,
                                        GenericParamList *GenericParams,
                                        Type FnRetType, DeclContext *Parent) {
   assert(FnRetType && "Deserialized result type must not be null");
-  auto *const FD =
-      FuncDecl::createImpl(Context, SourceLoc(), StaticSpelling, SourceLoc(),
-                           Name, SourceLoc(), Async, SourceLoc(), Throws,
-                           SourceLoc(), GenericParams, Parent, ClangNode());
+  auto *const FD = FuncDecl::createImpl(Context, SourceLoc(), Name, SourceLoc(),
+                                        Async, SourceLoc(), Throws, SourceLoc(),
+                                        GenericParams, Parent, ClangNode());
   FD->setResultInterfaceType(FnRetType);
   return FD;
 }
 
-FuncDecl *FuncDecl::create(ASTContext &Context, SourceLoc StaticLoc,
-                           StaticSpellingKind StaticSpelling, SourceLoc FuncLoc,
+FuncDecl *FuncDecl::create(ASTContext &Context, SourceLoc FuncLoc,
                            DeclName Name, SourceLoc NameLoc, bool Async,
                            SourceLoc AsyncLoc, bool Throws, SourceLoc ThrowsLoc,
                            GenericParamList *GenericParams,
                            ParameterList *BodyParams, TypeRepr *ResultTyR,
                            DeclContext *Parent) {
-  auto *const FD = FuncDecl::createImpl(
-      Context, StaticLoc, StaticSpelling, FuncLoc, Name, NameLoc, Async,
-      AsyncLoc, Throws, ThrowsLoc, GenericParams, Parent, ClangNode());
+  auto *const FD = FuncDecl::createImpl(Context, FuncLoc, Name, NameLoc, Async,
+                                        AsyncLoc, Throws, ThrowsLoc,
+                                        GenericParams, Parent, ClangNode());
   FD->setParameters(BodyParams);
   FD->FnRetType = TypeLoc(ResultTyR);
   return FD;
 }
 
 FuncDecl *FuncDecl::createImplicit(ASTContext &Context,
-                                   StaticSpellingKind StaticSpelling,
-                                   DeclName Name, SourceLoc NameLoc, bool Async,
-                                   bool Throws, GenericParamList *GenericParams,
+                                   StaticKind StaticSpelling, DeclName Name,
+                                   SourceLoc NameLoc, bool Async, bool Throws,
+                                   GenericParamList *GenericParams,
                                    ParameterList *BodyParams, Type FnRetType,
                                    DeclContext *Parent) {
   assert(FnRetType);
-  auto *const FD = FuncDecl::createImpl(
-      Context, SourceLoc(), StaticSpelling, SourceLoc(), Name, NameLoc, Async,
-      SourceLoc(), Throws, SourceLoc(), GenericParams, Parent, ClangNode());
+  auto *const FD = FuncDecl::createImpl(Context, SourceLoc(), Name, NameLoc,
+                                        Async, SourceLoc(), Throws, SourceLoc(),
+                                        GenericParams, Parent, ClangNode());
   FD->setImplicit();
   FD->setParameters(BodyParams);
   FD->setResultInterfaceType(FnRetType);
   return FD;
 }
 
-FuncDecl *FuncDecl::createImported(ASTContext &Context, SourceLoc FuncLoc,
-                                   DeclName Name, SourceLoc NameLoc, bool Async,
+FuncDecl *FuncDecl::createImported(ASTContext &Context, bool isStatic,
+                                   SourceLoc FuncLoc, DeclName Name,
+                                   SourceLoc NameLoc, bool Async,
                                    bool Throws, ParameterList *BodyParams,
                                    Type FnRetType,
                                    GenericParamList *GenericParams,
                                    DeclContext *Parent, ClangNode ClangN) {
   assert(ClangN);
-  auto *const FD = FuncDecl::createImpl(
-      Context, SourceLoc(), StaticSpellingKind::None, FuncLoc, Name, NameLoc,
-      Async, SourceLoc(), Throws, SourceLoc(), GenericParams, Parent, ClangN);
+  auto *const FD =
+      FuncDecl::createImpl(Context, FuncLoc, Name, NameLoc, Async, SourceLoc(),
+                           Throws, SourceLoc(), GenericParams, Parent, ClangN);
   FD->setParameters(BodyParams);
   FD->setResultInterfaceType(FnRetType);
+
+  // Set the static kind, note this adds an implicit 'static' attribute.
+  StaticKind staticKind = StaticKind::None;
+  if (isStatic) {
+    staticKind = (isa<ClassDecl>(Parent) && !cast<ClassDecl>(Parent)->isActor())
+      ? StaticKind::Class : StaticKind::Static;
+  }
+  Context.evaluator.cacheOutput(IsStaticRequest{FD}, std::move(staticKind));
   return FD;
 }
 
@@ -9343,19 +9333,13 @@ OperatorDecl *FuncDecl::getOperatorDecl() const {
                            nullptr);
 }
 
-bool FuncDecl::isStatic() const {
-  ASTContext &ctx = getASTContext();
-  return evaluateOrDefault(ctx.evaluator,
-    IsStaticRequest{const_cast<FuncDecl *>(this)},
-    false);
-}
-
-AccessorDecl *AccessorDecl::createImpl(
-    ASTContext &ctx, SourceLoc declLoc, SourceLoc accessorKeywordLoc,
-    AccessorKind accessorKind, AbstractStorageDecl *storage,
-    SourceLoc staticLoc, StaticSpellingKind staticSpelling, bool async,
-    SourceLoc asyncLoc, bool throws, SourceLoc throwsLoc, DeclContext *parent,
-    ClangNode clangNode) {
+AccessorDecl *AccessorDecl::createImpl(ASTContext &ctx, SourceLoc declLoc,
+                                       SourceLoc accessorKeywordLoc,
+                                       AccessorKind accessorKind,
+                                       AbstractStorageDecl *storage, bool async,
+                                       SourceLoc asyncLoc, bool throws,
+                                       SourceLoc throwsLoc, DeclContext *parent,
+                                       ClangNode clangNode) {
   bool hasImplicitSelfDecl = parent->isTypeContext();
   size_t size = sizeof(AccessorDecl) + (hasImplicitSelfDecl
                                         ? sizeof(ParamDecl *)
@@ -9363,9 +9347,8 @@ AccessorDecl *AccessorDecl::createImpl(
   void *buffer = allocateMemoryForDecl<AccessorDecl>(ctx, size,
                                                      !clangNode.isNull());
   auto D = ::new (buffer)
-      AccessorDecl(declLoc, accessorKeywordLoc, accessorKind, storage,
-                   staticLoc, staticSpelling, async, asyncLoc, throws,
-                   throwsLoc, hasImplicitSelfDecl, parent);
+      AccessorDecl(declLoc, accessorKeywordLoc, accessorKind, storage, async,
+                   asyncLoc, throws, throwsLoc, hasImplicitSelfDecl, parent);
   if (clangNode)
     D->setClangNode(clangNode);
   if (hasImplicitSelfDecl)
@@ -9376,28 +9359,26 @@ AccessorDecl *AccessorDecl::createImpl(
 
 AccessorDecl *AccessorDecl::createDeserialized(
     ASTContext &ctx, AccessorKind accessorKind, AbstractStorageDecl *storage,
-    StaticSpellingKind staticSpelling, bool async, bool throws, Type fnRetType,
-    DeclContext *parent) {
+    bool async, bool throws, Type fnRetType, DeclContext *parent) {
   assert(fnRetType && "Deserialized result type must not be null");
   auto *const D = AccessorDecl::createImpl(
-      ctx, SourceLoc(), SourceLoc(), accessorKind, storage, SourceLoc(),
-      staticSpelling, async, SourceLoc(), throws, SourceLoc(), parent,
-      ClangNode());
+      ctx, SourceLoc(), SourceLoc(), accessorKind, storage, async, SourceLoc(),
+      throws, SourceLoc(), parent, ClangNode());
   D->setResultInterfaceType(fnRetType);
   return D;
 }
 
-AccessorDecl *
-AccessorDecl::create(ASTContext &ctx, SourceLoc declLoc,
-                     SourceLoc accessorKeywordLoc, AccessorKind accessorKind,
-                     AbstractStorageDecl *storage, SourceLoc staticLoc,
-                     StaticSpellingKind staticSpelling, bool async,
-                     SourceLoc asyncLoc, bool throws, SourceLoc throwsLoc,
-                     ParameterList *bodyParams, Type fnRetType,
-                     DeclContext *parent, ClangNode clangNode) {
-  auto *D = AccessorDecl::createImpl(
-      ctx, declLoc, accessorKeywordLoc, accessorKind, storage, staticLoc,
-      staticSpelling, async, asyncLoc, throws, throwsLoc, parent, clangNode);
+AccessorDecl *AccessorDecl::create(ASTContext &ctx, SourceLoc declLoc,
+                                   SourceLoc accessorKeywordLoc,
+                                   AccessorKind accessorKind,
+                                   AbstractStorageDecl *storage, bool async,
+                                   SourceLoc asyncLoc, bool throws,
+                                   SourceLoc throwsLoc,
+                                   ParameterList *bodyParams, Type fnRetType,
+                                   DeclContext *parent, ClangNode clangNode) {
+  auto *D = AccessorDecl::createImpl(ctx, declLoc, accessorKeywordLoc,
+                                     accessorKind, storage, async, asyncLoc,
+                                     throws, throwsLoc, parent, clangNode);
   D->setParameters(bodyParams);
   D->setResultInterfaceType(fnRetType);
   return D;
@@ -9454,16 +9435,6 @@ void AccessorDecl::printUserFacingName(raw_ostream &out) const {
     }
   }
   out << ")";
-}
-
-StaticSpellingKind FuncDecl::getCorrectStaticSpelling() const {
-  assert(getDeclContext()->isTypeContext());
-  if (!isStatic())
-    return StaticSpellingKind::None;
-  if (getStaticSpelling() != StaticSpellingKind::None)
-    return getStaticSpelling();
-
-  return getCorrectStaticSpellingForDecl(this);
 }
 
 Type FuncDecl::getResultInterfaceType() const {

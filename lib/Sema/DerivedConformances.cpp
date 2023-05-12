@@ -516,7 +516,6 @@ DerivedConformance::declareDerivedPropertyGetter(VarDecl *property,
       C,
       /*FuncLoc=*/SourceLoc(), /*AccessorKeywordLoc=*/SourceLoc(),
       AccessorKind::Get, property,
-      /*StaticLoc=*/SourceLoc(), StaticSpellingKind::None,
       /*Async=*/false, /*AsyncLoc=*/SourceLoc(),
       /*Throws=*/false, /*ThrowsLoc=*/SourceLoc(), params,
       property->getInterfaceType(), parentDC);
@@ -543,12 +542,11 @@ DerivedConformance::declareDerivedProperty(SynthesizedIntroducer intro,
                                            Identifier name,
                                            Type propertyInterfaceType,
                                            Type propertyContextType,
-                                           bool isStatic, bool isFinal) {
+                                           StaticKind staticKind, bool isFinal) {
   auto parentDC = getConformanceContext();
 
-  VarDecl *propDecl = new (Context) VarDecl(
-      /*IsStatic*/ isStatic, mapIntroducer(intro), SourceLoc(), name, parentDC);
-  propDecl->setImplicit();
+  auto *propDecl = VarDecl::createImplicit(
+      Context, staticKind, mapIntroducer(intro), name, parentDC);
   propDecl->setSynthesized();
   propDecl->copyFormalAccessFrom(Nominal, /*sourceIsParentContext*/ true);
   propDecl->setInterfaceType(propertyInterfaceType);
@@ -560,8 +558,7 @@ DerivedConformance::declareDerivedProperty(SynthesizedIntroducer intro,
   propPat->setType(propertyContextType);
 
   auto *pbDecl = PatternBindingDecl::createImplicit(
-      Context, StaticSpellingKind::None, propPat, /*InitExpr*/ nullptr,
-      parentDC);
+      Context, propPat, /*InitExpr*/ nullptr, parentDC);
   return {propDecl, pbDecl};
 }
 
@@ -746,18 +743,17 @@ DeclRefExpr *DerivedConformance::convertEnumToIndex(SmallVectorImpl<ASTNode> &st
   Type enumType = enumVarDecl->getType();
   Type intType = C.getIntType();
 
-  auto indexVar = new (C) VarDecl(/*IsStatic*/false, VarDecl::Introducer::Var,
-                                  SourceLoc(), C.getIdentifier(indexName),
-                                  funcDecl);
+  auto *indexVar =
+      VarDecl::createImplicit(C, StaticKind::None, VarDecl::Introducer::Var,
+                              C.getIdentifier(indexName), funcDecl);
   indexVar->setInterfaceType(intType);
-  indexVar->setImplicit();
 
   // generate: var indexVar
   Pattern *indexPat = NamedPattern::createImplicit(C, indexVar, intType);
   indexPat = TypedPattern::createImplicit(C, indexPat, intType);
   indexPat->setType(intType);
   auto *indexBind = PatternBindingDecl::createImplicit(
-      C, StaticSpellingKind::None, indexPat, /*InitExpr*/ nullptr, funcDecl);
+      C, indexPat, /*InitExpr*/ nullptr, funcDecl);
 
   unsigned index = 0;
   SmallVector<ASTNode, 4> cases;
@@ -871,9 +867,9 @@ Pattern *DerivedConformance::enumElementPayloadSubpattern(
     for (auto tupleElement : tupleType->getElements()) {
       VarDecl *payloadVar;
       if (useLabels && tupleElement.hasName()) {
-        payloadVar =
-            new (C) VarDecl(/*IsStatic*/ false, VarDecl::Introducer::Let,
-                            SourceLoc(), tupleElement.getName(), varContext);
+        payloadVar = VarDecl::createImplicit(
+            C, StaticKind::None, VarDecl::Introducer::Let,
+            tupleElement.getName(), varContext);
         payloadVar->setInterfaceType(tupleElement.getType());
       } else {
         payloadVar = indexedVarDecl(varPrefix, index++, tupleElement.getType(),
@@ -881,8 +877,7 @@ Pattern *DerivedConformance::enumElementPayloadSubpattern(
       }
       boundVars.push_back(payloadVar);
 
-      auto namedPattern = new (C) NamedPattern(payloadVar);
-      namedPattern->setImplicit();
+      auto *namedPattern = NamedPattern::createImplicit(C, payloadVar);
       auto letPattern = BindingPattern::createImplicit(
           C, VarDecl::Introducer::Let, namedPattern);
       elementPatterns.push_back(TuplePatternElt(tupleElement.getName(),
@@ -901,8 +896,7 @@ Pattern *DerivedConformance::enumElementPayloadSubpattern(
   auto payloadVar = indexedVarDecl(varPrefix, 0, underlyingType, varContext);
   boundVars.push_back(payloadVar);
 
-  auto namedPattern = new (C) NamedPattern(payloadVar);
-  namedPattern->setImplicit();
+  auto *namedPattern = NamedPattern::createImplicit(C, payloadVar);
   auto letPattern = new (C)
       BindingPattern(SourceLoc(), VarDecl::Introducer::Let, namedPattern);
   return ParenPattern::createImplicit(C, letPattern);
@@ -924,9 +918,9 @@ VarDecl *DerivedConformance::indexedVarDecl(char prefixChar, int index, Type typ
   auto indexStr = C.AllocateCopy(indexVal);
   auto indexStrRef = StringRef(indexStr.data(), indexStr.size());
 
-  auto varDecl = new (C) VarDecl(/*IsStatic*/false, VarDecl::Introducer::Let,
-                                 SourceLoc(), C.getIdentifier(indexStrRef),
-                                 varContext);
+  auto *varDecl =
+      VarDecl::createImplicit(C, StaticKind::None, VarDecl::Introducer::Let,
+                              C.getIdentifier(indexStrRef), varContext);
   varDecl->setInterfaceType(type);
   return varDecl;
 }

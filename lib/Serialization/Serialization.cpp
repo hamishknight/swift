@@ -2257,17 +2257,14 @@ static uint8_t getRawStableAssociativity(swift::Associativity assoc) {
 }
 
 static serialization::StaticSpellingKind
-getStableStaticSpelling(swift::StaticSpellingKind SS) {
+getStableStaticSpelling(swift::StaticAttr::Spelling SS) {
   switch (SS) {
-  case swift::StaticSpellingKind::None:
-    return serialization::StaticSpellingKind::None;
-  case swift::StaticSpellingKind::KeywordStatic:
-    return serialization::StaticSpellingKind::KeywordStatic;
-  case swift::StaticSpellingKind::KeywordClass:
-    return serialization::StaticSpellingKind::KeywordClass;
+  case swift::StaticAttr::Spelling::Static:
+    return serialization::StaticSpellingKind::Static;
+  case swift::StaticAttr::Spelling::Class:
+    return serialization::StaticSpellingKind::Class;
   }
-
-  llvm_unreachable("Unhandled StaticSpellingKind in switch.");
+  llvm_unreachable("Unhandled spelling in switch.");
 }
 
 static uint8_t getRawStableAccessLevel(swift::AccessLevel access) {
@@ -2302,7 +2299,7 @@ getStableSelfAccessKind(swift::SelfAccessKind MM) {
     return serialization::SelfAccessKind::Borrowing;
   }
 
-  llvm_unreachable("Unhandled StaticSpellingKind in switch.");
+  llvm_unreachable("Unhandled SelfAccessKind in switch.");
 }
 
 static uint8_t getRawStableMacroRole(swift::MacroRole context) {
@@ -2782,6 +2779,16 @@ class Serializer::DeclSerializer : public DeclVisitor<DeclSerializer> {
       EffectsDeclAttrLayout::emitRecord(S.Out, S.ScratchRecord, abbrCode,
                                         (unsigned)theAttr->getKind(),
                                         customStringID);
+      return;
+    }
+
+    case DAK_Static: {
+      auto *attr = cast<StaticAttr>(DA);
+      auto abbrCode = S.DeclTypeAbbrCodes[StaticDeclAttrLayout::Code];
+
+      auto spelling = uint8_t(getStableStaticSpelling(attr->getSpelling()));
+      StaticDeclAttrLayout::emitRecord(S.Out, S.ScratchRecord, abbrCode,
+                                       attr->isImplicit(), spelling);
       return;
     }
 
@@ -3858,9 +3865,7 @@ public:
     unsigned abbrCode = S.DeclTypeAbbrCodes[PatternBindingLayout::Code];
     PatternBindingLayout::emitRecord(
         S.Out, S.ScratchRecord, abbrCode, contextID.getOpaqueValue(),
-        binding->isImplicit(), binding->isStatic(),
-        uint8_t(getStableStaticSpelling(binding->getStaticSpelling())),
-        binding->getNumPatternEntries(),
+        binding->isImplicit(), binding->getNumPatternEntries(),
         initContextIDs);
 
     for (auto entryIdx : range(binding->getNumPatternEntries())) {
@@ -4367,9 +4372,6 @@ public:
     FuncLayout::emitRecord(S.Out, S.ScratchRecord, abbrCode,
                            contextID.getOpaqueValue(),
                            fn->isImplicit(),
-                           fn->isStatic(),
-                           uint8_t(
-                             getStableStaticSpelling(fn->getStaticSpelling())),
                            fn->isObjC(),
                            uint8_t(
                              getStableSelfAccessKind(fn->getSelfAccessKind())),
@@ -4484,9 +4486,6 @@ public:
     AccessorLayout::emitRecord(S.Out, S.ScratchRecord, abbrCode,
                                contextID.getOpaqueValue(),
                                fn->isImplicit(),
-                               fn->isStatic(),
-                               uint8_t(getStableStaticSpelling(
-                                                  fn->getStaticSpelling())),
                                fn->isObjC(),
                                uint8_t(getStableSelfAccessKind(
                                                   fn->getSelfAccessKind())),
@@ -4590,8 +4589,6 @@ public:
     if (subscript->supportsMutation())
       rawSetterAccessLevel =
         getRawStableAccessLevel(subscript->getSetterFormalAccess());
-    uint8_t rawStaticSpelling =
-      uint8_t(getStableStaticSpelling(subscript->getStaticSpelling()));
 
     unsigned numVTableEntries = getNumberOfRequiredVTableEntries(subscript);
 
@@ -4614,7 +4611,6 @@ public:
                                 S.addDeclRef(subscript->getOverriddenDecl()),
                                 rawAccessLevel,
                                 rawSetterAccessLevel,
-                                rawStaticSpelling,
                                 subscript->getName().getArgumentNames().size(),
                                 S.addDeclRef(subscript->getOpaqueResultTypeDecl()),
                                 numVTableEntries,

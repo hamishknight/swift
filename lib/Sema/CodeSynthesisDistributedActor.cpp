@@ -90,10 +90,8 @@ static VarDecl *addImplicitDistributedActorIDProperty(
   // ==== Synthesize and add 'id' property to the actor decl
   Type propertyType = getDistributedActorIDType(nominal);
 
-  auto *propDecl = new (C)
-      VarDecl(/*IsStatic*/false, VarDecl::Introducer::Let,
-              SourceLoc(), C.Id_id, nominal);
-  propDecl->setImplicit();
+  auto *propDecl = VarDecl::createImplicit(
+      C, StaticKind::None, VarDecl::Introducer::Let, C.Id_id, nominal);
   propDecl->setSynthesized();
   propDecl->copyFormalAccessFrom(nominal, /*sourceIsParentContext*/ true);
   propDecl->setInterfaceType(propertyType);
@@ -102,9 +100,8 @@ static VarDecl *addImplicitDistributedActorIDProperty(
   propPat = TypedPattern::createImplicit(C, propPat, propertyType);
   propPat->setType(propertyType);
 
-  PatternBindingDecl *pbDecl = PatternBindingDecl::createImplicit(
-      C, StaticSpellingKind::None, propPat, /*InitExpr*/ nullptr,
-      nominal);
+  auto *pbDecl = PatternBindingDecl::createImplicit(
+      C, propPat, /*InitExpr*/ nullptr, nominal);
 
   // mark as nonisolated, allowing access to it from everywhere
   propDecl->getAttrs().add(
@@ -140,10 +137,8 @@ static VarDecl *addImplicitDistributedActorActorSystemProperty(
   // ==== Synthesize and add 'actorSystem' property to the actor decl
   Type propertyType = getDistributedActorSystemType(nominal);
 
-  auto *propDecl = new (C)
-      VarDecl(/*IsStatic*/false, VarDecl::Introducer::Let,
-              SourceLoc(), C.Id_actorSystem, nominal);
-  propDecl->setImplicit();
+  auto *propDecl = VarDecl::createImplicit(
+      C, StaticKind::None, VarDecl::Introducer::Let, C.Id_actorSystem, nominal);
   propDecl->setSynthesized();
   propDecl->copyFormalAccessFrom(nominal, /*sourceIsParentContext*/ true);
   propDecl->setInterfaceType(propertyType);
@@ -152,9 +147,8 @@ static VarDecl *addImplicitDistributedActorActorSystemProperty(
   propPat = TypedPattern::createImplicit(C, propPat, propertyType);
   propPat->setType(propertyType);
 
-  PatternBindingDecl *pbDecl = PatternBindingDecl::createImplicit(
-      C, StaticSpellingKind::None, propPat, /*InitExpr*/ nullptr,
-      nominal);
+  auto *pbDecl = PatternBindingDecl::createImplicit(
+      C, propPat, /*InitExpr*/ nullptr, nominal);
 
   // mark as nonisolated, allowing access to it from everywhere
   propDecl->getAttrs().add(
@@ -298,28 +292,24 @@ deriveBodyDistributed_thunk(AbstractFunctionDecl *thunk, void *context) {
           C, new (C) DeclRefExpr(selfDecl, dloc, implicit), //  TODO: make createImplicit
           C.Id_actorSystem);
 
-  auto *systemVar =
-      new (C) VarDecl(/*isStatic=*/false, VarDecl::Introducer::Let, sloc,
-                      C.Id_system, thunk);
+  auto *systemVar = VarDecl::createImplicit(
+      C, StaticKind::None, VarDecl::Introducer::Let, sloc, C.Id_system, thunk);
   systemVar->setInterfaceType(systemProperty->getInterfaceType());
-  systemVar->setImplicit();
   systemVar->setSynthesized();
 
   Pattern *systemPattern = NamedPattern::createImplicit(C, systemVar);
 
-  auto systemPB = PatternBindingDecl::createImplicit(
-      C, StaticSpellingKind::None, systemPattern, systemRefExpr,
-      thunk);
+  auto systemPB = PatternBindingDecl::createImplicit(C, systemPattern,
+                                                     systemRefExpr, thunk);
 
   remoteBranchStmts.push_back(systemPB);
   remoteBranchStmts.push_back(systemVar);
 
   // --- invocationEncoder = system.makeInvocationEncoder()
   auto *invocationVar =
-      new (C) VarDecl(/*isStatic=*/false, VarDecl::Introducer::Var, sloc,
-                      C.Id_invocation, thunk);
+      VarDecl::createImplicit(C, StaticKind::None, VarDecl::Introducer::Var,
+                              sloc, C.Id_invocation, thunk);
   invocationVar->setInterfaceType(invocationEncoderTy);
-  invocationVar->setImplicit();
   invocationVar->setSynthesized();
 
   {
@@ -336,8 +326,7 @@ deriveBodyDistributed_thunk(AbstractFunctionDecl *thunk, void *context) {
     makeInvocationCallExpr->setThrows(false);
 
     auto invocationEncoderPB = PatternBindingDecl::createImplicit(
-        C, StaticSpellingKind::None, invocationPattern, makeInvocationCallExpr,
-        thunk);
+        C, invocationPattern, makeInvocationCallExpr, thunk);
     remoteBranchStmts.push_back(invocationEncoderPB);
     remoteBranchStmts.push_back(invocationVar);
   }
@@ -402,10 +391,9 @@ deriveBodyDistributed_thunk(AbstractFunctionDecl *thunk, void *context) {
       // --- Prepare the RemoteCallArgument<Value> for the argument
       auto argumentVarName = C.getIdentifier("_" + parameterName.str());
       StructDecl *RCA = C.getRemoteCallArgumentDecl();
-      VarDecl *callArgVar =
-          new (C) VarDecl(/*isStatic=*/false, VarDecl::Introducer::Let, sloc,
-                          argumentVarName, thunk);
-      callArgVar->setImplicit();
+      auto *callArgVar =
+          VarDecl::createImplicit(C, StaticKind::None, VarDecl::Introducer::Let,
+                                  sloc, argumentVarName, thunk);
       callArgVar->setSynthesized();
 
       Pattern *callArgPattern = NamedPattern::createImplicit(C, callArgVar);
@@ -437,7 +425,7 @@ deriveBodyDistributed_thunk(AbstractFunctionDecl *thunk, void *context) {
       initCallArgCallExpr->setImplicit();
 
       auto callArgPB = PatternBindingDecl::createImplicit(
-          C, StaticSpellingKind::None, callArgPattern, initCallArgCallExpr, thunk);
+          C, callArgPattern, initCallArgCallExpr, thunk);
 
       remoteBranchStmts.push_back(callArgPB);
       remoteBranchStmts.push_back(callArgVar);
@@ -542,8 +530,8 @@ deriveBodyDistributed_thunk(AbstractFunctionDecl *thunk, void *context) {
   }
 
   // === Prepare the 'RemoteCallTarget'
-  auto *targetVar = new (C) VarDecl(
-      /*isStatic=*/false, VarDecl::Introducer::Let, sloc, C.Id_target, thunk);
+  auto *targetVar = VarDecl::createImplicit(
+      C, StaticKind::None, VarDecl::Introducer::Let, sloc, C.Id_target, thunk);
 
   {
     // --- Mangle the thunk name
@@ -575,7 +563,7 @@ deriveBodyDistributed_thunk(AbstractFunctionDecl *thunk, void *context) {
         CallExpr::createImplicit(C, initTargetExpr, initTargetArgs);
 
     auto targetPB = PatternBindingDecl::createImplicit(
-        C, StaticSpellingKind::None, targetPattern, initTargetCallExpr, thunk);
+        C, targetPattern, initTargetCallExpr, thunk);
 
     remoteBranchStmts.push_back(targetPB);
     remoteBranchStmts.push_back(targetVar);
@@ -726,7 +714,7 @@ static FuncDecl *createDistributedThunkFunction(FuncDecl *func) {
   ParameterList *params = ParameterList::create(C, paramDecls); // = funcParams->clone(C);
 
   FuncDecl *thunk = FuncDecl::createImplicit(
-      C, swift::StaticSpellingKind::None, thunkName, SourceLoc(),
+      C, swift::StaticKind::None, thunkName, SourceLoc(),
       /*async=*/true, /*throws=*/true, genericParamList, params,
       func->getResultInterfaceType(), DC);
 

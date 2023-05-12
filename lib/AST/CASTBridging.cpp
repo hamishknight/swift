@@ -301,21 +301,21 @@ void *BooleanLiteralExpr_create(BridgedASTContext cContext, bool value,
 }
 
 void *VarDecl_create(BridgedASTContext cContext, void *nameExpr, void *initExpr,
-                     BridgedSourceLoc cLoc, bool isStatic, bool isLet,
+                     BridgedSourceLoc cLoc, bool isLet,
                      BridgedDeclContext cDeclContext) {
   ASTContext &context = convertASTContext(cContext);
   DeclContext *declContext = convertDeclContext(cDeclContext);
 
   auto name = (UnresolvedDeclRefExpr *)nameExpr;
   auto sourceLoc = convertSourceLoc(cLoc);
-  auto varDecl = new (context) VarDecl(
-      isStatic, isLet ? VarDecl::Introducer::Let : VarDecl::Introducer::Var,
+  auto varDecl = VarDecl::createParsed(
+      context,
+      isLet ? VarDecl::Introducer::Let : VarDecl::Introducer::Var,
       sourceLoc, name->getName().getBaseIdentifier(), declContext);
-  auto pattern = NamedPattern::createImplicit(context, varDecl);
+  auto *pattern = NamedPattern::createParsed(context, varDecl);
   return PatternBindingDecl::create(
       context, sourceLoc,
-      isStatic ? StaticSpellingKind::KeywordStatic : StaticSpellingKind::None,
-      sourceLoc, pattern, sourceLoc, (Expr *)initExpr, declContext);
+      pattern, sourceLoc, (Expr *)initExpr, declContext);
 }
 
 void *SingleValueStmtExpr_createWithWrappedBranches(
@@ -383,8 +383,7 @@ void *ParamDecl_create(BridgedASTContext cContext, BridgedSourceLoc cLoc,
 }
 
 BridgedFuncDecl
-FuncDecl_create(BridgedASTContext cContext, BridgedSourceLoc cStaticLoc,
-                bool isStatic, BridgedSourceLoc cFuncLoc,
+FuncDecl_create(BridgedASTContext cContext, BridgedSourceLoc cFuncLoc,
                 BridgedIdentifier name, BridgedSourceLoc cNameLoc, bool isAsync,
                 BridgedSourceLoc cAsyncLoc, bool throws,
                 BridgedSourceLoc cThrowsLoc, BridgedSourceLoc cParamLLoc,
@@ -399,10 +398,8 @@ FuncDecl_create(BridgedASTContext cContext, BridgedSourceLoc cStaticLoc,
   auto declName =
       DeclName(convertASTContext(cContext), convertIdentifier(name), paramList);
   auto *out = FuncDecl::create(
-      context, convertSourceLoc(cStaticLoc),
-      isStatic ? StaticSpellingKind::KeywordStatic : StaticSpellingKind::None,
-      convertSourceLoc(cFuncLoc), declName, convertSourceLoc(cNameLoc), isAsync,
-      convertSourceLoc(cAsyncLoc), throws, convertSourceLoc(cThrowsLoc),
+      context, convertSourceLoc(cFuncLoc), declName, convertSourceLoc(cNameLoc),
+      isAsync, convertSourceLoc(cAsyncLoc), throws, convertSourceLoc(cThrowsLoc),
       nullptr, paramList, (TypeRepr *)returnType, declContext);
 
   return {bridgeDeclContext(out), cast<FuncDecl>(out), cast<Decl>(out)};

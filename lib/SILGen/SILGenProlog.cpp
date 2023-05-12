@@ -1367,14 +1367,11 @@ SILValue SILGenFunction::emitMainExecutor(SILLocation loc) {
 
     ParameterList *emptyParams = ParameterList::createEmpty(ctx);
     getMainExecutorFuncDecl = FuncDecl::createImplicit(
-        ctx, StaticSpellingKind::None,
-        DeclName(
-            ctx,
-            DeclBaseName(ctx.getIdentifier("_getMainExecutor")),
-            /*Arguments*/ emptyParams),
+        ctx, StaticKind::None,
+        DeclName(ctx, DeclBaseName(ctx.getIdentifier("_getMainExecutor")),
+                 /*Arguments*/ emptyParams),
         {}, /*async*/ false, /*throws*/ false, {}, emptyParams,
-        ctx.TheExecutorType,
-        getModule().getSwiftModule());
+        ctx.TheExecutorType, getModule().getSwiftModule());
     getMainExecutorFuncDecl->getAttrs().add(
         new (ctx)
             SILGenNameAttr("swift_task_getMainExecutor", /*implicit*/ true));

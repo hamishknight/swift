@@ -335,7 +335,7 @@ SWIFT_REQUEST(TypeChecker, USRGenerationRequest, std::string(const ValueDecl *),
 SWIFT_REQUEST(TypeChecker, IsABICompatibleOverrideRequest,
               bool(ValueDecl *), Cached, NoLocationInfo)
 SWIFT_REQUEST(TypeChecker, IsStaticRequest,
-              bool(FuncDecl *), SeparatelyCached, NoLocationInfo)
+              StaticKind(const ValueDecl *), SeparatelyCached, NoLocationInfo)
 SWIFT_REQUEST(TypeChecker, NeedsNewVTableEntryRequest,
               bool(AbstractFunctionDecl *), SeparatelyCached, NoLocationInfo)
 SWIFT_REQUEST(TypeChecker, ParamSpecifierRequest,

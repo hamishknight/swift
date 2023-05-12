@@ -157,13 +157,14 @@ UIdent UIdentVisitor::visitFuncDecl(const FuncDecl *D) {
 
   const DeclContext *DC = D->getDeclContext();
   if (DC->isTypeContext()) {
-    if (D->isStatic()) {
-      if (D->getCorrectStaticSpelling() == StaticSpellingKind::KeywordClass)
-        return IsRef ? KindRefMethodClass : KindDeclMethodClass;
-      else
-        return IsRef ? KindRefMethodStatic : KindDeclMethodStatic;
+    switch (D->getStaticKind()) {
+    case StaticKind::None:
+      return IsRef ? KindRefMethodInstance : KindDeclMethodInstance;
+    case StaticKind::Static:
+      return IsRef ? KindRefMethodStatic : KindDeclMethodStatic;
+    case StaticKind::Class:
+      return IsRef ? KindRefMethodClass : KindDeclMethodClass;
     }
-    return IsRef ? KindRefMethodInstance : KindDeclMethodInstance;
   }
   return IsRef ? KindRefFunctionFree : KindDeclFunctionFree;
 }
@@ -171,13 +172,14 @@ UIdent UIdentVisitor::visitFuncDecl(const FuncDecl *D) {
 UIdent UIdentVisitor::visitVarDecl(const VarDecl *D) {
   const DeclContext *DC = D->getDeclContext();
   if (DC->isTypeContext()) {
-    if (D->isStatic()) {
-      if (D->getCorrectStaticSpelling() == StaticSpellingKind::KeywordClass)
-        return IsRef ? KindRefVarClass : KindDeclVarClass;
-      else
-        return IsRef ? KindRefVarStatic : KindDeclVarStatic;
+    switch (D->getStaticKind()) {
+    case StaticKind::None:
+      return IsRef ? KindRefVarInstance : KindDeclVarInstance;
+    case StaticKind::Static:
+      return IsRef ? KindRefVarStatic : KindDeclVarStatic;
+    case StaticKind::Class:
+      return IsRef ? KindRefVarClass : KindDeclVarClass;
     }
-    return IsRef ? KindRefVarInstance : KindDeclVarInstance;
   }
   if (DC->isLocalContext())
     return IsRef ? KindRefVarLocal : KindDeclVarLocal;

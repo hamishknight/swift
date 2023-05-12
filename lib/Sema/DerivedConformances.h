@@ -42,6 +42,7 @@ class ParamDecl;
 class Pattern;
 class PatternBindingDecl;
 class ProtocolDecl;
+enum class StaticKind : uint8_t;
 class StructDecl;
 class Type;
 class TypeDecl;
@@ -367,7 +368,7 @@ public:
   std::pair<VarDecl *, PatternBindingDecl *>
   declareDerivedProperty(SynthesizedIntroducer intro, Identifier name,
                          Type propertyInterfaceType, Type propertyContextType,
-                         bool isStatic, bool isFinal);
+                         StaticKind staticKind, bool isFinal);
 
   /// Add a getter to a derived property.  The property becomes read-only.
   static AccessorDecl *

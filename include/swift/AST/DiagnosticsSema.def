@@ -1596,6 +1596,11 @@ ERROR(functions_mutating_and_not,none,
 ERROR(static_functions_not_mutating,none,
       "static functions must not be declared mutating", ())
 
+ERROR(class_static_decl_not_in_class,none,
+      "'class' %0 are only allowed within classes; use 'static' to declare a "
+      "%select{static|requirement fulfilled by either a static or class}0 %0",
+      (DescriptiveDeclKind, bool))
+
 ERROR(modify_mutatingness_differs_from_setter,none,
       "'modify' accessor cannot be %0 when the setter is %1",
       (SelfAccessKind, SelfAccessKind))
@@ -1994,7 +1999,7 @@ ERROR(unimplemented_static_var,none,
       "%select{ERROR|static|class}1 stored properties not supported"
       "%select{ in this context| in generic types| in classes| in protocol extensions}0"
       "%select{|; did you mean 'static'?}2",
-      (unsigned, StaticSpellingKind, unsigned))
+      (unsigned, StaticKind, unsigned))
 ERROR(observingprop_requires_initializer,none,
       "non-member observing properties require an initializer", ())
 ERROR(global_requires_initializer,none,
@@ -2003,7 +2008,7 @@ ERROR(global_requires_initializer,none,
 ERROR(static_requires_initializer,none,
       "'%select{ERROR|static|class|}0 %select{var|let}1' declaration requires "
       "an initializer expression or an explicitly stated getter",
-      (StaticSpellingKind, bool))
+      (StaticKind, bool))
 NOTE(static_requires_initializer_add_init,none,
       "add an initializer to silence this error", ())
 ERROR(pattern_type_access,none,

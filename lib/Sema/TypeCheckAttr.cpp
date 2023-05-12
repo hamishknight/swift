@@ -140,6 +140,7 @@ public:
   IGNORED_ATTR(EmitAssemblyVisionRemarks)
   IGNORED_ATTR(ShowInInterface)
   IGNORED_ATTR(SILGenName)
+  IGNORED_ATTR(Static)
   IGNORED_ATTR(StaticInitializeObjCMetadata)
   IGNORED_ATTR(SynthesizedProtocol)
   IGNORED_ATTR(Testable)
@@ -2622,7 +2623,7 @@ SynthesizeMainFunctionRequest::evaluate(Evaluator &evaluator,
   }
 
   auto *const func = FuncDecl::createImplicit(
-      context, StaticSpellingKind::KeywordStatic,
+      context, StaticKind::Static,
       DeclName(context, DeclBaseName(context.Id_MainEntryPoint),
                ParameterList::createEmpty(context)),
       /*NameLoc=*/SourceLoc(),
@@ -6043,7 +6044,8 @@ static bool typeCheckDerivativeAttr(DerivativeAttr *attr) {
     if (derivativeMustBeStatic) {
       fixItDiag.fixItInsert(derivative->getStartLoc(), "static ");
     } else {
-      fixItDiag.fixItRemove(derivative->getStaticLoc());
+      if (auto *SA = derivative->getAttrs().getAttribute<StaticAttr>())
+        fixItDiag.fixItRemove(SA->getRange());
     }
     return true;
   }
@@ -6580,7 +6582,8 @@ void AttributeChecker::visitTransposeAttr(TransposeAttr *attr) {
     if (transposeMustBeStatic) {
       fixItDiag.fixItInsert(transpose->getStartLoc(), "static ");
     } else {
-      fixItDiag.fixItRemove(transpose->getStaticLoc());
+      if (auto *SA = transpose->getAttrs().getAttribute<StaticAttr>())
+        fixItDiag.fixItRemove(SA->getRange());
     }
     return;
   }

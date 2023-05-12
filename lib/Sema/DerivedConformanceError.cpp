@@ -99,7 +99,7 @@ deriveBridgedNSError_enum_nsErrorDomain(
   PatternBindingDecl *pbDecl;
   std::tie(propDecl, pbDecl) = derived.declareDerivedProperty(
       DerivedConformance::SynthesizedIntroducer::Var,
-      derived.Context.Id_nsErrorDomain, stringTy, stringTy, /*isStatic=*/true,
+      derived.Context.Id_nsErrorDomain, stringTy, stringTy, StaticKind::Static,
       /*isFinal=*/true);
   addNonIsolatedToSynthesized(derived.Nominal, propDecl);
 

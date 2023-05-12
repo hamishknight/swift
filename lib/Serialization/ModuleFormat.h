@@ -58,7 +58,7 @@ const uint16_t SWIFTMODULE_VERSION_MAJOR = 0;
 /// describe what change you made. The content of this comment isn't important;
 /// it just ensures a conflict if two people change the module format.
 /// Don't worry about adhering to the 80-column limit for this line.
-const uint16_t SWIFTMODULE_VERSION_MINOR = 793; // PluginSearchOption
+const uint16_t SWIFTMODULE_VERSION_MINOR = 794; // static as attr
 
 /// A standard hash seed used for all string hashes in a serialized module.
 ///
@@ -237,11 +237,10 @@ using ReadWriteImplKindField = BCFixed<3>;
 // These IDs must \em not be renumbered or reordered without incrementing
 // the module version.
 enum class StaticSpellingKind : uint8_t {
-  None = 0,
-  KeywordStatic,
-  KeywordClass,
+  Static,
+  Class,
 };
-using StaticSpellingKindField = BCFixed<2>;
+using StaticSpellingKindField = BCFixed<1>;
 
 // These IDs must \em not be renumbered or reordered without incrementing
 // the module version.
@@ -1561,8 +1560,6 @@ namespace decls_block {
     FUNC_DECL,
     DeclContextIDField,  // context decl
     BCFixed<1>,   // implicit?
-    BCFixed<1>,   // is 'static' or 'class'?
-    StaticSpellingKindField, // spelling of 'static' or 'class'
     BCFixed<1>,   // isObjC?
     SelfAccessKindField,   // self access kind
     BCFixed<1>,   // has forced static dispatch?
@@ -1622,8 +1619,6 @@ namespace decls_block {
     ACCESSOR_DECL,
     DeclContextIDField,  // context decl
     BCFixed<1>,   // implicit?
-    BCFixed<1>,   // is 'static' or 'class'?
-    StaticSpellingKindField, // spelling of 'static' or 'class'
     BCFixed<1>,   // isObjC?
     SelfAccessKindField,   // self access kind
     BCFixed<1>,   // has forced static dispatch?
@@ -1654,8 +1649,6 @@ namespace decls_block {
     PATTERN_BINDING_DECL,
     DeclContextIDField, // context decl
     BCFixed<1>,  // implicit flag
-    BCFixed<1>,  // static?
-    StaticSpellingKindField, // spelling of 'static' or 'class'
     BCVBR<3>,    // numpatterns
     BCArray<DeclContextIDField> // init contexts
     // The patterns trail the record.
@@ -1722,7 +1715,6 @@ namespace decls_block {
     DeclIDField, // overridden decl
     AccessLevelField, // access level
     AccessLevelField, // setter access, if applicable
-    StaticSpellingKindField,    // is subscript static?
     BCVBR<5>,    // number of parameter name components
     DeclIDField, // opaque return type decl
     BCVBR<4>,    // total number of vtable entries introduced by all accessors
@@ -2080,6 +2072,12 @@ namespace decls_block {
     Effects_DECL_ATTR,
     BCFixed<3>,   // EffectKind
     DeclIDField   // Custom effect string or 0.
+  >;
+
+  using StaticDeclAttrLayout = BCRecordLayout<
+    Static_DECL_ATTR,
+    BCFixed<1>, // implicit flag
+    StaticSpellingKindField // spelling
   >;
 
   using ForeignErrorConventionLayout = BCRecordLayout<

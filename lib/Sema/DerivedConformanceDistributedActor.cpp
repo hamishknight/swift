@@ -103,15 +103,12 @@ static FuncDecl *deriveDistributedActor_resolve(DerivedConformance &derived) {
   DeclName name(C, C.Id_resolve, params);
 
   // Expected type: (Self) -> (Self.ID, Self.ActorSystem) throws -> (Self)
-  auto *factoryDecl =
-      FuncDecl::createImplicit(C, StaticSpellingKind::KeywordStatic,
-                               name, SourceLoc(),
-                               /*async=*/false,
-                               /*throws=*/true,
-                               /*genericParams=*/nullptr,
-                               params,
-                               /*returnType*/decl->getDeclaredInterfaceType(),
-                               decl);
+  auto *factoryDecl = FuncDecl::createImplicit(
+      C, StaticKind::Static, name, SourceLoc(),
+      /*async=*/false,
+      /*throws=*/true,
+      /*genericParams=*/nullptr, params,
+      /*returnType*/ decl->getDeclaredInterfaceType(), decl);
 
   factoryDecl->setDistributedActorFactory(); // TODO(distributed): should we mark this specifically as the resolve factory?
   factoryDecl->copyFormalAccessFrom(decl, /*sourceIsParentContext=*/true);
@@ -144,9 +141,9 @@ deriveBodyDistributed_doInvokeOnReturn(AbstractFunctionDecl *afd, void *arg) {
   auto returnTypeParam = afd->getParameters()->get(0);
   SmallVector<ASTNode, 8> stmts;
 
-  VarDecl *resultVar =
-      new (C) VarDecl(/*isStatic=*/false, VarDecl::Introducer::Let, sloc,
-                      C.getIdentifier("result"), afd);
+  auto *resultVar =
+      VarDecl::createImplicit(C, StaticKind::None, VarDecl::Introducer::Let,
+                              sloc, C.getIdentifier("result"), afd);
   {
     auto resultLoadCall = CallExpr::createImplicit(
         C,
@@ -165,8 +162,7 @@ deriveBodyDistributed_doInvokeOnReturn(AbstractFunctionDecl *afd, void *arg) {
 
     auto resultPattern = NamedPattern::createImplicit(C, resultVar);
     auto resultPB = PatternBindingDecl::createImplicit(
-        C, swift::StaticSpellingKind::None, resultPattern,
-        /*expr=*/resultLoadCall, afd);
+        C, resultPattern, /*expr=*/resultLoadCall, afd);
 
     stmts.push_back(resultPB);
     stmts.push_back(resultVar);
@@ -253,9 +249,8 @@ static FuncDecl* createLocalFunc_doInvokeOnReturn(
                             std::move(requirements));
 
   FuncDecl *doInvokeOnReturnFunc = FuncDecl::createImplicit(
-      C, swift::StaticSpellingKind::None,
-      DeclName(C, doInvokeLocalFuncIdent, doInvokeParamsList),
-      sloc,
+      C, swift::StaticKind::None,
+      DeclName(C, doInvokeLocalFuncIdent, doInvokeParamsList), sloc,
       /*async=*/true,
       /*throws=*/true, doInvokeGenericParamList, doInvokeParamsList,
       /*returnType=*/C.TheEmptyTupleType, parentFunc);
@@ -307,9 +302,9 @@ deriveBodyDistributed_invokeHandlerOnReturn(AbstractFunctionDecl *afd,
   SmallVector<ASTNode, 8> stmts;
 
   // --- `let m = metatype as! SerializationRequirement.Type`
-  VarDecl *metatypeVar =
-      new (C) VarDecl(/*isStatic=*/false, VarDecl::Introducer::Let, sloc,
-                      C.getIdentifier("m"), func);
+  auto *metatypeVar =
+      VarDecl::createImplicit(C, StaticKind::None, VarDecl::Introducer::Let,
+                              sloc, C.getIdentifier("m"), func);
   {
     metatypeVar->setImplicit();
     metatypeVar->setSynthesized();
@@ -322,8 +317,7 @@ deriveBodyDistributed_invokeHandlerOnReturn(AbstractFunctionDecl *afd,
 
     auto metatypePattern = NamedPattern::createImplicit(C, metatypeVar);
     auto metatypePB = PatternBindingDecl::createImplicit(
-        C, swift::StaticSpellingKind::None, metatypePattern,
-        /*expr=*/metatypeSRCastExpr, func);
+        C, metatypePattern, /*expr=*/metatypeSRCastExpr, func);
 
     stmts.push_back(metatypePB);
     stmts.push_back(metatypeVar);
@@ -416,7 +410,7 @@ static FuncDecl *deriveDistributedActorSystem_invokeHandlerOnReturn(
   // Expected type: (Self.ResultHandler, UnsafeRawPointer, any Any.Type) async
   // throws -> ()
   auto *funcDecl =
-      FuncDecl::createImplicit(C, StaticSpellingKind::None, name, SourceLoc(),
+      FuncDecl::createImplicit(C, StaticKind::None, name, SourceLoc(),
                                /*async=*/true,
                                /*throws=*/true,
                                /*genericParams=*/nullptr, params,
@@ -446,8 +440,7 @@ static ValueDecl *deriveDistributedActor_id(DerivedConformance &derived) {
   PatternBindingDecl *pbDecl;
   std::tie(propDecl, pbDecl) = derived.declareDerivedProperty(
       DerivedConformance::SynthesizedIntroducer::Let, C.Id_id, propertyType,
-      propertyType,
-      /*isStatic=*/false, /*isFinal=*/true);
+      propertyType, StaticKind::None, /*isFinal=*/true);
 
   // mark as nonisolated, allowing access to it from everywhere
   propDecl->getAttrs().add(
@@ -475,8 +468,7 @@ static ValueDecl *deriveDistributedActor_actorSystem(
   PatternBindingDecl *pbDecl;
   std::tie(propDecl, pbDecl) = derived.declareDerivedProperty(
       DerivedConformance::SynthesizedIntroducer::Let, C.Id_actorSystem,
-      propertyType, propertyType,
-      /*isStatic=*/false, /*isFinal=*/true);
+      propertyType, propertyType, StaticKind::None, /*isFinal=*/true);
 
   // mark as nonisolated, allowing access to it from everywhere
   propDecl->getAttrs().add(
@@ -771,8 +763,7 @@ static ValueDecl *deriveDistributedActor_unownedExecutor(DerivedConformance &der
 
   auto propertyPair = derived.declareDerivedProperty(
       DerivedConformance::SynthesizedIntroducer::Var, ctx.Id_unownedExecutor,
-      executorType, executorType,
-      /*static*/ false, /*final*/ false);
+      executorType, executorType, StaticKind::None, /*final*/ false);
   auto property = propertyPair.first;
   property->setSynthesized(true);
   property->getAttrs().add(new (ctx) SemanticsAttr(SEMANTICS_DEFAULT_ACTOR,

@@ -136,14 +136,12 @@ TEST_F(SemaTest, TestCaptureListIsNotOpenedEarly) {
   SmallVector<CaptureListEntry> captures;
   {
     // The capture variable.
-    auto *xVar = new (Context)
-        VarDecl(/*isStatic=*/false, VarDecl::Introducer::Var,
-                /*loc=*/SourceLoc(), Context.getIdentifier("x"), DC);
-    xVar->setImplicit();
+    auto *xVar = VarDecl::createImplicit(Context, StaticKind::None,
+                                         VarDecl::Introducer::Var,
+                                         Context.getIdentifier("x"), DC);
 
     auto *PBD = PatternBindingDecl::createImplicit(
-        Context, StaticSpellingKind::None,
-        /*pattern=*/NamedPattern::createImplicit(Context, xVar),
+        Context, /*pattern=*/NamedPattern::createImplicit(Context, xVar),
         IntegerLiteralExpr::createFromUnsigned(Context, 42, SourceLoc()), DC);
 
     captures.push_back(CaptureListEntry(PBD));

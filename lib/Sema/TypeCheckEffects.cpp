@@ -1408,7 +1408,8 @@ public:
 
 private:
   static Context getContextForPatternBinding(PatternBindingDecl *pbd) {
-    if (!pbd->isStatic() && pbd->getDeclContext()->isTypeContext()) {
+    if (!pbd->getAttrs().hasAttribute<StaticAttr>() &&
+        pbd->getDeclContext()->isTypeContext()) {
       return Context(Kind::IVarInitializer);
     } else {
       return Context(Kind::GlobalVarInitializer);

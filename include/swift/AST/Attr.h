@@ -61,6 +61,7 @@ class LazyConformanceLoader;
 class LazyMemberLoader;
 class ModuleDecl;
 class PatternBindingInitializer;
+enum class StaticKind : uint8_t;
 class TrailingWhereClause;
 class TypeExpr;
 
@@ -1114,6 +1115,39 @@ public:
 
   static bool classof(const DeclAttribute *DA) {
     return DA->getKind() == DAK_TypeEraser;
+  }
+};
+
+class StaticAttr : public DeclAttribute {
+public:
+  enum class Spelling : uint8_t {
+    Static,
+    Class
+  };
+
+private:
+  Spelling TheSpelling;
+
+  StaticAttr(SourceRange range, Spelling spelling, bool isImplicit)
+      : DeclAttribute(DAK_Static, /*atLoc*/ SourceLoc(), range, isImplicit),
+        TheSpelling(spelling) {}
+
+public:
+  static StaticAttr *createParsed(ASTContext &ctx, SourceRange range,
+                                  Spelling spelling);
+  static StaticAttr *createImplicit(ASTContext &ctx, Spelling spelling);
+
+  static StaticAttr *createImplicit(ASTContext &ctx, StaticKind staticKind);
+
+  static StaticAttr *createDeserialized(ASTContext &ctx, Spelling spelling,
+                                        bool isImplicit);
+
+  Spelling getSpelling() const { return TheSpelling; }
+
+  StaticKind getStaticKind() const;
+
+  static bool classof(const DeclAttribute *DA) {
+    return DA->getKind() == DAK_Static;
   }
 };
 

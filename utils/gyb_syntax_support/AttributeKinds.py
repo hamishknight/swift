@@ -412,7 +412,6 @@ DECL_ATTR_KINDS = [
                   NotSerialized,
                   ABIStableToAdd, ABIStableToRemove, APIStableToAdd, APIStableToRemove,
                   code=70),
-    # NOTE: 71 is unused
     DeclAttribute('_objcImplementation', 'ObjCImplementation',
                   OnExtension,
                   UserInaccessible,
@@ -766,12 +765,6 @@ DECL_ATTR_KINDS = [
 # If you're adding a new kind of attribute that is spelled with a leading
 # '@' symbol, add an entry to the `DECL_ATTR_KINDS` array instead.
 DECL_MODIFIER_KINDS = [
-    # These are not really attributes or modifiers in the C++ AST and they are
-    # serialized directly into the ASTs they are attached to rather than using
-    # the generic attribute serialization infrastructure.
-    BuiltinDeclModifier('static', swift_name='staticKeyword'),
-    BuiltinDeclModifier('class', swift_name='classKeyword'),
-
     ContextualSimpleDeclAttribute('final', 'Final',
                                   OnClass, OnFunc, OnAccessor, OnVar, OnSubscript,
                                   DeclModifier,
@@ -842,6 +835,15 @@ DECL_MODIFIER_KINDS = [
                                   NotSerialized,
                                   ABIStableToAdd, ABIStableToRemove, APIStableToAdd, APIStableToRemove,  # noqa: E501
                                   code=44),
+    DeclAttribute('static', 'Static',
+                  OnFunc, OnVar, OnSubscript,
+                  DeclModifier,
+                  ABIBreakingToAdd, ABIBreakingToRemove,
+                  APIBreakingToAdd, APIBreakingToRemove,
+                  swift_name='staticKeyword',
+                  code=71),
+    DeclAttributeAlias('class', 'Static', swift_name='classKeyword'),
+
     DeclAttribute('private', 'AccessControl',
                   OnFunc, OnAccessor, OnExtension, OnGenericType, OnVar, OnSubscript,
                   OnConstructor, OnMacro, OnImport,

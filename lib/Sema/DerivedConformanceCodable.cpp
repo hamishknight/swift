@@ -570,9 +570,8 @@ static VarDecl *createKeyedContainer(ASTContext &C, DeclContext *DC,
                                              C.AllocateCopy(boundType));
 
   // let container : Keyed*Container<KeyType>
-  auto *containerDecl = new (C) VarDecl(/*IsStatic=*/false, introducer,
-                                        SourceLoc(), identifier, DC);
-  containerDecl->setImplicit();
+  auto *containerDecl = VarDecl::createImplicit(C, StaticKind::None,
+                                                introducer, identifier, DC);
   containerDecl->setSynthesized();
   containerDecl->setInterfaceType(containerType);
   return containerDecl;
@@ -861,8 +860,8 @@ deriveBodyEncodable_encode(AbstractFunctionDecl *encodeDecl, void *) {
   // Full `let container = encoder.container(keyedBy: CodingKeys.self)`
   // binding.
   auto *containerPattern = NamedPattern::createImplicit(C, containerDecl);
-  auto *bindingDecl = PatternBindingDecl::createImplicit(
-      C, StaticSpellingKind::None, containerPattern, callExpr, funcDC);
+  auto *bindingDecl =
+      PatternBindingDecl::createImplicit(C, containerPattern, callExpr, funcDC);
   statements.push_back(bindingDecl);
   statements.push_back(containerDecl);
 
@@ -951,11 +950,9 @@ createEnumSwitch(ASTContext &C, DeclContext *DC, Expr *expr, EnumDecl *enumDecl,
         auto copy = C.Allocate<VarDecl *>(payloadVars.size());
         for (unsigned i : indices(payloadVars)) {
           auto *vOld = payloadVars[i];
-          auto *vNew = new (C) VarDecl(
-              /*IsStatic*/ false, vOld->getIntroducer(), vOld->getNameLoc(),
+          copy[i] = VarDecl::createImplicit(
+              C, StaticKind::None, vOld->getIntroducer(), vOld->getNameLoc(),
               vOld->getName(), vOld->getDeclContext());
-          vNew->setImplicit();
-          copy[i] = vNew;
         }
         caseBodyVarDecls.emplace(copy);
       }
@@ -1025,8 +1022,8 @@ static DeclRefExpr *createContainer(ASTContext &C, DeclContext *DC,
   // Full `let container = decoder.container(keyedBy: CodingKeys.self)`
   // binding.
   auto *containerPattern = NamedPattern::createImplicit(C, containerDecl);
-  auto *bindingDecl = PatternBindingDecl::createImplicit(
-      C, StaticSpellingKind::None, containerPattern, callExpr, DC);
+  auto *bindingDecl =
+      PatternBindingDecl::createImplicit(C, containerPattern, callExpr, DC);
   statements.push_back(bindingDecl);
   statements.push_back(containerDecl);
 
@@ -1143,8 +1140,7 @@ deriveBodyEncodable_enum_encode(AbstractFunctionDecl *encodeDecl, void *) {
           auto *containerPattern =
               NamedPattern::createImplicit(C, nestedContainerDecl);
           auto *bindingDecl = PatternBindingDecl::createImplicit(
-              C, StaticSpellingKind::None, containerPattern,
-              nestedContainerCall, funcDC);
+              C, containerPattern, nestedContainerCall, funcDC);
           caseStatements.push_back(bindingDecl);
           caseStatements.push_back(nestedContainerDecl);
 
@@ -1228,7 +1224,7 @@ static FuncDecl *deriveEncodable_encode(DerivedConformance &derived) {
   // Func name: encode(to: Encoder)
   DeclName name(C, C.Id_encode, params);
   auto *const encodeDecl = FuncDecl::createImplicit(
-      C, StaticSpellingKind::None, name, /*NameLoc=*/SourceLoc(),
+      C, StaticKind::None, name, /*NameLoc=*/SourceLoc(),
       /*Async=*/false,
       /*Throws=*/true, /*GenericParams=*/nullptr, params, returnType,
       conformanceDC);
@@ -1367,8 +1363,8 @@ deriveBodyDecodable_init(AbstractFunctionDecl *initDecl, void *) {
     // Full `let container = decoder.container(keyedBy: CodingKeys.self)`
     // binding.
     auto *containerPattern = NamedPattern::createImplicit(C, containerDecl);
-    auto *bindingDecl = PatternBindingDecl::createImplicit(
-        C, StaticSpellingKind::None, containerPattern, tryExpr, funcDC);
+    auto *bindingDecl = PatternBindingDecl::createImplicit(C, containerPattern,
+                                                           tryExpr, funcDC);
     statements.push_back(bindingDecl);
     statements.push_back(containerDecl);
 
@@ -1602,10 +1598,8 @@ deriveBodyDecodable_enum_init(AbstractFunctionDecl *initDecl, void *) {
         /*throws*/ true);
 
     // generate: var allKeys = ArraySlice(container.allKeys);
-    auto *allKeysDecl =
-        new (C) VarDecl(/*IsStatic=*/false, VarDecl::Introducer::Var,
-                        SourceLoc(), C.Id_allKeys, funcDC);
-    allKeysDecl->setImplicit();
+    auto *allKeysDecl = VarDecl::createImplicit(
+        C, StaticKind::None, VarDecl::Introducer::Var, C.Id_allKeys, funcDC);
     allKeysDecl->setSynthesized();
     {
       auto *arraySliceRef =
@@ -1618,8 +1612,8 @@ deriveBodyDecodable_enum_init(AbstractFunctionDecl *initDecl, void *) {
       auto *init = CallExpr::createImplicit(C, arraySliceRef, argList);
 
       auto *allKeysPattern = NamedPattern::createImplicit(C, allKeysDecl);
-      auto *allKeysBindingDecl = PatternBindingDecl::createImplicit(
-          C, StaticSpellingKind::None, allKeysPattern, init, funcDC);
+      auto *allKeysBindingDecl =
+          PatternBindingDecl::createImplicit(C, allKeysPattern, init, funcDC);
 
       statements.push_back(allKeysBindingDecl);
       statements.push_back(allKeysDecl);
@@ -1634,9 +1628,8 @@ deriveBodyDecodable_enum_init(AbstractFunctionDecl *initDecl, void *) {
     //    throw DecodingError.typeMismatch(Foo.self, context)
     //  }
     auto *theKeyDecl =
-        new (C) VarDecl(/*IsStatic=*/false, VarDecl::Introducer::Let,
-                        SourceLoc(), C.getIdentifier("onlyKey"), funcDC);
-    theKeyDecl->setImplicit();
+        VarDecl::createImplicit(C, StaticKind::None, VarDecl::Introducer::Let,
+                                C.getIdentifier("onlyKey"), funcDC);
     theKeyDecl->setSynthesized();
 
     SmallVector<StmtConditionElement, 2> guardElements;
@@ -1714,8 +1707,7 @@ deriveBodyDecodable_enum_init(AbstractFunctionDecl *initDecl, void *) {
           auto *containerPattern =
               NamedPattern::createImplicit(C, nestedContainerDecl);
           auto *bindingDecl = PatternBindingDecl::createImplicit(
-              C, StaticSpellingKind::None, containerPattern,
-              tryNestedContainerCall, funcDC);
+              C, containerPattern, tryNestedContainerCall, funcDC);
           caseStatements.push_back(bindingDecl);
           caseStatements.push_back(nestedContainerDecl);
 

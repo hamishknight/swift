@@ -374,29 +374,6 @@ const PatternBindingEntry *PatternBindingEntryRequest::evaluate(
   binding->setPattern(entryNumber, pattern,
                       binding->getInitContext(entryNumber));
 
-  // Validate 'static'/'class' on properties in nominal type decls.
-  auto StaticSpelling = binding->getStaticSpelling();
-  if (StaticSpelling != StaticSpellingKind::None &&
-      isa<ExtensionDecl>(binding->getDeclContext())) {
-    if (auto *NTD = binding->getDeclContext()->getSelfNominalTypeDecl()) {
-      if (!isa<ClassDecl>(NTD)) {
-        if (StaticSpelling == StaticSpellingKind::KeywordClass) {
-          binding->diagnose(diag::class_var_not_in_class, false)
-              .fixItReplace(binding->getStaticLoc(), "static");
-          NTD->diagnose(diag::extended_type_declared_here);
-        }
-      }
-    }
-  }
-
-  // Reject "class" methods on actors.
-  if (StaticSpelling == StaticSpellingKind::KeywordClass &&
-      binding->getDeclContext()->getSelfClassDecl() &&
-      binding->getDeclContext()->getSelfClassDecl()->isActor()) {
-    binding->diagnose(diag::class_var_not_in_class, false)
-        .fixItReplace(binding->getStaticLoc(), "static");
-  }
-
   // Check the pattern.
   auto contextualPattern =
       ContextualPattern::forPatternBindingDecl(binding, entryNumber);
@@ -420,9 +397,9 @@ const PatternBindingEntry *PatternBindingEntryRequest::evaluate(
     bool hasConst = sv->getAttrs().getAttribute<CompileTimeConstAttr>();
     if (!hasConst)
       continue;
-    bool hasStatic = StaticSpelling != StaticSpellingKind::None;
+
     // only static _const let/var is supported
-    if (shouldRequireStatic && !hasStatic) {
+    if (shouldRequireStatic && !sv->isStatic()) {
       binding->diagnose(diag::require_static_for_const);
       continue;
     }
@@ -1518,10 +1495,10 @@ synthesizeLazyGetterBody(AccessorDecl *Get, VarDecl *VD, VarDecl *Storage,
   SmallVector<ASTNode, 6> Body;
 
   // Load the existing storage and store it into the 'tmp1' temporary.
-  auto *Tmp1VD = new (Ctx) VarDecl(/*IsStatic*/false, VarDecl::Introducer::Let,
-                                   SourceLoc(), Ctx.getIdentifier("tmp1"), Get);
+  auto *Tmp1VD =
+      VarDecl::createImplicit(Ctx, StaticKind::None, VarDecl::Introducer::Let,
+                              Ctx.getIdentifier("tmp1"), Get);
   Tmp1VD->setInterfaceType(VD->getValueInterfaceType());
-  Tmp1VD->setImplicit();
 
   auto *Named = NamedPattern::createImplicit(Ctx, Tmp1VD, Tmp1VD->getType());
   auto *Let =
@@ -1550,13 +1527,10 @@ synthesizeLazyGetterBody(AccessorDecl *Get, VarDecl *VD, VarDecl *Storage,
                                   /*elseloc*/SourceLoc(), /*else*/nullptr,
                                   /*implicit*/ true));
 
-
-  auto *Tmp2VD = new (Ctx) VarDecl(/*IsStatic*/false, VarDecl::Introducer::Let,
-                                   SourceLoc(), Ctx.getIdentifier("tmp2"),
-                                   Get);
+  auto *Tmp2VD =
+      VarDecl::createImplicit(Ctx, StaticKind::None, VarDecl::Introducer::Let,
+                              Ctx.getIdentifier("tmp2"), Get);
   Tmp2VD->setInterfaceType(VD->getValueInterfaceType());
-  Tmp2VD->setImplicit();
-
 
   // Take the initializer from the PatternBindingDecl for VD.
   // TODO: This doesn't work with complicated patterns like:
@@ -1594,8 +1568,7 @@ synthesizeLazyGetterBody(AccessorDecl *Get, VarDecl *VD, VarDecl *Storage,
     TypedPattern::createImplicit(Ctx, Tmp2PBDPattern, Tmp2VD->getType());
 
   auto *Tmp2PBD = PatternBindingDecl::createImplicit(
-      Ctx, StaticSpellingKind::None, Tmp2PBDPattern, InitValue, Get,
-      /*VarLoc*/ InitValue->getStartLoc());
+      Ctx, Tmp2PBDPattern, InitValue, Get, /*VarLoc*/ InitValue->getStartLoc());
   Body.push_back(Tmp2PBD);
   Body.push_back(Tmp2VD);
 
@@ -1828,14 +1801,14 @@ synthesizeObservedSetterBody(AccessorDecl *Set, TargetImpl target,
         OldValueExpr = new (Ctx) LoadExpr(OldValueExpr, VD->getType());
       }
 
-      OldValue = new (Ctx) VarDecl(/*IsStatic*/ false, VarDecl::Introducer::Let,
-                                   SourceLoc(), Ctx.getIdentifier("tmp"), Set);
-      OldValue->setImplicit();
+      OldValue = VarDecl::createImplicit(Ctx, StaticKind::None,
+                                         VarDecl::Introducer::Let,
+                                         Ctx.getIdentifier("tmp"), Set);
       OldValue->setInterfaceType(VD->getValueInterfaceType());
       auto *tmpPattern =
           NamedPattern::createImplicit(Ctx, OldValue, OldValue->getType());
-      auto *tmpPBD = PatternBindingDecl::createImplicit(
-          Ctx, StaticSpellingKind::None, tmpPattern, OldValueExpr, Set);
+      auto *tmpPBD = PatternBindingDecl::createImplicit(Ctx, tmpPattern,
+                                                        OldValueExpr, Set);
       SetterBody.push_back(tmpPBD);
       SetterBody.push_back(OldValue);
     }
@@ -2140,13 +2113,8 @@ static AccessorDecl *createGetterPrototype(AbstractStorageDecl *storage,
   // Add an index-forwarding clause.
   auto *getterParams = buildIndexForwardingParamList(storage, {}, ctx);
 
-  SourceLoc staticLoc;
-  if (storage->isStatic())
-    staticLoc = storage->getLoc();
-
   auto getter = AccessorDecl::create(
       ctx, loc, /*AccessorKeywordLoc*/ loc, AccessorKind::Get, storage,
-      staticLoc, StaticSpellingKind::None,
       /*Async=*/false, /*AsyncLoc=*/SourceLoc(),
       /*Throws=*/false, /*ThrowsLoc=*/SourceLoc(), getterParams, Type(),
       storage->getDeclContext());
@@ -2243,7 +2211,6 @@ static AccessorDecl *createSetterPrototype(AbstractStorageDecl *storage,
 
   auto setter = AccessorDecl::create(
       ctx, loc, /*AccessorKeywordLoc*/ SourceLoc(), AccessorKind::Set, storage,
-      /*StaticLoc=*/SourceLoc(), StaticSpellingKind::None,
       /*Async=*/false, /*AsyncLoc=*/SourceLoc(),
       /*Throws=*/false, /*ThrowsLoc=*/SourceLoc(), params, Type(),
       storage->getDeclContext());
@@ -2322,7 +2289,6 @@ createCoroutineAccessorPrototype(AbstractStorageDecl *storage,
 
   auto *accessor = AccessorDecl::create(
       ctx, loc, /*AccessorKeywordLoc=*/SourceLoc(), kind, storage,
-      /*StaticLoc=*/SourceLoc(), StaticSpellingKind::None,
       /*Async=*/false, /*AsyncLoc=*/SourceLoc(),
       /*Throws=*/false, /*ThrowsLoc=*/SourceLoc(), params, retTy, dc);
   accessor->setSynthesized();
@@ -2652,15 +2618,14 @@ LazyStoragePropertyRequest::evaluate(Evaluator &evaluator,
   auto StorageInterfaceTy = OptionalType::get(VD->getInterfaceType());
   auto StorageTy = OptionalType::get(VD->getType());
 
-  auto *Storage = new (Context) VarDecl(/*IsStatic*/false, VarDecl::Introducer::Var,
-                                        VD->getLoc(), StorageName,
-                                        VD->getDeclContext());
+  auto *Storage = VarDecl::createImplicit(
+      Context, StaticKind::None, VarDecl::Introducer::Var, VD->getLoc(),
+      StorageName, VD->getDeclContext());
   Storage->setInterfaceType(StorageInterfaceTy);
   Storage->setLazyStorageProperty(true);
   Storage->setUserAccessible(false);
 
-  // The storage is implicit and private.
-  Storage->setImplicit();
+  // The storage is private.
   Storage->overwriteAccess(AccessLevel::Private);
   Storage->overwriteSetterAccess(AccessLevel::Private);
 
@@ -2674,9 +2639,9 @@ LazyStoragePropertyRequest::evaluate(Evaluator &evaluator,
   auto *InitExpr = new (Context) NilLiteralExpr(SourceLoc(), /*Implicit=*/true);
   InitExpr->setType(Storage->getType());
 
-  auto *PBD = PatternBindingDecl::createImplicit(
-      Context, StaticSpellingKind::None, PBDPattern, InitExpr,
-      VD->getDeclContext(), /*VarLoc*/ VD->getLoc());
+  auto *PBD = PatternBindingDecl::createImplicit(Context, PBDPattern, InitExpr,
+                                                 VD->getDeclContext(),
+                                                 /*VarLoc*/ VD->getLoc());
   PBD->setInitializerChecked(0);
 
   addMemberToContextIfNeeded(PBD, VD->getDeclContext(), Storage);
@@ -2701,10 +2666,8 @@ static VarDecl *synthesizeLocalWrappedValueVar(VarDecl *var) {
   }
   Identifier name = ctx.getIdentifier(nameBuf);
 
-  VarDecl *localVar = new (ctx) VarDecl(/*IsStatic=*/false,
-                                        VarDecl::Introducer::Var,
-                                        var->getLoc(), name, dc);
-  localVar->setImplicit();
+  auto *localVar = VarDecl::createImplicit(
+      ctx, StaticKind::None, VarDecl::Introducer::Var, var->getLoc(), name, dc);
   localVar->getAttrs() = var->getAttrs();
   localVar->overwriteAccess(var->getFormalAccess());
 
@@ -2773,11 +2736,9 @@ static VarDecl *synthesizePropertyWrapperProjectionVar(
 
   // Form the property.
   auto dc = var->getDeclContext();
-  VarDecl *property = new (ctx) VarDecl(/*IsStatic=*/var->isStatic(),
-                                        VarDecl::Introducer::Var,
-                                        var->getLoc(),
-                                        name, dc);
-  property->setImplicit();
+  auto *property = VarDecl::createImplicit(ctx, var->getStaticKind(),
+                                           VarDecl::Introducer::Var,
+                                           var->getLoc(), name, dc);
   property->setOriginalWrappedProperty(var);
   addMemberToContextIfNeeded(property, dc, var);
 
@@ -3028,11 +2989,8 @@ PropertyWrapperAuxiliaryVariablesRequest::evaluate(Evaluator &evaluator,
     backingVar->setName(name);
   } else {
     auto introducer = isa<ParamDecl>(var) ? VarDecl::Introducer::Let : VarDecl::Introducer::Var;
-    backingVar = new (ctx) VarDecl(/*IsStatic=*/var->isStatic(),
-                                   introducer,
-                                   var->getLoc(),
-                                   name, dc);
-    backingVar->setImplicit();
+    backingVar = VarDecl::createImplicit(ctx, var->getStaticKind(), introducer,
+                                         var->getLoc(), name, dc);
     backingVar->setOriginalWrappedProperty(var);
 
     // The backing storage is 'private'.
@@ -3085,10 +3043,8 @@ PropertyWrapperInitializerInfoRequest::evaluate(Evaluator &evaluator,
         NamedPattern::createImplicit(ctx, singleVar, singleVar->getType());
     pattern = TypedPattern::createImplicit(ctx, pattern, singleVar->getType());
     PatternBindingDecl *pbd = PatternBindingDecl::createImplicit(
-        ctx, var->getCorrectStaticSpelling(), pattern, /*init*/nullptr,
-        dc, SourceLoc());
+        ctx, pattern, /*init*/ nullptr, dc, SourceLoc());
     addMemberToContextIfNeeded(pbd, dc, var);
-    pbd->setStatic(var->isStatic());
     return pbd;
   };
 

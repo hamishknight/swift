@@ -1472,7 +1472,7 @@ void SILGenFunction::emitMemberInitializers(DeclContext *dc,
   for (auto member : nominal->getImplementationContext()->getMembers()) {
     // Find instance pattern binding declarations that have initializers.
     if (auto pbd = dyn_cast<PatternBindingDecl>(member)) {
-      if (pbd->isStatic()) continue;
+      if (pbd->hasStaticVar()) continue;
 
       // Skip properties with init accessors, they could only be used
       // explicitly and in memberwise initializers.

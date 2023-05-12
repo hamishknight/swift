@@ -303,7 +303,7 @@ void *ArrayExpr_create(BridgedASTContext cContext, BridgedSourceLoc cLLoc,
                        BridgedSourceLoc cRLoc);
 
 void *VarDecl_create(BridgedASTContext cContext, void *nameExpr, void *initExpr,
-                     BridgedSourceLoc cLoc, _Bool isStatic, _Bool isLet,
+                     BridgedSourceLoc cLoc, _Bool isLet,
                      BridgedDeclContext cDeclContext);
 
 void *SingleValueStmtExpr_createWithWrappedBranches(
@@ -325,8 +325,7 @@ void *ParamDecl_create(BridgedASTContext cContext, BridgedSourceLoc cLoc,
                        void *_Nullable type, BridgedDeclContext cDeclContext);
 
 struct BridgedFuncDecl
-FuncDecl_create(BridgedASTContext cContext, BridgedSourceLoc cStaticLoc,
-                _Bool isStatic, BridgedSourceLoc cFuncLoc,
+FuncDecl_create(BridgedASTContext cContext, BridgedSourceLoc cFuncLoc,
                 BridgedIdentifier name, BridgedSourceLoc cNameLoc,
                 _Bool isAsync, BridgedSourceLoc cAsyncLoc, _Bool throws,
                 BridgedSourceLoc cThrowsLoc, BridgedSourceLoc cParamLLoc,

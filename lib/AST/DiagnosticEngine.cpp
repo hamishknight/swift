@@ -788,14 +788,13 @@ static void formatDiagnosticArgument(StringRef Modifier,
     }
     break;
 
-  case DiagnosticArgumentKind::StaticSpellingKind:
+  case DiagnosticArgumentKind::StaticKind:
     if (Modifier == "select") {
       formatSelectionArgument(ModifierArguments, Args,
                               unsigned(Arg.getAsStaticSpellingKind()),
                               FormatOpts, Out);
     } else {
-      assert(Modifier.empty() &&
-             "Improper modifier for StaticSpellingKind argument");
+      assert(Modifier.empty() && "Improper modifier for StaticKind argument");
       Out << Arg.getAsStaticSpellingKind();
     }
     break;

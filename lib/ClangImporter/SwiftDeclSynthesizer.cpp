@@ -89,7 +89,6 @@ static AccessorDecl *makeFieldGetterDecl(ClangImporter::Implementation &Impl,
       C,
       /*declLoc=*/importedFieldDecl->getLoc(),
       /*AccessorKeywordLoc=*/SourceLoc(), AccessorKind::Get, importedFieldDecl,
-      /*StaticLoc=*/SourceLoc(), StaticSpellingKind::None,
       /*Async=*/false, /*AsyncLoc=*/SourceLoc(),
       /*Throws=*/false,
       /*ThrowsLoc=*/SourceLoc(), params, getterType, importedDecl, clangNode);
@@ -118,7 +117,6 @@ static AccessorDecl *makeFieldSetterDecl(ClangImporter::Implementation &Impl,
       C,
       /*declLoc=*/SourceLoc(),
       /*AccessorKeywordLoc=*/SourceLoc(), AccessorKind::Set, importedFieldDecl,
-      /*StaticLoc=*/SourceLoc(), StaticSpellingKind::None,
       /*Async=*/false, /*AsyncLoc=*/SourceLoc(),
       /*Throws=*/false,
       /*ThrowsLoc=*/SourceLoc(), params, voidTy, importedDecl, clangNode);
@@ -139,8 +137,7 @@ SwiftDeclSynthesizer::createVarWithPattern(DeclContext *dc, Identifier name,
   ASTContext &ctx = dc->getASTContext();
 
   // Create a variable to store the underlying value.
-  auto var = new (ctx) VarDecl(
-      /*IsStatic*/ false, introducer, SourceLoc(), name, dc);
+  auto var = new (ctx) VarDecl(introducer, SourceLoc(), name, dc);
   if (isImplicit)
     var->setImplicit();
   var->setInterfaceType(ty);
@@ -150,8 +147,7 @@ SwiftDeclSynthesizer::createVarWithPattern(DeclContext *dc, Identifier name,
   // Create a pattern binding to describe the variable.
   Pattern *varPattern = createTypedNamedPattern(var);
   auto *patternBinding = PatternBindingDecl::create(
-      ctx, /*StaticLoc*/ SourceLoc(), StaticSpellingKind::None,
-      /*VarLoc*/ SourceLoc(), varPattern, /*EqualLoc*/ SourceLoc(),
+      ctx, /*VarLoc*/ SourceLoc(), varPattern, /*EqualLoc*/ SourceLoc(),
       /*InitExpr*/ nullptr, dc);
   if (isImplicit)
     patternBinding->setImplicit();
@@ -163,9 +159,7 @@ Pattern *SwiftDeclSynthesizer::createTypedNamedPattern(VarDecl *decl) {
   ASTContext &Ctx = decl->getASTContext();
   Type ty = decl->getType();
 
-  Pattern *P = new (Ctx) NamedPattern(decl);
-  P->setType(ty);
-  P->setImplicit();
+  auto *P = NamedPattern::createImplicit(Ctx, decl, ty);
   return TypedPattern::createImplicit(Ctx, P, ty);
 }
 
@@ -400,15 +394,13 @@ ValueDecl *SwiftDeclSynthesizer::createConstant(
   auto *params = ParameterList::createEmpty(C);
 
   // Create the getter function declaration.
-  auto func = AccessorDecl::create(
-      C,
-      /*declLoc=*/SourceLoc(),
-      /*AccessorKeywordLoc=*/SourceLoc(), AccessorKind::Get, var,
-      /*StaticLoc=*/SourceLoc(), StaticSpellingKind::None,
-      /*Async=*/false, /*AsyncLoc=*/SourceLoc(),
-      /*Throws=*/false,
-      /*ThrowsLoc=*/SourceLoc(), params, type, dc);
-  func->setStatic(isStatic);
+  auto func = AccessorDecl::create(C,
+                                   /*declLoc=*/SourceLoc(),
+                                   /*AccessorKeywordLoc=*/SourceLoc(),
+                                   AccessorKind::Get, var,
+                                   /*Async=*/false, /*AsyncLoc=*/SourceLoc(),
+                                   /*Throws=*/false,
+                                   /*ThrowsLoc=*/SourceLoc(), params, type, dc);
   func->setAccess(getOverridableAccessLevel(dc));
   func->setIsObjC(false);
   func->setIsDynamic(false);
@@ -726,11 +718,10 @@ void SwiftDeclSynthesizer::makeStructRawValuedWithBridge(
       /*isImplicit=*/true, AccessLevel::Private, AccessLevel::Private);
 
   // Create a computed value variable.
-  auto computedVar = new (ctx) VarDecl(
-      /*IsStatic*/ false, VarDecl::Introducer::Var, SourceLoc(),
-      computedVarName, structDecl);
+  auto *computedVar =
+      VarDecl::createImplicit(ctx, StaticKind::None, VarDecl::Introducer::Var,
+                              computedVarName, structDecl);
   computedVar->setInterfaceType(bridgedType);
-  computedVar->setImplicit();
   computedVar->setAccess(AccessLevel::Public);
   computedVar->setSetterAccess(AccessLevel::Private);
 
@@ -742,8 +733,7 @@ void SwiftDeclSynthesizer::makeStructRawValuedWithBridge(
   // Create a pattern binding to describe the variable.
   Pattern *computedBindingPattern = createTypedNamedPattern(computedVar);
   auto *computedPatternBinding = PatternBindingDecl::createImplicit(
-      ctx, StaticSpellingKind::None, computedBindingPattern,
-      /*InitExpr*/ nullptr, structDecl);
+      ctx, computedBindingPattern, /*InitExpr*/ nullptr, structDecl);
 
   auto init =
       createRawValueBridgingConstructor(structDecl, computedVar, storedVar,
@@ -1331,7 +1321,6 @@ void SwiftDeclSynthesizer::makeEnumRawValueGetter(EnumDecl *enumDecl,
       C,
       /*declLoc=*/SourceLoc(),
       /*AccessorKeywordLoc=*/SourceLoc(), AccessorKind::Get, rawValueDecl,
-      /*StaticLoc=*/SourceLoc(), StaticSpellingKind::None,
       /*Async=*/false, /*AsyncLoc=*/SourceLoc(),
       /*Throws=*/false,
       /*ThrowsLoc=*/SourceLoc(), params, rawTy, enumDecl);
@@ -1395,7 +1384,6 @@ AccessorDecl *SwiftDeclSynthesizer::makeStructRawValueGetter(
       C,
       /*declLoc=*/SourceLoc(),
       /*AccessorKeywordLoc=*/SourceLoc(), AccessorKind::Get, computedVar,
-      /*StaticLoc=*/SourceLoc(), StaticSpellingKind::None,
       /*Async=*/false, /*AsyncLoc=*/SourceLoc(),
       /*Throws=*/false,
       /*ThrowsLoc=*/SourceLoc(), params, computedType, structDecl);
@@ -1424,7 +1412,6 @@ AccessorDecl *SwiftDeclSynthesizer::buildSubscriptGetterDecl(
       C,
       /*declLoc=*/loc,
       /*AccessorKeywordLoc=*/SourceLoc(), AccessorKind::Get, subscript,
-      /*StaticLoc=*/SourceLoc(), subscript->getStaticSpelling(),
       /*Async=*/false, /*AsyncLoc=*/SourceLoc(),
       /*Throws=*/false,
       /*ThrowsLoc=*/SourceLoc(), params, elementTy, dc, getter->getClangNode());
@@ -1467,7 +1454,6 @@ AccessorDecl *SwiftDeclSynthesizer::buildSubscriptSetterDecl(
       C,
       /*declLoc=*/setter->getLoc(),
       /*AccessorKeywordLoc=*/SourceLoc(), AccessorKind::Set, subscript,
-      /*StaticLoc=*/SourceLoc(), subscript->getStaticSpelling(),
       /*Async=*/false, /*AsyncLoc=*/SourceLoc(),
       /*Throws=*/false,
       /*ThrowsLoc=*/SourceLoc(), valueIndicesPL, TupleType::getEmpty(C), dc,
@@ -1609,8 +1595,7 @@ SubscriptDecl *SwiftDeclSynthesizer::makeSubscript(FuncDecl *getter,
 
   AccessorDecl *getterDecl = AccessorDecl::create(
       ctx, getterImpl->getLoc(), getterImpl->getLoc(), AccessorKind::Get,
-      subscript, SourceLoc(), subscript->getStaticSpelling(),
-      /*async*/ false, SourceLoc(),
+      subscript, /*async*/ false, SourceLoc(),
       /*throws*/ false, SourceLoc(), bodyParams, elementTy, dc);
   getterDecl->setAccess(AccessLevel::Public);
   getterDecl->setImplicit();
@@ -1636,8 +1621,7 @@ SubscriptDecl *SwiftDeclSynthesizer::makeSubscript(FuncDecl *getter,
 
     setterDecl = AccessorDecl::create(
         ctx, setterImpl->getLoc(), setterImpl->getLoc(), AccessorKind::Set,
-        subscript, SourceLoc(), subscript->getStaticSpelling(),
-        /*async*/ false, SourceLoc(),
+        subscript, /*async*/ false, SourceLoc(),
         /*throws*/ false, SourceLoc(), setterParamList,
         TupleType::getEmpty(ctx), dc);
     setterDecl->setAccess(AccessLevel::Public);
@@ -1675,19 +1659,19 @@ VarDecl *SwiftDeclSynthesizer::makeDereferencedPointeeProperty(
                              ? rawElementTy->getAnyPointerElementType()
                              : rawElementTy;
 
-  auto result = new (ctx)
-      VarDecl(/*isStatic*/ false, VarDecl::Introducer::Var,
-              dereferenceFunc->getStartLoc(), ctx.getIdentifier("pointee"), dc);
+  auto *result = VarDecl::createImplicit(
+      ctx, StaticKind::None, VarDecl::Introducer::Var,
+      dereferenceFunc->getStartLoc(), ctx.getIdentifier("pointee"), dc);
   result->setInterfaceType(elementTy);
   result->setAccess(AccessLevel::Public);
   result->setImplInfo(StorageImplInfo::getImmutableComputed());
 
-  AccessorDecl *getterDecl = AccessorDecl::create(
-      ctx, dereferenceFunc->getLoc(), dereferenceFunc->getLoc(),
-      AccessorKind::Get, result, SourceLoc(), StaticSpellingKind::None,
-      /*async*/ false, SourceLoc(),
-      /*throws*/ false, SourceLoc(), ParameterList::createEmpty(ctx), elementTy,
-      dc);
+  AccessorDecl *getterDecl =
+      AccessorDecl::create(ctx, dereferenceFunc->getLoc(),
+                           dereferenceFunc->getLoc(), AccessorKind::Get, result,
+                           /*async*/ false, SourceLoc(),
+                           /*throws*/ false, SourceLoc(),
+                           ParameterList::createEmpty(ctx), elementTy, dc);
   getterDecl->setAccess(AccessLevel::Public);
   getterDecl->setImplicit();
   getterDecl->setIsDynamic(false);
@@ -1778,10 +1762,10 @@ FuncDecl *SwiftDeclSynthesizer::makeSuccessorFunc(FuncDecl *incrementFunc) {
   auto *params = ParameterList::createEmpty(ctx);
   DeclName name(ctx, DeclBaseName(nameId), params);
 
-  auto result = FuncDecl::createImplicit(
-      ctx, StaticSpellingKind::None, name, SourceLoc(),
-      /*Async*/ false, /*Throws*/ false,
-      /*GenericParams*/ nullptr, params, returnTy, dc);
+  auto result =
+      FuncDecl::createImplicit(ctx, StaticKind::None, name, SourceLoc(),
+                               /*Async*/ false, /*Throws*/ false,
+                               /*GenericParams*/ nullptr, params, returnTy, dc);
 
   result->setAccess(AccessLevel::Public);
   result->setIsDynamic(false);
@@ -1901,7 +1885,7 @@ SwiftDeclSynthesizer::makeOperator(FuncDecl *operatorMethod,
       DeclName(ctx, opId, {newArgNames.begin(), newArgNames.end()});
 
   auto topLevelStaticFuncDecl = FuncDecl::createImplicit(
-      ctx, StaticSpellingKind::None, opDeclName, SourceLoc(),
+      ctx, StaticKind::None, opDeclName, SourceLoc(),
       /*Async*/ false, /*Throws*/ false, genericParamList,
       ParameterList::create(ctx, newParams),
       operatorMethod->getResultInterfaceType(), parentCtx);
@@ -1971,16 +1955,15 @@ SwiftDeclSynthesizer::makeComputedPropertyFromCXXMethods(FuncDecl *getter,
   assert(bridgingInfo.classify() == CXXMethodBridging::Kind::getter);
 
   auto importedName = bridgingInfo.importNameAsCamelCaseName();
-  auto result =
-      new (ctx) VarDecl(false, VarDecl::Introducer::Var, getter->getStartLoc(),
-                        ctx.getIdentifier(importedName), dc);
+  auto *result = VarDecl::createImplicit(
+      ctx, StaticKind::None, VarDecl::Introducer::Var, getter->getStartLoc(),
+      ctx.getIdentifier(importedName), dc);
   result->setInterfaceType(getter->getResultInterfaceType());
   result->setAccess(AccessLevel::Public);
   result->setImplInfo(StorageImplInfo::getMutableComputed());
 
   AccessorDecl *getterDecl = AccessorDecl::create(
       ctx, getter->getLoc(), getter->getLoc(), AccessorKind::Get, result,
-      SourceLoc(), StaticSpellingKind::None,
       /*async*/ false, SourceLoc(),
       /*throws*/ false, SourceLoc(), ParameterList::createEmpty(ctx),
       getter->getResultInterfaceType(), dc);
@@ -2006,7 +1989,6 @@ SwiftDeclSynthesizer::makeComputedPropertyFromCXXMethods(FuncDecl *getter,
 
     setterDecl = AccessorDecl::create(
         ctx, setter->getLoc(), setter->getLoc(), AccessorKind::Set, result,
-        SourceLoc(), StaticSpellingKind::None,
         /*async*/ false, SourceLoc(),
         /*throws*/ false, SourceLoc(), setterParamList,
         setter->getResultInterfaceType(), dc);

@@ -61,16 +61,6 @@ REMARK(remark_max_determinism_overriding,none,
 ERROR(super_not_in_class_method,none,
       "'super' cannot be used outside of class members", ())
 
-ERROR(class_func_not_in_class,none,
-      "class methods are only allowed within classes; "
-      "use 'static' to declare a %select{static|requirement fulfilled by either a static or class}0 method", (bool))
-ERROR(class_var_not_in_class,none,
-      "class properties are only allowed within classes; "
-      "use 'static' to declare a %select{static|requirement fulfilled by either a static or class}0 property", (bool))
-ERROR(class_subscript_not_in_class,none,
-      "class subscripts are only allowed within classes; "
-      "use 'static' to declare a %select{static|requirement fulfilled by either a static or class}0 subscript", (bool))
-
 ERROR(require_static_for_const,none,
       "'static' is required for _const variable declaration", ())
 

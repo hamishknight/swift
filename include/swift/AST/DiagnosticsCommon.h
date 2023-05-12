@@ -47,7 +47,7 @@ namespace swift {
     };
   } // end namespace detail
 
-  enum class StaticSpellingKind : uint8_t;
+  enum class StaticKind : uint8_t;
 
   namespace diag {
 

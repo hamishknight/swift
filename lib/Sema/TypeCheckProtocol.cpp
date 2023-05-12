@@ -2714,20 +2714,8 @@ diagnoseMatch(ModuleDecl *module, NormalProtocolConformance *conformance,
     if (isa<EnumElementDecl>(witness))
       break;
     if (req->isInstanceMember()) {
-      SourceLoc loc;
-      if (auto FD = dyn_cast<FuncDecl>(witness)) {
-        loc = FD->getStaticLoc();
-      } else if (auto VD = dyn_cast<VarDecl>(witness)) {
-        if (auto PBD = VD->getParentPatternBinding()) {
-          loc = PBD->getStaticLoc();
-        }
-      } else if (auto SD = dyn_cast<SubscriptDecl>(witness)) {
-        loc = SD->getStaticLoc();
-      } else {
-        llvm_unreachable("Unexpected witness");
-      }
-      if (loc.isValid())
-        diag.fixItRemove(loc);
+      if (auto *SA = req->getAttrs().getAttribute<StaticAttr>())
+        diag.fixItRemove(SA->getRange());
     } else {
       diag.fixItInsert(witness->getAttributeInsertionLoc(true), "static ");
     }
@@ -6377,13 +6365,12 @@ diagnoseMissingAppendInterpolationMethod(NominalTypeDecl *typeDecl) {
   auto &C = typeDecl->getASTContext();
   for (auto invalidMethod : invalidMethods) {
     switch (invalidMethod.reason) {
-      case InvalidMethod::Reason::Static:
-        C.Diags
-            .diagnose(invalidMethod.method->getStaticLoc(),
-                      diag::append_interpolation_static)
-            .fixItRemove(invalidMethod.method->getStaticLoc());
+      case InvalidMethod::Reason::Static: {
+        auto staticLoc = invalidMethod.method->getAttrs().getAttribute<StaticAttr>()->getLocation();
+        C.Diags.diagnose(staticLoc, diag::append_interpolation_static)
+               .fixItRemove(staticLoc);
         break;
-        
+      }
       case InvalidMethod::Reason::ReturnType:
         if (auto *const repr = invalidMethod.method->getResultTypeRepr()) {
           C.Diags

@@ -721,14 +721,14 @@ class PrintAST : public ASTVisitor<PrintAST> {
     printSwiftDocumentationComment(D);
   }
 
-  void printStaticKeyword(StaticSpellingKind StaticSpelling) {
+  void printStaticKeyword(StaticKind StaticSpelling) {
     switch (StaticSpelling) {
-    case StaticSpellingKind::None:
+    case StaticKind::None:
       llvm_unreachable("should not be called for non-static decls");
-    case StaticSpellingKind::KeywordStatic:
+    case StaticKind::Static:
       Printer << tok::kw_static << " ";
       break;
-    case StaticSpellingKind::KeywordClass:
+    case StaticKind::Class:
       Printer << tok::kw_class << " ";
       break;
     }
@@ -1076,18 +1076,6 @@ public:
 };
 } // unnamed namespace
 
-static StaticSpellingKind getCorrectStaticSpelling(const Decl *D) {
-  if (auto *ASD = dyn_cast<AbstractStorageDecl>(D)) {
-    return ASD->getCorrectStaticSpelling();
-  } else if (auto *PBD = dyn_cast<PatternBindingDecl>(D)) {
-    return PBD->getCorrectStaticSpelling();
-  } else if (auto *FD = dyn_cast<FuncDecl>(D)) {
-    return FD->getCorrectStaticSpelling();
-  } else {
-    return StaticSpellingKind::None;
-  }
-}
-
 static bool hasAsyncGetter(const AbstractStorageDecl *ASD) {
   if (auto getter = ASD->getAccessor(AccessorKind::Get)) {
     assert(!getter->getAttrs().hasAttribute<ReasyncAttr>());
@@ -1130,9 +1118,11 @@ void PrintAST::printAttributes(const Decl *D) {
   if (Options.PrintImplicitAttrs) {
 
     // Don't print a redundant 'final' if we are printing a 'static' decl.
-    if (D->getDeclContext()->getSelfClassDecl() &&
-        getCorrectStaticSpelling(D) == StaticSpellingKind::KeywordStatic) {
-      Options.ExcludeAttrList.push_back(DAK_Final);
+    if (auto *VD = dyn_cast<ValueDecl>(D)) {
+      if (VD->getDeclContext()->getSelfClassDecl() &&
+          VD->getStaticKind() == StaticKind::Static) {
+        Options.ExcludeAttrList.push_back(DAK_Final);
+      }
     }
 
     if (auto vd = dyn_cast<VarDecl>(D)) {
@@ -1200,6 +1190,9 @@ void PrintAST::printAttributes(const Decl *D) {
     }
   }
 
+  if (!Options.PrintStaticKeyword)
+    Options.ExcludeAttrList.push_back(DAK_Static);
+
   // We will handle ownership specifiers separately.
   if (isa<FuncDecl>(D)) {
     Options.ExcludeAttrList.push_back(DAK_Mutating);
@@ -1214,11 +1207,10 @@ void PrintAST::printAttributes(const Decl *D) {
   // Print the implicit 'final' attribute.
   if (auto VD = dyn_cast<ValueDecl>(D)) {
     auto VarD = dyn_cast<VarDecl>(D);
-    if (VD->isFinal() &&
-        !VD->getAttrs().hasAttribute<FinalAttr>() &&
+    if (VD->isFinal() && !VD->getAttrs().hasAttribute<FinalAttr>() &&
         // Don't print a redundant 'final' if printing a 'let' or 'static' decl.
         !(VarD && VarD->isLet()) &&
-        getCorrectStaticSpelling(D) != StaticSpellingKind::KeywordStatic &&
+        VD->getStaticKind() != StaticKind::Static &&
         VD->getKind() != DeclKind::Accessor) {
       Printer.printAttrName("final");
       Printer << " ";
@@ -3698,9 +3690,6 @@ void PrintAST::visitPatternBindingDecl(PatternBindingDecl *decl) {
     printAccess(anyVar);
   }
 
-  if (decl->isStatic())
-    printStaticKeyword(decl->getCorrectStaticSpelling());
-
   if (anyVar) {
     Printer << (anyVar->isSettable(anyVar->getDeclContext()) ? "var " : "let ");
   } else {
@@ -4086,8 +4075,6 @@ void PrintAST::visitVarDecl(VarDecl *decl) {
     Printer << "@_hasStorage ";
   printAttributes(decl);
   printAccess(decl);
-  if (decl->isStatic() && Options.PrintStaticKeyword)
-    printStaticKeyword(decl->getCorrectStaticSpelling());
   if (decl->getKind() == DeclKind::Var || Options.PrintParameterSpecifiers) {
     // Map all non-let specifiers to 'var'.  This is not correct, but
     // SourceKit relies on this for info about parameter decls.
@@ -4377,9 +4364,6 @@ void PrintAST::visitFuncDecl(FuncDecl *decl) {
                                                SourceRange(StartLoc, EndLoc));
     printSourceRange(Range, Ctx);
   } else {
-    if (decl->isStatic() && Options.PrintStaticKeyword)
-      printStaticKeyword(decl->getCorrectStaticSpelling());
-
     printSelfAccessKindModifiersIfNeeded(decl);
     Printer.printIntroducerKeyword("func", Options, " ");
 
@@ -4566,8 +4550,6 @@ void PrintAST::visitSubscriptDecl(SubscriptDecl *decl) {
   printDocumentationComment(decl);
   printAttributes(decl);
   printAccess(decl);
-  if (decl->isStatic() && Options.PrintStaticKeyword)
-    printStaticKeyword(decl->getCorrectStaticSpelling());
   printContextIfNeeded(decl);
   recordDeclLoc(decl, [&]{
     Printer << "subscript";

@@ -203,12 +203,16 @@ enum class DescriptiveDeclKind : uint8_t {
   MacroExpansion
 };
 
-/// Describes which spelling was used in the source for the 'static' or 'class'
-/// keyword.
-enum class StaticSpellingKind : uint8_t {
-  None,
-  KeywordStatic,
-  KeywordClass,
+/// Describes the kind of staticness applied to a decl.
+enum class StaticKind : uint8_t {
+  /// The decl is not static.
+  None = 0,
+
+  /// The decl is static and implicitly 'final'.
+  Static,
+
+  /// The decl is static and overridable, unless marked 'final'.
+  Class,
 };
 
 /// Keeps track of whether an enum has cases that have associated values.
@@ -221,8 +225,8 @@ enum class AssociatedValueCheck {
   HasAssociatedValues,
 };
 
-/// Diagnostic printing of \c StaticSpellingKind.
-llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, StaticSpellingKind SSK);
+/// Diagnostic printing of \c StaticKind.
+llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, StaticKind SSK);
 
 /// Diagnostic printing of \c ReferenceOwnership.
 llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, ReferenceOwnership RO);
@@ -370,15 +374,9 @@ protected:
     Hoisted : 1
   );
 
-  SWIFT_INLINE_BITFIELD_FULL(PatternBindingDecl, Decl, 1+1+2+16,
-    /// Whether this pattern binding declares static variables.
-    IsStatic : 1,
-
+  SWIFT_INLINE_BITFIELD_FULL(PatternBindingDecl, Decl, 1+16,
     /// Whether this pattern binding is synthesized by the debugger.
     IsDebugger : 1,
-
-    /// Whether 'static' or 'class' was used.
-    StaticSpelling : 2,
 
     : NumPadBits,
 
@@ -409,11 +407,7 @@ protected:
     Synthesized : 1
   );
 
-  SWIFT_INLINE_BITFIELD(AbstractStorageDecl, ValueDecl, 1,
-    /// Whether this property is a type property (currently unfortunately
-    /// called 'static').
-    IsStatic : 1
-  );
+  SWIFT_INLINE_BITFIELD_EMPTY(AbstractStorageDecl, ValueDecl);
 
   SWIFT_INLINE_BITFIELD(VarDecl, AbstractStorageDecl, 2+1+1+1+1+1,
     /// Encodes whether this is a 'let' binding.
@@ -446,9 +440,6 @@ protected:
     defaultArgumentKind : NumDefaultArgumentKindBits
   );
 
-  SWIFT_INLINE_BITFIELD(SubscriptDecl, VarDecl, 2,
-    StaticSpelling : 2
-  );
   SWIFT_INLINE_BITFIELD(AbstractFunctionDecl, ValueDecl, 3+2+8+1+1+1+1+1+1+1,
     /// \see AbstractFunctionDecl::BodyKind
     BodyKind : 3,
@@ -484,16 +475,7 @@ protected:
   );
 
   SWIFT_INLINE_BITFIELD(FuncDecl, AbstractFunctionDecl,
-                        1+1+2+1+1+NumSelfAccessKindBits+1,
-    /// Whether we've computed the 'static' flag yet.
-    IsStaticComputed : 1,
-
-    /// Whether this function is a 'static' method.
-    IsStatic : 1,
-
-    /// Whether 'static' or 'class' was used.
-    StaticSpelling : 2,
-
+                        1+1+NumSelfAccessKindBits+1,
     /// Whether we are statically dispatched even if overridable
     ForcedStaticDispatch : 1,
 
@@ -1982,51 +1964,39 @@ class PatternBindingDecl final : public Decl,
   friend class Decl;
   friend class PatternBindingEntryRequest;
 
-  SourceLoc StaticLoc; ///< Location of the 'static/class' keyword, if present.
   SourceLoc VarLoc;    ///< Location of the 'var' keyword.
 
   friend class Decl;
-  
-  PatternBindingDecl(SourceLoc StaticLoc, StaticSpellingKind StaticSpelling,
-                     SourceLoc VarLoc, unsigned NumPatternEntries,
+
+  PatternBindingDecl(SourceLoc VarLoc, unsigned NumPatternEntries,
                      DeclContext *Parent);
   SourceLoc getLocFromSource() const { return VarLoc; }
 public:
-  static PatternBindingDecl *create(ASTContext &Ctx, SourceLoc StaticLoc,
-                                    StaticSpellingKind StaticSpelling,
-                                    SourceLoc VarLoc,
+  static PatternBindingDecl *create(ASTContext &Ctx, SourceLoc VarLoc,
                                     ArrayRef<PatternBindingEntry> PatternList,
                                     DeclContext *Parent);
 
-  static PatternBindingDecl *create(ASTContext &Ctx, SourceLoc StaticLoc,
-                                    StaticSpellingKind StaticSpelling,
-                                    SourceLoc VarLoc, Pattern *Pat,
-                                    SourceLoc EqualLoc, Expr *E,
+  static PatternBindingDecl *create(ASTContext &Ctx, SourceLoc VarLoc,
+                                    Pattern *Pat, SourceLoc EqualLoc, Expr *E,
                                     DeclContext *Parent);
 
-  static PatternBindingDecl *createImplicit(ASTContext &Ctx,
-                                            StaticSpellingKind StaticSpelling,
-                                            Pattern *Pat, Expr *E,
-                                            DeclContext *Parent,
+  static PatternBindingDecl *createImplicit(ASTContext &Ctx, Pattern *Pat,
+                                            Expr *E, DeclContext *Parent,
                                             SourceLoc VarLoc = SourceLoc());
 
-  static PatternBindingDecl *createDeserialized(
-                               ASTContext &Ctx, SourceLoc StaticLoc,
-                               StaticSpellingKind StaticSpelling,
-                               SourceLoc VarLoc,
-                               unsigned NumPatternEntries,
-                               DeclContext *Parent);
+  static PatternBindingDecl *createDeserialized(ASTContext &Ctx,
+                                                SourceLoc VarLoc,
+                                                unsigned NumPatternEntries,
+                                                DeclContext *Parent);
 
   // A dedicated entrypoint that allows LLDB to create pattern bindings
   // that look implicit to the compiler but contain user code.
   static PatternBindingDecl *createForDebugger(ASTContext &Ctx,
-                                               StaticSpellingKind Spelling,
+                                               StaticKind Spelling,
                                                Pattern *Pat, Expr *E,
                                                DeclContext *Parent);
 
-  SourceLoc getStartLoc() const {
-    return StaticLoc.isValid() ? StaticLoc : VarLoc;
-  }
+  SourceLoc getStartLoc() const { return VarLoc; }
   SourceRange getSourceRange() const;
 
   unsigned getNumPatternEntries() const {
@@ -2175,6 +2145,9 @@ public:
   /// Does this binding declare something that requires storage?
   bool hasStorage() const;
 
+  /// Does this binding declare a static variable?
+  bool hasStaticVar() const;
+
   /// Determines whether this binding either has an initializer expression, or is
   /// default initialized, without performing any type checking on it.
   bool isDefaultInitializable() const {
@@ -2208,17 +2181,6 @@ public:
 
   /// Return the first variable initialized by the pattern at the given index.
   VarDecl *getAnchoringVarDecl(unsigned i) const;
-
-  bool isStatic() const { return Bits.PatternBindingDecl.IsStatic; }
-  void setStatic(bool s) { Bits.PatternBindingDecl.IsStatic = s; }
-  SourceLoc getStaticLoc() const { return StaticLoc; }
-  /// \returns the way 'static'/'class' was spelled in the source.
-  StaticSpellingKind getStaticSpelling() const {
-    return static_cast<StaticSpellingKind>(
-        Bits.PatternBindingDecl.StaticSpelling);
-  }
-  /// \returns the way 'static'/'class' should be spelled for this declaration.
-  StaticSpellingKind getCorrectStaticSpelling() const;
 
   /// Is the pattern binding entry for this variable  currently being computed?
   bool isComputingPatternBindingEntry(const VarDecl *vd) const;
@@ -2456,7 +2418,7 @@ private:
   llvm::PointerIntPair<Type, 3, OptionalEnum<AccessLevel>> TypeAndAccess;
   unsigned LocalDiscriminator = InvalidDiscriminator;
 
-  struct {
+  mutable struct {
     /// Whether the "IsObjC" bit has been computed yet.
     unsigned isObjCComputed : 1;
 
@@ -2497,6 +2459,12 @@ private:
 
     /// Whether this declaration can not be copied and thus is move only.
     unsigned isMoveOnly : 1;
+
+    /// Whether we've computed the 'static' flag yet.
+    unsigned StaticKindComputed : 1;
+
+    /// Whether this is a 'static' decl.
+    unsigned StaticKind : 2;
   } LazySemanticInfo = { };
 
   friend class DynamicallyReplacedDeclRequest;
@@ -2505,6 +2473,7 @@ private:
   friend class IsFinalRequest;
   friend class IsMoveOnlyRequest;
   friend class IsDynamicRequest;
+  friend class IsStaticRequest;
   friend class IsImplicitlyUnwrappedOptionalRequest;
   friend class InterfaceTypeRequest;
   friend class CheckRedeclarationRequest;
@@ -2887,12 +2856,14 @@ public:
   /// Dump a reference to the given declaration.
   SWIFT_DEBUG_DUMPER(dumpRef());
 
+  StaticKind getStaticKind() const;
+
   /// Returns true if the declaration is a static member of a type.
   ///
   /// This is not necessarily the opposite of "isInstanceMember()". Both
   /// predicates will be false for declarations that either categorically
   /// can't be "static" or are in a context where "static" doesn't make sense.
-  bool isStatic() const;
+  bool isStatic() const { return getStaticKind() != StaticKind::None; }
 
   /// Retrieve the location at which we should insert a new attribute or
   /// modifier.
@@ -5263,13 +5234,10 @@ private:
   void setSynthesizedAccessor(AccessorKind kind, AccessorDecl *getter);
 
 protected:
-  AbstractStorageDecl(DeclKind Kind, bool IsStatic, DeclContext *DC,
-                      DeclName Name, SourceLoc NameLoc,
-                      StorageIsMutable_t supportsMutation)
-    : ValueDecl(Kind, DC, Name, NameLoc),
-      ImplInfo(StorageImplInfo::getSimpleStored(supportsMutation)) {
-    Bits.AbstractStorageDecl.IsStatic = IsStatic;
-  }
+  AbstractStorageDecl(DeclKind Kind, DeclContext *DC, DeclName Name,
+                      SourceLoc NameLoc, StorageIsMutable_t supportsMutation)
+      : ValueDecl(Kind, DC, Name, NameLoc),
+        ImplInfo(StorageImplInfo::getSimpleStored(supportsMutation)) {}
 
 public:
 
@@ -5277,17 +5245,7 @@ public:
   /// attribute.
   bool isTransparent() const;
 
-  /// Is this a type ('static') variable?
-  bool isStatic() const {
-    return Bits.AbstractStorageDecl.IsStatic;
-  }
-  void setStatic(bool IsStatic) {
-    Bits.AbstractStorageDecl.IsStatic = IsStatic;
-  }
   bool isCompileTimeConst() const;
-
-  /// \returns the way 'static'/'class' should be spelled for this declaration.
-  StaticSpellingKind getCorrectStaticSpelling() const;
 
   /// Return the interface type of the stored value.
   Type getValueInterfaceType() const;
@@ -5627,8 +5585,8 @@ protected:
                VarDecl *,
                CaptureListExpr *> Parent;
 
-  VarDecl(DeclKind kind, bool isStatic, Introducer introducer,
-          SourceLoc nameLoc, Identifier name, DeclContext *dc,
+  VarDecl(DeclKind kind, Introducer introducer, SourceLoc nameLoc,
+          Identifier name, DeclContext *dc,
           StorageIsMutable_t supportsMutation);
 
 protected:
@@ -5639,10 +5597,22 @@ protected:
   }
 
 public:
-  VarDecl(bool isStatic, Introducer introducer,
-          SourceLoc nameLoc, Identifier name, DeclContext *dc)
-    : VarDecl(DeclKind::Var, isStatic, introducer, nameLoc,
-              name, dc, StorageIsMutable_t(introducer == Introducer::Var)) {}
+  VarDecl(Introducer introducer, SourceLoc nameLoc, Identifier name,
+          DeclContext *dc)
+      : VarDecl(DeclKind::Var, introducer, nameLoc, name, dc,
+                StorageIsMutable_t(introducer == Introducer::Var)) {}
+
+  static VarDecl *createParsed(ASTContext &ctx, Introducer introducer,
+                               SourceLoc nameLoc, Identifier name,
+                               DeclContext *dc);
+
+  static VarDecl *createImplicit(ASTContext &ctx, StaticKind staticKind,
+                                 Introducer introducer, SourceLoc nameLoc,
+                                 Identifier name, DeclContext *dc);
+
+  static VarDecl *createImplicit(ASTContext &ctx, StaticKind staticKind,
+                                 Introducer introducer, Identifier name,
+                                 DeclContext *dc);
 
   SourceRange getSourceRange() const;
 
@@ -6529,7 +6499,6 @@ enum class ObjCSubscriptKind {
 class SubscriptDecl : public GenericContext, public AbstractStorageDecl {
   friend class ResultTypeRequest;
 
-  SourceLoc StaticLoc;
   SourceLoc ArrowLoc;
   SourceLoc EndLoc;
   ParameterList *Indices;
@@ -6537,40 +6506,29 @@ class SubscriptDecl : public GenericContext, public AbstractStorageDecl {
 
   void setElementInterfaceType(Type type);
 
-  SubscriptDecl(DeclName Name,
-                SourceLoc StaticLoc, StaticSpellingKind StaticSpelling,
-                SourceLoc SubscriptLoc, ParameterList *Indices,
+  SubscriptDecl(DeclName Name, SourceLoc SubscriptLoc, ParameterList *Indices,
                 SourceLoc ArrowLoc, TypeRepr *ElementTyR, DeclContext *Parent,
                 GenericParamList *GenericParams)
-    : GenericContext(DeclContextKind::SubscriptDecl, Parent, GenericParams),
-      AbstractStorageDecl(DeclKind::Subscript,
-                          StaticSpelling != StaticSpellingKind::None,
-                          Parent, Name, SubscriptLoc,
-                          /*will be overwritten*/ StorageIsNotMutable),
-      StaticLoc(StaticLoc), ArrowLoc(ArrowLoc),
-      Indices(nullptr), ElementTy(ElementTyR) {
-    Bits.SubscriptDecl.StaticSpelling = static_cast<unsigned>(StaticSpelling);
+      : GenericContext(DeclContextKind::SubscriptDecl, Parent, GenericParams),
+        AbstractStorageDecl(DeclKind::Subscript, Parent, Name, SubscriptLoc,
+                            /*will be overwritten*/ StorageIsNotMutable),
+        ArrowLoc(ArrowLoc), Indices(nullptr), ElementTy(ElementTyR) {
     setIndices(Indices);
   }
 
 public:
   /// Factory function only for use by deserialization.
   static SubscriptDecl *createDeserialized(ASTContext &Context, DeclName Name,
-                                           StaticSpellingKind StaticSpelling,
                                            Type ElementTy, DeclContext *Parent,
                                            GenericParamList *GenericParams);
 
   static SubscriptDecl *create(ASTContext &Context, DeclName Name,
-                               SourceLoc StaticLoc,
-                               StaticSpellingKind StaticSpelling,
                                SourceLoc SubscriptLoc, ParameterList *Indices,
                                SourceLoc ArrowLoc, TypeRepr *ElementTyR,
                                DeclContext *Parent,
                                GenericParamList *GenericParams);
 
   static SubscriptDecl *create(ASTContext &Context, DeclName Name,
-                               SourceLoc StaticLoc,
-                               StaticSpellingKind StaticSpelling,
                                SourceLoc SubscriptLoc, ParameterList *Indices,
                                SourceLoc ArrowLoc, Type ElementTy,
                                DeclContext *Parent,
@@ -6581,18 +6539,10 @@ public:
                                        ParameterList *Indices,
                                        SourceLoc ArrowLoc, Type ElementTy,
                                        DeclContext *Parent, ClangNode ClangN);
-  
-  /// \returns the way 'static'/'class' was spelled in the source.
-  StaticSpellingKind getStaticSpelling() const {
-    return static_cast<StaticSpellingKind>(Bits.SubscriptDecl.StaticSpelling);
-  }
-  
-  SourceLoc getStaticLoc() const { return StaticLoc; }
+
   SourceLoc getSubscriptLoc() const { return getNameLoc(); }
-  
-  SourceLoc getStartLoc() const {
-    return getStaticLoc().isValid() ? getStaticLoc() : getSubscriptLoc();
-  }
+
+  SourceLoc getStartLoc() const { return getSubscriptLoc(); }
   SourceLoc getEndLoc() const { return EndLoc; }
 
   void setEndLoc(SourceLoc sl) { EndLoc = sl; }
@@ -7294,54 +7244,39 @@ class OperatorDecl;
 class FuncDecl : public AbstractFunctionDecl {
   friend class AbstractFunctionDecl;
   friend class SelfAccessKindRequest;
-  friend class IsStaticRequest;
   friend class ResultTypeRequest;
 
-  SourceLoc StaticLoc;  // Location of the 'static' token or invalid.
   SourceLoc FuncLoc;    // Location of the 'func' token.
 
   TypeLoc FnRetType;
 
 protected:
-  FuncDecl(DeclKind Kind,
-           SourceLoc StaticLoc, StaticSpellingKind StaticSpelling,
-           SourceLoc FuncLoc,
-           DeclName Name, SourceLoc NameLoc,
-           bool Async, SourceLoc AsyncLoc,
-           bool Throws, SourceLoc ThrowsLoc,
-           bool HasImplicitSelfDecl,
-           GenericParamList *GenericParams, DeclContext *Parent)
-    : AbstractFunctionDecl(Kind, Parent,
-                           Name, NameLoc,
-                           Async, AsyncLoc,
-                           Throws, ThrowsLoc,
-                           HasImplicitSelfDecl, GenericParams),
-      StaticLoc(StaticLoc), FuncLoc(FuncLoc) {
+  FuncDecl(DeclKind Kind, SourceLoc FuncLoc, DeclName Name, SourceLoc NameLoc,
+           bool Async, SourceLoc AsyncLoc, bool Throws, SourceLoc ThrowsLoc,
+           bool HasImplicitSelfDecl, GenericParamList *GenericParams,
+           DeclContext *Parent)
+      : AbstractFunctionDecl(Kind, Parent, Name, NameLoc, Async, AsyncLoc,
+                             Throws, ThrowsLoc, HasImplicitSelfDecl,
+                             GenericParams),
+        FuncLoc(FuncLoc) {
     assert(!Name.getBaseName().isSpecial());
-
-    Bits.FuncDecl.StaticSpelling = static_cast<unsigned>(StaticSpelling);
 
     Bits.FuncDecl.ForcedStaticDispatch = false;
     Bits.FuncDecl.SelfAccess =
       static_cast<unsigned>(SelfAccessKind::NonMutating);
     Bits.FuncDecl.SelfAccessComputed = false;
-    Bits.FuncDecl.IsStaticComputed = false;
-    Bits.FuncDecl.IsStatic = false;
     Bits.FuncDecl.HasTopLevelLocalContextCaptures = false;
   }
 
   void setResultInterfaceType(Type type);
 
 private:
-  static FuncDecl *createImpl(ASTContext &Context, SourceLoc StaticLoc,
-                              StaticSpellingKind StaticSpelling,
-                              SourceLoc FuncLoc,
-                              DeclName Name, SourceLoc NameLoc,
-                              bool Async, SourceLoc AsyncLoc,
-                              bool Throws, SourceLoc ThrowsLoc,
+  static FuncDecl *createImpl(ASTContext &Context, SourceLoc FuncLoc,
+                              DeclName Name, SourceLoc NameLoc, bool Async,
+                              SourceLoc AsyncLoc, bool Throws,
+                              SourceLoc ThrowsLoc,
                               GenericParamList *GenericParams,
-                              DeclContext *Parent,
-                              ClangNode ClangN);
+                              DeclContext *Parent, ClangNode ClangN);
 
   Optional<SelfAccessKind> getCachedSelfAccessKind() const {
     if (Bits.FuncDecl.SelfAccessComputed)
@@ -7350,56 +7285,34 @@ private:
     return None;
   }
 
-  Optional<bool> getCachedIsStatic() const {
-    if (Bits.FuncDecl.IsStaticComputed)
-      return Bits.FuncDecl.IsStatic;
-
-    return None;
-  }
-
 public:
   /// Factory function only for use by deserialization.
-  static FuncDecl *createDeserialized(ASTContext &Context,
-                                      StaticSpellingKind StaticSpelling,
-                                      DeclName Name, bool Async, bool Throws,
+  static FuncDecl *createDeserialized(ASTContext &Context, DeclName Name,
+                                      bool Async, bool Throws,
                                       GenericParamList *GenericParams,
                                       Type FnRetType, DeclContext *Parent);
 
-  static FuncDecl *create(ASTContext &Context, SourceLoc StaticLoc,
-                          StaticSpellingKind StaticSpelling, SourceLoc FuncLoc,
-                          DeclName Name, SourceLoc NameLoc, bool Async,
-                          SourceLoc AsyncLoc, bool Throws, SourceLoc ThrowsLoc,
+  static FuncDecl *create(ASTContext &Context, SourceLoc FuncLoc, DeclName Name,
+                          SourceLoc NameLoc, bool Async, SourceLoc AsyncLoc,
+                          bool Throws, SourceLoc ThrowsLoc,
                           GenericParamList *GenericParams,
                           ParameterList *BodyParams, TypeRepr *ResultTyR,
                           DeclContext *Parent);
 
   static FuncDecl *createImplicit(ASTContext &Context,
-                                  StaticSpellingKind StaticSpelling,
-                                  DeclName Name, SourceLoc NameLoc, bool Async,
-                                  bool Throws, GenericParamList *GenericParams,
+                                  StaticKind StaticSpelling, DeclName Name,
+                                  SourceLoc NameLoc, bool Async, bool Throws,
+                                  GenericParamList *GenericParams,
                                   ParameterList *BodyParams, Type FnRetType,
                                   DeclContext *Parent);
 
-  static FuncDecl *createImported(ASTContext &Context, SourceLoc FuncLoc,
+  static FuncDecl *createImported(ASTContext &Context, bool isStatic,
+                                  SourceLoc FuncLoc,
                                   DeclName Name, SourceLoc NameLoc, bool Async,
                                   bool Throws, ParameterList *BodyParams,
                                   Type FnRetType,
                                   GenericParamList *GenericParams,
                                   DeclContext *Parent, ClangNode ClangN);
-
-  bool isStatic() const;
-
-  /// \returns the way 'static'/'class' was spelled in the source.
-  StaticSpellingKind getStaticSpelling() const {
-    return static_cast<StaticSpellingKind>(Bits.FuncDecl.StaticSpelling);
-  }
-  /// \returns the way 'static'/'class' should be spelled for this declaration.
-  StaticSpellingKind getCorrectStaticSpelling() const;
-  void setStatic(bool IsStatic = true) {
-    Bits.FuncDecl.IsStaticComputed = true;
-    Bits.FuncDecl.IsStatic = IsStatic;
-  }
-
   bool isMutating() const {
     return getSelfAccessKind() == SelfAccessKind::Mutating;
   }
@@ -7416,13 +7329,9 @@ public:
     Bits.FuncDecl.SelfAccessComputed = true;
   }
 
-  SourceLoc getStaticLoc() const { return StaticLoc; }
   SourceLoc getFuncLoc() const { return FuncLoc; }
 
-  SourceLoc getStartLoc() const {
-    return StaticLoc.isValid() && !isa<AccessorDecl>(this)
-              ? StaticLoc : FuncLoc;
-  }
+  SourceLoc getStartLoc() const { return FuncLoc; }
   SourceRange getSourceRange() const;
 
   TypeRepr *getResultTypeRepr() const { return FnRetType.getTypeRepr(); }
@@ -7513,10 +7422,9 @@ class AccessorDecl final : public FuncDecl {
 
   AccessorDecl(SourceLoc declLoc, SourceLoc accessorKeywordLoc,
                AccessorKind accessorKind, AbstractStorageDecl *storage,
-               SourceLoc staticLoc, StaticSpellingKind staticSpelling,
                bool async, SourceLoc asyncLoc, bool throws, SourceLoc throwsLoc,
                bool hasImplicitSelfDecl, DeclContext *parent)
-      : FuncDecl(DeclKind::Accessor, staticLoc, staticSpelling,
+      : FuncDecl(DeclKind::Accessor,
                  /*func loc*/ declLoc,
                  /*name*/ Identifier(), /*name loc*/ declLoc, async, asyncLoc,
                  throws, throwsLoc, hasImplicitSelfDecl,
@@ -7530,8 +7438,7 @@ class AccessorDecl final : public FuncDecl {
   static AccessorDecl *
   createImpl(ASTContext &ctx, SourceLoc declLoc, SourceLoc accessorKeywordLoc,
              AccessorKind accessorKind, AbstractStorageDecl *storage,
-             SourceLoc staticLoc, StaticSpellingKind staticSpelling, bool async,
-             SourceLoc asyncLoc, bool throws, SourceLoc throwsLoc,
+             bool async, SourceLoc asyncLoc, bool throws, SourceLoc throwsLoc,
              DeclContext *parent, ClangNode clangNode);
 
   Optional<bool> getCachedIsTransparent() const {
@@ -7546,14 +7453,12 @@ public:
   static AccessorDecl *createDeserialized(ASTContext &ctx,
                                           AccessorKind accessorKind,
                                           AbstractStorageDecl *storage,
-                                          StaticSpellingKind staticSpelling,
                                           bool async, bool throws,
                                           Type fnRetType, DeclContext *parent);
 
   static AccessorDecl *
   create(ASTContext &ctx, SourceLoc declLoc, SourceLoc accessorKeywordLoc,
-         AccessorKind accessorKind, AbstractStorageDecl *storage,
-         SourceLoc staticLoc, StaticSpellingKind staticSpelling, bool async,
+         AccessorKind accessorKind, AbstractStorageDecl *storage, bool async,
          SourceLoc asyncLoc, bool throws, SourceLoc throwsLoc,
          ParameterList *parameterList, Type fnRetType, DeclContext *parent,
          ClangNode clangNode = ClangNode());
@@ -8766,15 +8671,6 @@ inline DeclIterator &DeclIterator::operator++() {
 inline bool AbstractFunctionDecl::hasForcedStaticDispatch() const {
   if (auto func = dyn_cast<FuncDecl>(this))
     return func->hasForcedStaticDispatch();
-  return false;
-}
-
-inline bool ValueDecl::isStatic() const {
-  // Currently, only storage and function decls can be static/class.
-  if (auto storage = dyn_cast<AbstractStorageDecl>(this))
-    return storage->isStatic();
-  if (auto func = dyn_cast<FuncDecl>(this))
-    return func->isStatic();
   return false;
 }
 

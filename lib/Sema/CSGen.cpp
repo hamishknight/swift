@@ -4325,10 +4325,9 @@ generateForEachStmtConstraints(ConstraintSystem &cs,
     name += "$generator";
   }
 
-  auto *makeIteratorVar = new (ctx)
-      VarDecl(/*isStatic=*/false, VarDecl::Introducer::Var,
-              sequenceExpr->getStartLoc(), ctx.getIdentifier(name), dc);
-  makeIteratorVar->setImplicit();
+  auto *makeIteratorVar = VarDecl::createImplicit(
+      ctx, StaticKind::None, VarDecl::Introducer::Var,
+      sequenceExpr->getStartLoc(), ctx.getIdentifier(name), dc);
 
   // First, let's form a call from sequence to `.makeIterator()` and save
   // that in a special variable which is going to be used by SILGen.
@@ -4344,8 +4343,8 @@ generateForEachStmtConstraints(ConstraintSystem &cs,
         CallExpr::createImplicitEmpty(ctx, makeIteratorRef);
 
     Pattern *pattern = NamedPattern::createImplicit(ctx, makeIteratorVar);
-    auto *PB = PatternBindingDecl::createImplicit(
-        ctx, StaticSpellingKind::None, pattern, makeIteratorCall, dc);
+    auto *PB =
+        PatternBindingDecl::createImplicit(ctx, pattern, makeIteratorCall, dc);
 
     auto makeIteratorTarget = SyntacticElementTarget::forInitialization(
         makeIteratorCall, dc, /*patternType=*/Type(), PB, /*index=*/0,

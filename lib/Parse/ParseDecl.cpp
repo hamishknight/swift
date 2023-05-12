@@ -2772,6 +2772,18 @@ ParserStatus Parser::parseNewDeclAttribute(DeclAttributes &Attributes,
     break;
   }
 
+  case DAK_Static: {
+    using Spelling = StaticAttr::Spelling;
+    Spelling spelling = llvm::StringSwitch<Spelling>(AttrName)
+                            .Case("static", Spelling::Static)
+                            .Case("class", Spelling::Class);
+
+    if (!DiscardAttribute)
+      Attributes.add(StaticAttr::createParsed(Context, AttrRange, spelling));
+
+    break;
+  }
+
   case DAK_AccessControl: {
 
     // Diagnose using access control in a local scope, which isn't meaningful.
@@ -4447,8 +4459,6 @@ ParserStatus Parser::parseDeclAttributeList(
 //      'actor'
 //      'distributed'
 ParserStatus Parser::parseDeclModifierList(DeclAttributes &Attributes,
-                                           SourceLoc &StaticLoc,
-                                           StaticSpellingKind &StaticSpelling,
                                            bool isFromClangAttribute) {
   ParserStatus status;
   while (true) {
@@ -4520,17 +4530,7 @@ ParserStatus Parser::parseDeclModifierList(DeclAttributes &Attributes,
     }
 
     case tok::kw_static: {
-      // 'static' is not handled as an attribute in AST.
-      if (StaticLoc.isValid()) {
-        diagnose(Tok, diag::decl_already_static,
-                 StaticSpellingKind::KeywordStatic)
-            .highlight(StaticLoc)
-            .fixItRemove(Tok.getLoc());
-      } else {
-        StaticLoc = Tok.getLoc();
-        StaticSpelling = StaticSpellingKind::KeywordStatic;
-      }
-      consumeToken(tok::kw_static);
+      status |= parseNewDeclAttribute(Attributes, /*AtLoc=*/{}, DAK_Static);
       continue;
     }
 
@@ -4553,16 +4553,7 @@ ParserStatus Parser::parseDeclModifierList(DeclAttributes &Attributes,
           break;
         }
       }
-      if (StaticLoc.isValid()) {
-        diagnose(Tok, diag::decl_already_static,
-                 StaticSpellingKind::KeywordClass)
-            .highlight(StaticLoc)
-            .fixItRemove(Tok.getLoc());
-      } else {
-        StaticLoc = Tok.getLoc();
-        StaticSpelling = StaticSpellingKind::KeywordClass;
-      }
-      consumeToken(tok::kw_class);
+      status |= parseNewDeclAttribute(Attributes, /*AtLoc=*/{}, DAK_Static);
       continue;
     }
 
@@ -5272,12 +5263,12 @@ Parser::parseDecl(ParseDeclOptions Flags,
   ParserStatus AttrStatus = parseDeclAttributeList(
       Attributes, IfConfigsAreDeclAttrs);
 
+  auto *StaticAttribute =
+      cast_or_null<StaticAttr>(Attributes.getAttribute(DAK_Static));
+
   // Parse modifiers.
   // Keep track of where and whether we see a contextual keyword on the decl.
-  SourceLoc StaticLoc;
-  StaticSpellingKind StaticSpelling = StaticSpellingKind::None;
-  auto ModifierResult =
-      parseDeclModifierList(Attributes, StaticLoc, StaticSpelling);
+  auto ModifierResult = parseDeclModifierList(Attributes);
   if (ModifierResult.hasCodeCompletion()) {
     return ModifierResult;
   }
@@ -5298,9 +5289,8 @@ Parser::parseDecl(ParseDeclOptions Flags,
   auto parseBindingIntroducer = [&](bool HasBindingIntroducerKeyword) {
     // Collect all modifiers into a modifier list.
     llvm::SmallVector<Decl *, 4> Entries;
-    DeclResult = parseDeclVar(Flags, Attributes, Entries, StaticLoc,
-                              StaticSpelling, tryLoc, HasBindingIntroducerKeyword);
-    StaticLoc = SourceLoc(); // we handled static if present.
+    DeclResult = parseDeclVar(Flags, Attributes, Entries, tryLoc,
+                              HasBindingIntroducerKeyword);
     MayNeedOverrideCompletion = true;
     if ((AttrStatus.hasCodeCompletion() || DeclResult.hasCodeCompletion())
         && isIDEInspectionFirstPass())
@@ -5311,9 +5301,7 @@ Parser::parseDecl(ParseDeclOptions Flags,
 
   auto parseFunc = [&](bool HasFuncKeyword) {
     // Collect all modifiers into a modifier list.
-    DeclResult = parseDeclFunc(StaticLoc, StaticSpelling, Flags, Attributes,
-                               HasFuncKeyword);
-    StaticLoc = SourceLoc(); // we handled static if present.
+    DeclResult = parseDeclFunc(Flags, Attributes, HasFuncKeyword);
     MayNeedOverrideCompletion = true;
   };
 
@@ -5375,9 +5363,7 @@ Parser::parseDecl(ParseDeclOptions Flags,
     break;
   case tok::kw_subscript: {
     llvm::SmallVector<Decl *, 4> Entries;
-    DeclResult = parseDeclSubscript(StaticLoc, StaticSpelling, Flags,
-                                    Attributes, Entries);
-    StaticLoc = SourceLoc(); // we handled static if present.
+    DeclResult = parseDeclSubscript(Flags, Attributes, Entries);
     if ((AttrStatus.hasCodeCompletion() || DeclResult.hasCodeCompletion()) &&
         isIDEInspectionFirstPass())
       break;
@@ -5465,21 +5451,17 @@ Parser::parseDecl(ParseDeclOptions Flags,
           Tok.is(tok::l_paren) && peekToken().isIdentifierOrUnderscore();
 
       if (IsProbablyVarDecl || IsProbablyTupleDecl) {
-
-        DescriptiveDeclKind DescriptiveKind;
-
-        switch (StaticSpelling) {
-        case StaticSpellingKind::None:
-          DescriptiveKind = DescriptiveDeclKind::Property;
-          break;
-        case StaticSpellingKind::KeywordStatic:
-          DescriptiveKind = DescriptiveDeclKind::StaticProperty;
-          break;
-        case StaticSpellingKind::KeywordClass:
-          llvm_unreachable("kw_class is only parsed as a modifier if it's "
-                           "followed by a keyword");
+        auto DescriptiveKind = DescriptiveDeclKind::Property;
+        if (StaticAttribute) {
+          switch (StaticAttribute->getSpelling()) {
+          case StaticAttr::Spelling::Static:
+            DescriptiveKind = DescriptiveDeclKind::StaticProperty;
+            break;
+          case StaticAttr::Spelling::Class:
+            llvm_unreachable("kw_class is only parsed as a modifier if it's "
+                             "followed by a keyword");
+          }
         }
-
         diagnose(Tok.getLoc(), diag::expected_keyword_in_decl, "var",
                  DescriptiveKind)
             .fixItInsert(Tok.getLoc(), "var ");
@@ -5492,19 +5474,16 @@ Parser::parseDecl(ParseDeclOptions Flags,
 
       if (IsProbablyFuncDecl) {
 
-        DescriptiveDeclKind DescriptiveKind;
+        auto DescriptiveKind = DescriptiveDeclKind::Method;
 
         if (Tok.isAnyOperator()) {
           DescriptiveKind = DescriptiveDeclKind::OperatorFunction;
-        } else {
-          switch (StaticSpelling) {
-          case StaticSpellingKind::None:
-            DescriptiveKind = DescriptiveDeclKind::Method;
-            break;
-          case StaticSpellingKind::KeywordStatic:
+        } else if (StaticAttribute) {
+          switch (StaticAttribute->getSpelling()) {
+          case StaticAttr::Spelling::Static:
             DescriptiveKind = DescriptiveDeclKind::StaticMethod;
             break;
-          case StaticSpellingKind::KeywordClass:
+          case StaticAttr::Spelling::Class:
             llvm_unreachable("kw_class is only parsed as a modifier if it's "
                              "followed by a keyword");
           }
@@ -5555,10 +5534,15 @@ Parser::parseDecl(ParseDeclOptions Flags,
         // Other tokens are already accounted for.
         break;
       }
-      if (StaticSpelling == StaticSpellingKind::KeywordStatic) {
-        Keywords.push_back(getTokenText(tok::kw_static));
-      } else if (StaticSpelling == StaticSpellingKind::KeywordClass) {
-        Keywords.push_back(getTokenText(tok::kw_class));
+      if (StaticAttribute) {
+        switch (StaticAttribute->getSpelling()) {
+        case StaticAttr::Spelling::Static:
+          Keywords.push_back(getTokenText(tok::kw_static));
+          break;
+        case StaticAttr::Spelling::Class:
+          Keywords.push_back(getTokenText(tok::kw_class));
+          break;
+        }
       }
       for (auto attr : Attributes) {
         Keywords.push_back(attr->getAttrName());
@@ -5597,15 +5581,6 @@ Parser::parseDecl(ParseDeclOptions Flags,
     if (!HandlerAlreadyCalled)
       Handler(D);
     setOriginalDeclarationForDifferentiableAttributes(D->getAttrs(), D);
-  }
-
-  if (!DeclResult.isParseErrorOrHasCompletion()) {
-    // If we parsed 'class' or 'static', but didn't handle it above, complain
-    // about it.
-    if (StaticLoc.isValid())
-      diagnose(DeclResult.get()->getLoc(), diag::decl_not_static,
-               StaticSpelling)
-          .fixItRemove(SourceRange(StaticLoc));
   }
 
   return DeclResult;
@@ -6773,11 +6748,12 @@ ParserResult<TypeDecl> Parser::parseDeclAssociatedType(Parser::ParseDeclOptions 
 
 /// This function creates an accessor function (with no body) for a computed
 /// property or subscript.
-static AccessorDecl *createAccessorFunc(
-    SourceLoc DeclLoc, ParameterList *param, ParameterList *Indices,
-    SourceLoc StaticLoc, Parser::ParseDeclOptions Flags, AccessorKind Kind,
-    AbstractStorageDecl *storage, Parser *P, SourceLoc AccessorKeywordLoc,
-    SourceLoc asyncLoc, SourceLoc throwsLoc) {
+static AccessorDecl *
+createAccessorFunc(SourceLoc DeclLoc, ParameterList *param,
+                   ParameterList *Indices, Parser::ParseDeclOptions Flags,
+                   AccessorKind Kind, AbstractStorageDecl *storage, Parser *P,
+                   SourceLoc AccessorKeywordLoc, SourceLoc asyncLoc,
+                   SourceLoc throwsLoc) {
   // First task, set up the value argument list.  This is the "newValue" name
   // (for setters) followed by the index list (for subscripts).  For
   // non-subscript getters, this degenerates down to "()".
@@ -6832,11 +6808,11 @@ static AccessorDecl *createAccessorFunc(
   }
 
   // Start the function.
-  auto *D = AccessorDecl::create(
-      P->Context,
-      /*FIXME FuncLoc=*/DeclLoc, AccessorKeywordLoc, Kind, storage, StaticLoc,
-      StaticSpellingKind::None, asyncLoc.isValid(), asyncLoc,
-      throwsLoc.isValid(), throwsLoc, ValueArg, Type(), P->CurDeclContext);
+  auto *D = AccessorDecl::create(P->Context,
+                                 /*FIXME FuncLoc=*/DeclLoc, AccessorKeywordLoc,
+                                 Kind, storage, asyncLoc.isValid(), asyncLoc,
+                                 throwsLoc.isValid(), throwsLoc, ValueArg,
+                                 Type(), P->CurDeclContext);
 
   return D;
 }
@@ -7257,8 +7233,7 @@ bool Parser::parseAccessorAfterIntroducer(
     SourceLoc Loc, AccessorKind Kind, ParsedAccessors &accessors,
     bool &hasEffectfulGet, ParameterList *Indices, bool &parsingLimitedSyntax,
     DeclAttributes &Attributes, ParseDeclOptions Flags,
-    AbstractStorageDecl *storage, SourceLoc StaticLoc, ParserStatus &Status
-) {
+    AbstractStorageDecl *storage, ParserStatus &Status) {
   auto *ValueNamePattern = parseOptionalAccessorArgument(Loc, *this, Kind);
 
   // Next, parse effects specifiers. While it's only valid to have them
@@ -7271,8 +7246,8 @@ bool Parser::parseAccessorAfterIntroducer(
 
   // Set up a function declaration.
   auto accessor =
-      createAccessorFunc(Loc, ValueNamePattern, Indices, StaticLoc, Flags,
-                         Kind, storage, this, Loc, asyncLoc, throwsLoc);
+      createAccessorFunc(Loc, ValueNamePattern, Indices, Flags, Kind, storage,
+                         this, Loc, asyncLoc, throwsLoc);
   accessor->getAttrs() = Attributes;
 
   // Collect this accessor and detect conflicts.
@@ -7315,8 +7290,7 @@ bool Parser::parseAccessorAfterIntroducer(
 ParserStatus Parser::parseGetSet(ParseDeclOptions Flags, ParameterList *Indices,
                                  TypeRepr *ResultType,
                                  ParsedAccessors &accessors,
-                                 AbstractStorageDecl *storage,
-                                 SourceLoc StaticLoc) {
+                                 AbstractStorageDecl *storage) {
   assert(Tok.is(tok::l_brace));
 
   // Properties in protocols use a very limited syntax.
@@ -7360,7 +7334,7 @@ ParserStatus Parser::parseGetSet(ParseDeclOptions Flags, ParameterList *Indices,
     accessors.LBLoc = Tok.getLoc();
     auto getter =
         createAccessorFunc(Tok.getLoc(), /*ValueNamePattern*/ nullptr, Indices,
-                           StaticLoc, Flags, AccessorKind::Get, storage, this,
+                           Flags, AccessorKind::Get, storage, this,
                            /*AccessorKeywordLoc*/ SourceLoc(),
                            /*asyncLoc*/ SourceLoc(), /*throwsLoc*/ SourceLoc());
     accessors.add(getter);
@@ -7445,10 +7419,9 @@ ParserStatus Parser::parseGetSet(ParseDeclOptions Flags, ParameterList *Indices,
       diagnose(Loc, diag::protocol_setter_name);
     }
 
-    if (parseAccessorAfterIntroducer(
-            Loc, Kind, accessors, hasEffectfulGet, Indices, parsingLimitedSyntax,
-            Attributes, Flags, storage, StaticLoc, Status
-        ))
+    if (parseAccessorAfterIntroducer(Loc, Kind, accessors, hasEffectfulGet,
+                                     Indices, parsingLimitedSyntax, Attributes,
+                                     Flags, storage, Status))
       break;
   }
   backtrack->cancelBacktrack();
@@ -7471,14 +7444,7 @@ void Parser::parseTopLevelAccessors(
   if (Tok.is(tok::NUM_TOKENS))
     consumeTokenWithoutFeedingReceiver();
 
-  SourceLoc staticLoc;
   ParameterList *indices = nullptr;
-  if (auto subscript = dyn_cast<SubscriptDecl>(storage)) {
-    staticLoc = subscript->getStaticLoc();
-    indices = subscript->getIndices();
-  } else if (auto binding = cast<VarDecl>(storage)->getParentPatternBinding()) {
-    staticLoc = binding->getStaticLoc();
-  }
 
   bool hadLBrace = consumeIf(tok::l_brace);
 
@@ -7494,10 +7460,9 @@ void Parser::parseTopLevelAccessors(
     if (notAccessor)
       break;
 
-    (void)parseAccessorAfterIntroducer(
-        loc, kind, accessors, hasEffectfulGet, indices, parsingLimitedSyntax,
-        attributes, PD_Default, storage, staticLoc, status
-    );
+    (void)parseAccessorAfterIntroducer(loc, kind, accessors, hasEffectfulGet,
+                                       indices, parsingLimitedSyntax,
+                                       attributes, PD_Default, storage, status);
   }
 
   if (hadLBrace && Tok.is(tok::r_brace)) {
@@ -7576,8 +7541,6 @@ void Parser::parseExpandedMemberList(SmallVectorImpl<ASTNode> &items) {
 /// Parse the brace-enclosed getter and setter for a variable.
 ParserResult<VarDecl>
 Parser::parseDeclVarGetSet(PatternBindingEntry &entry, ParseDeclOptions Flags,
-                           SourceLoc StaticLoc,
-                           StaticSpellingKind StaticSpelling,
                            SourceLoc VarLoc, bool hasInitializer,
                            const DeclAttributes &Attributes,
                            SmallVectorImpl<Decl *> &Decls) {
@@ -7623,15 +7586,18 @@ Parser::parseDeclVarGetSet(PatternBindingEntry &entry, ParseDeclOptions Flags,
   // formation rule that an AccessorDecl always has a VarDecl.
   VarDecl *storage = PrimaryVar;
   if (!storage) {
-    storage = new (Context) VarDecl(StaticLoc.isValid(),
-                                    VarDecl::Introducer::Var,
-                                    VarLoc, Identifier(),
-                                    CurDeclContext);
+    StaticKind staticKind = StaticKind::None;
+    if (auto *SA = Attributes.getAttribute<StaticAttr>())
+      staticKind = SA->getStaticKind();
+
+    storage = VarDecl::createImplicit(Context, staticKind,
+                                      VarDecl::Introducer::Var, VarLoc,
+                                      Identifier(), CurDeclContext);
     storage->setInvalid();
 
+    pattern = NamedPattern::createImplicit(Context, storage);
     pattern =
-      TypedPattern::createImplicit(Context, new (Context) NamedPattern(storage),
-                                   ErrorType::get(Context));
+        TypedPattern::createImplicit(Context, pattern, ErrorType::get(Context));
     entry.setPattern(pattern);
   }
 
@@ -7640,7 +7606,7 @@ Parser::parseDeclVarGetSet(PatternBindingEntry &entry, ParseDeclOptions Flags,
   auto typedPattern = dyn_cast<TypedPattern>(pattern);
   auto *resultTypeRepr = typedPattern ? typedPattern->getTypeRepr() : nullptr;
   auto AccessorStatus = parseGetSet(Flags, /*Indices=*/nullptr, resultTypeRepr,
-                                    accessors, storage, StaticLoc);
+                                    accessors, storage);
   if (AccessorStatus.hasCodeCompletion())
     return makeParserCodeCompletionStatus();
   if (AccessorStatus.isErrorOrHasCompletion())
@@ -7820,30 +7786,9 @@ void Parser::ParsedAccessors::classify(Parser &P, AbstractStorageDecl *storage,
 
 /// Parse a 'var', 'let', or 'inout' declaration, doing no token skipping on error.
 ParserResult<PatternBindingDecl>
-Parser::parseDeclVar(ParseDeclOptions Flags,
-                     DeclAttributes &Attributes,
-                     SmallVectorImpl<Decl *> &Decls,
-                     SourceLoc StaticLoc,
-                     StaticSpellingKind StaticSpelling,
-                     SourceLoc TryLoc,
+Parser::parseDeclVar(ParseDeclOptions Flags, DeclAttributes &Attributes,
+                     SmallVectorImpl<Decl *> &Decls, SourceLoc TryLoc,
                      bool HasBindingKeyword) {
-  assert(StaticLoc.isInvalid() || StaticSpelling != StaticSpellingKind::None);
-
-  if (StaticLoc.isValid()) {
-    if (!Flags.contains(PD_HasContainerType)) {
-      diagnose(Tok, diag::static_var_decl_global_scope, StaticSpelling)
-          .fixItRemove(StaticLoc);
-      StaticLoc = SourceLoc();
-      StaticSpelling = StaticSpellingKind::None;
-    } else if (Flags.contains(PD_InStruct) || Flags.contains(PD_InEnum) ||
-               Flags.contains(PD_InProtocol)) {
-      if (StaticSpelling == StaticSpellingKind::KeywordClass)
-        diagnose(Tok, diag::class_var_not_in_class, 
-                 Flags.contains(PD_InProtocol))
-            .fixItReplace(StaticLoc, "static");
-    }
-  }
-
   PatternBindingState newBindingContext = PatternBindingState::NotInBinding;
   if (HasBindingKeyword)
     newBindingContext = PatternBindingState(Tok);
@@ -7885,8 +7830,8 @@ Parser::parseDeclVar(ParseDeclOptions Flags,
     // Now that we've parsed all of our patterns, initializers and accessors, we
     // can finally create our PatternBindingDecl to represent the
     // pattern/initializer pairs.
-    auto *PBD = PatternBindingDecl::create(Context, StaticLoc, StaticSpelling,
-                                           VarLoc, PBDEntries, BaseContext);
+    auto *PBD =
+        PatternBindingDecl::create(Context, VarLoc, PBDEntries, BaseContext);
 
     // Wire up any initializer contexts we needed.
     for (unsigned i : indices(PBDEntries)) {
@@ -7945,7 +7890,6 @@ Parser::parseDeclVar(ParseDeclOptions Flags,
     
     // Configure all vars with attributes, 'static' and parent pattern.
     pattern->forEachVariable([&](VarDecl *VD) {
-      VD->setStatic(StaticLoc.isValid());
       VD->getAttrs() = Attributes;
       VD->setTopLevelGlobal(topLevelDecl);
 
@@ -8044,9 +7988,9 @@ Parser::parseDeclVar(ParseDeclOptions Flags,
       // See https://github.com/apple/swift/issues/57183.
       if (!PatternInit || !Tok.isAtStartOfLine() || isStartOfGetSetAccessor()) {
         HasAccessors = true;
-        auto boundVar = parseDeclVarGetSet(
-            PBDEntries.back(), Flags, StaticLoc, StaticSpelling, VarLoc,
-            PatternInit != nullptr, Attributes, Decls);
+        auto boundVar =
+            parseDeclVarGetSet(PBDEntries.back(), Flags, VarLoc,
+                               PatternInit != nullptr, Attributes, Decls);
         if (boundVar.hasCodeCompletion())
           return makeResult(makeParserCodeCompletionStatus());
       }
@@ -8110,32 +8054,9 @@ Parser::parseDeclVar(ParseDeclOptions Flags,
 /// \endverbatim
 ///
 /// \note The caller of this method must ensure that the next token is 'func'.
-ParserResult<FuncDecl> Parser::parseDeclFunc(SourceLoc StaticLoc,
-                                             StaticSpellingKind StaticSpelling,
-                                             ParseDeclOptions Flags,
+ParserResult<FuncDecl> Parser::parseDeclFunc(ParseDeclOptions Flags,
                                              DeclAttributes &Attributes,
                                              bool HasFuncKeyword) {
-  assert(StaticLoc.isInvalid() || StaticSpelling != StaticSpellingKind::None);
-
-  if (StaticLoc.isValid()) {
-    if (!Flags.contains(PD_HasContainerType)) {
-      // Reject static functions at global scope.
-      diagnose(Tok, diag::static_func_decl_global_scope, StaticSpelling)
-          .fixItRemove(StaticLoc);
-      StaticLoc = SourceLoc();
-      StaticSpelling = StaticSpellingKind::None;
-    } else if (Flags.contains(PD_InStruct) || Flags.contains(PD_InEnum) ||
-               Flags.contains(PD_InProtocol)) {
-      if (StaticSpelling == StaticSpellingKind::KeywordClass) {
-        diagnose(Tok, diag::class_func_not_in_class,
-                 Flags.contains(PD_InProtocol))
-            .fixItReplace(StaticLoc, "static");
-
-        StaticSpelling = StaticSpellingKind::KeywordStatic;
-      }
-    }
-  }
-
   ParserStatus Status;
   SourceLoc FuncLoc =
       HasFuncKeyword ? consumeToken(tok::kw_func) : Tok.getLoc();
@@ -8156,24 +8077,6 @@ ParserResult<FuncDecl> Parser::parseDeclFunc(SourceLoc StaticLoc,
     SimpleName = Context.getIdentifier(NameStr);
     NameLoc = consumeStartingCharacterOfCurrentToken(tok::oper_binary_spaced,
                                                      NameStr.size());
-    // Within a protocol, recover from a missing 'static'.
-    if (Flags & PD_InProtocol) {
-      switch (StaticSpelling) {
-      case StaticSpellingKind::None: {
-        diagnose(NameLoc, diag::operator_static_in_protocol, SimpleName.str())
-            .fixItInsert(FuncLoc, "static ");
-        StaticSpelling = StaticSpellingKind::KeywordStatic;
-        break;
-      }
-
-      case StaticSpellingKind::KeywordStatic:
-        // Okay, this is correct.
-        break;
-
-      case StaticSpellingKind::KeywordClass:
-        llvm_unreachable("should have been fixed above");
-      }
-    }
   } else {
     // This non-operator path is quite accepting of what tokens might be a name,
     // because we're aggressive about recovering/providing good diagnostics for
@@ -8233,13 +8136,11 @@ ParserResult<FuncDecl> Parser::parseDeclFunc(SourceLoc StaticLoc,
   }
 
   // Create the decl for the func and add it to the parent scope.
-  auto *FD = FuncDecl::create(Context, StaticLoc, StaticSpelling,
-                              FuncLoc, FullName, NameLoc,
-                              /*Async=*/isAsync, asyncLoc,
-                              /*Throws=*/throwsLoc.isValid(), throwsLoc,
-                              GenericParams,
-                              BodyParams, FuncRetTy,
-                              CurDeclContext);
+  auto *FD =
+      FuncDecl::create(Context, FuncLoc, FullName, NameLoc,
+                       /*Async=*/isAsync, asyncLoc,
+                       /*Throws=*/throwsLoc.isValid(), throwsLoc, GenericParams,
+                       BodyParams, FuncRetTy, CurDeclContext);
 
   // Let the source file track the opaque return type mapping, if any.
   if (FuncRetTy && FuncRetTy->hasOpaque() &&
@@ -9091,26 +8992,8 @@ parseDeclProtocol(ParseDeclOptions Flags, DeclAttributes &Attributes) {
 ///     attribute-list? 'subscript' parameter-clause '->' type
 /// \endverbatim
 ParserResult<SubscriptDecl>
-Parser::parseDeclSubscript(SourceLoc StaticLoc,
-                           StaticSpellingKind StaticSpelling,
-                           ParseDeclOptions Flags,
-                           DeclAttributes &Attributes,
+Parser::parseDeclSubscript(ParseDeclOptions Flags, DeclAttributes &Attributes,
                            SmallVectorImpl<Decl *> &Decls) {
-  assert(StaticLoc.isInvalid() || StaticSpelling != StaticSpellingKind::None);
-  
-  if (StaticLoc.isValid()) {
-    if (Flags.contains(PD_InStruct) || Flags.contains(PD_InEnum) ||
-               Flags.contains(PD_InProtocol)) {
-      if (StaticSpelling == StaticSpellingKind::KeywordClass) {
-        diagnose(Tok, diag::class_subscript_not_in_class,
-                 Flags.contains(PD_InProtocol))
-        .fixItReplace(StaticLoc, "static");
-        
-        StaticSpelling = StaticSpellingKind::KeywordStatic;
-      }
-    }
-  }
-  
   ParserStatus Status;
   SourceLoc SubscriptLoc = consumeToken(tok::kw_subscript);
 
@@ -9184,8 +9067,8 @@ Parser::parseDeclSubscript(SourceLoc StaticLoc,
   DeclName name = DeclName(Context, DeclBaseName::createSubscript(),
                            argumentNames);
   auto *const Subscript = SubscriptDecl::create(
-      Context, name, StaticLoc, StaticSpelling, SubscriptLoc, Indices.get(),
-      ArrowLoc, ElementTy.get(), CurDeclContext, GenericParams);
+      Context, name, SubscriptLoc, Indices.get(), ArrowLoc, ElementTy.get(),
+      CurDeclContext, GenericParams);
   Subscript->getAttrs() = Attributes;
   
   // Let the source file track the opaque return type mapping, if any.
@@ -9234,7 +9117,7 @@ Parser::parseDeclSubscript(SourceLoc StaticLoc,
     }
   } else if (!Status.hasCodeCompletion()) {
     Status |= parseGetSet(Flags, Indices.get(), ElementTy.get(), accessors,
-                          Subscript, StaticLoc);
+                          Subscript);
   }
 
   // Now that it's been parsed, set the end location.

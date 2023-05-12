@@ -1481,8 +1481,7 @@ static void diagnoseClassWithoutInitializers(ClassDecl *classDecl) {
     if (!pbd)
       continue;
 
-    if (pbd->isStatic() || !pbd->hasStorage() ||
-        pbd->isDefaultInitializable() || pbd->isInvalid())
+    if (!pbd->hasStorage() || pbd->isDefaultInitializable() || pbd->isInvalid())
       continue;
    
     for (auto idx : range(pbd->getNumPatternEntries())) {
@@ -1490,7 +1489,10 @@ static void diagnoseClassWithoutInitializers(ClassDecl *classDecl) {
 
       auto *pattern = pbd->getPattern(idx);
       SmallVector<VarDecl *, 4> vars;
-      pattern->collectVariables(vars);
+      pattern->forEachVariable([&](VarDecl *VD) {
+        if (!VD->isStatic())
+          vars.push_back(VD);
+      });
       if (vars.empty()) continue;
 
       // Replace the variables we found with the originals for diagnostic
@@ -2148,7 +2150,10 @@ public:
 
       // We haven't implemented type-level storage in some contexts.
       if (VD->isStatic()) {
-        auto PBD = VD->getParentPatternBinding();
+        auto staticKind = VD->getStaticKind();
+        auto *staticAttr = VD->getAttrs().getAttribute<StaticAttr>();
+        assert(staticAttr);
+
         // Selector for unimplemented_static_var message.
         enum : unsigned {
           Misc,
@@ -2157,10 +2162,10 @@ public:
           ProtocolExtensions
         };
         auto unimplementedStatic = [&](unsigned diagSel) {
-          auto staticLoc = PBD->getStaticLoc();
-          VD->diagnose(diag::unimplemented_static_var, diagSel,
-                       PBD->getStaticSpelling(), diagSel == Classes)
-              .highlight(staticLoc);
+          auto diag = VD->diagnose(diag::unimplemented_static_var, diagSel,
+                                   staticKind, diagSel == Classes);
+          if (auto staticLoc = staticAttr->getLocation())
+            diag.highlight(staticLoc);
         };
 
         auto DC = VD->getDeclContext();
@@ -2173,8 +2178,7 @@ public:
                && !DC->getGenericSignatureOfContext()->areAllParamsConcrete()) {
           unimplementedStatic(GenericTypes);
         } else if (DC->getSelfClassDecl()) {
-          auto StaticSpelling = PBD->getStaticSpelling();
-          if (StaticSpelling != StaticSpellingKind::KeywordStatic)
+          if (staticKind != StaticKind::Static)
             unimplementedStatic(Classes);
         }
       }
@@ -2341,8 +2345,7 @@ public:
             break;
           }
 
-          var->diagnose(diag::static_requires_initializer,
-                        var->getCorrectStaticSpelling(),
+          var->diagnose(diag::static_requires_initializer, var->getStaticKind(),
                         var->isLet());
           var->diagnose(diag::static_requires_initializer_add_init)
             .fixItInsert(Pat->getEndLoc(), " = <#initializer#>");
@@ -2485,14 +2488,6 @@ public:
           SD->supportsMutation()) {
         SD->diagnose(diag::dynamic_self_in_mutable_subscript);
       }
-    }
-
-    // Reject "class" methods on actors.
-    if (SD->getStaticSpelling() == StaticSpellingKind::KeywordClass &&
-        SD->getDeclContext()->getSelfClassDecl() &&
-        SD->getDeclContext()->getSelfClassDecl()->isActor()) {
-      SD->diagnose(diag::class_subscript_not_in_class, false)
-          .fixItReplace(SD->getStaticLoc(), "static");
     }
 
     // Now check all the accessors.
@@ -2755,16 +2750,23 @@ public:
       if (!pbd)
         continue;
 
-      if (pbd->isStatic() || !pbd->hasStorage() || 
-          pbd->isDefaultInitializable() || pbd->isInvalid())
+      if (!pbd->hasStorage() || pbd->isDefaultInitializable() ||
+          pbd->isInvalid())
         continue;
 
       // The variables in this pattern have not been
       // initialized. Diagnose the lack of initial value.
-      pbd->setInvalid();
       SmallVector<VarDecl *, 4> vars;
-      for (auto idx : range(pbd->getNumPatternEntries()))
-        pbd->getPattern(idx)->collectVariables(vars);
+      for (auto idx : range(pbd->getNumPatternEntries())) {
+        pbd->getPattern(idx)->forEachVariable([&](VarDecl *VD) {
+          if (!VD->isStatic())
+            vars.push_back(VD);
+        });
+      }
+      if (vars.empty())
+        continue;
+
+      pbd->setInvalid();
       bool suggestNSManaged = propertiesCanBeNSManaged(cd, vars);
       switch (vars.size()) {
       case 0:
@@ -3289,29 +3291,6 @@ public:
 
     checkDefaultArguments(FD->getParameters());
     checkVariadicParameters(FD->getParameters(), FD);
-
-    // Validate 'static'/'class' on functions in extensions.
-    auto StaticSpelling = FD->getStaticSpelling();
-    if (StaticSpelling != StaticSpellingKind::None &&
-        isa<ExtensionDecl>(FD->getDeclContext())) {
-      if (auto *NTD = FD->getDeclContext()->getSelfNominalTypeDecl()) {
-        if (!isa<ClassDecl>(NTD)) {
-          if (StaticSpelling == StaticSpellingKind::KeywordClass) {
-            FD->diagnose(diag::class_func_not_in_class, false)
-                .fixItReplace(FD->getStaticLoc(), "static");
-            NTD->diagnose(diag::extended_type_declared_here);
-          }
-        }
-      }
-    }
-
-    // Reject "class" methods on actors.
-    if (StaticSpelling == StaticSpellingKind::KeywordClass &&
-        FD->getDeclContext()->getSelfClassDecl() &&
-        FD->getDeclContext()->getSelfClassDecl()->isActor()) {
-      FD->diagnose(diag::class_func_not_in_class, false)
-          .fixItReplace(FD->getStaticLoc(), "static");
-    }
 
     // Member functions need some special validation logic.
     if (FD->getDeclContext()->isTypeContext()) {

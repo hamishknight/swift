@@ -92,13 +92,16 @@ static void setFuncSymbolInfo(const FuncDecl *FD, SymbolInfo &sym) {
     sym.Properties |= SymbolProperty::UnitTest;
 
   if (FD->getDeclContext()->isTypeContext()) {
-    if (FD->isStatic()) {
-      if (FD->getCorrectStaticSpelling() == StaticSpellingKind::KeywordClass)
-        sym.Kind = SymbolKind::ClassMethod;
-      else
-        sym.Kind = SymbolKind::StaticMethod;
-    } else {
+    switch (FD->getStaticKind()) {
+    case StaticKind::None:
       sym.Kind = SymbolKind::InstanceMethod;
+      break;
+    case StaticKind::Static:
+      sym.Kind = SymbolKind::StaticMethod;
+      break;
+    case StaticKind::Class:
+      sym.Kind = SymbolKind::ClassMethod;
+      break;
     }
   }
 
@@ -127,12 +130,14 @@ static void setFuncSymbolInfo(const FuncDecl *FD, SymbolInfo &sym) {
 static SymbolKind getVarSymbolKind(const VarDecl *VD) {
   auto *DC = VD->getDeclContext();
   if (DC->isTypeContext()) {
-    if (VD->isStatic()) {
-      if (VD->getCorrectStaticSpelling() == StaticSpellingKind::KeywordClass)
-        return SymbolKind::ClassProperty;
+    switch (VD->getStaticKind()) {
+    case StaticKind::None:
+      return SymbolKind::InstanceProperty;
+    case StaticKind::Static:
       return SymbolKind::StaticProperty;
+    case StaticKind::Class:
+      return SymbolKind::ClassProperty;
     }
-    return SymbolKind::InstanceProperty;
   }
   return SymbolKind::Variable;
 }

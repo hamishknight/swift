@@ -168,7 +168,7 @@ static VarDecl *deriveRawRepresentable_raw(DerivedConformance &derived) {
   PatternBindingDecl *pbDecl;
   std::tie(propDecl, pbDecl) = derived.declareDerivedProperty(
       DerivedConformance::SynthesizedIntroducer::Var, C.Id_rawValue,
-      rawInterfaceType, rawType, /*isStatic=*/false,
+      rawInterfaceType, rawType, StaticKind::None,
       /*isFinal=*/false);
   addNonIsolatedToSynthesized(enumDecl, propDecl);
 

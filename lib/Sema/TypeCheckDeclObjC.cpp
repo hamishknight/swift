@@ -2784,98 +2784,70 @@ void TypeChecker::checkObjCImplementation(ExtensionDecl *ED) {
                     evaluator::SideEffect());
 }
 
-static Optional<Located<StaticSpellingKind>>
-getLocatedStaticSpelling(ValueDecl *VD) {
-  using Ret = Optional<Located<StaticSpellingKind>>;
-
-  if (auto FD = dyn_cast<FuncDecl>(VD)) {
-    return Ret({ FD->getCorrectStaticSpelling(), FD->getStaticLoc() });
-  }
-  else if (auto ASD = dyn_cast<AbstractStorageDecl>(VD)) {
-    if (auto SD = dyn_cast<SubscriptDecl>(ASD)) {
-      return Ret({ SD->getCorrectStaticSpelling(), SD->getStaticLoc() });
-    }
-    else if (auto VD = dyn_cast<VarDecl>(ASD)) {
-      if (auto PBD = VD->getParentPatternBinding())
-        return Ret({ PBD->getCorrectStaticSpelling(), PBD->getStaticLoc() });
-    }
-    else {
-      llvm_unreachable("unknown AbstractStorageDecl");
-    }
-  }
-  return None;
-}
-
-static Optional<StaticSpellingKind> getStaticSpelling(ValueDecl *VD) {
-  if (auto locSpelling = getLocatedStaticSpelling(VD))
-    return locSpelling->Item;
-  return None;
-}
-
-static void
-fixDeclarationStaticSpelling(InFlightDiagnostic &diag, ValueDecl *VD,
-                             Optional<StaticSpellingKind> newSpelling) {
-  auto spelling = getLocatedStaticSpelling(VD);
-  if (!newSpelling || !spelling)
+static void fixDeclarationStaticSpelling(InFlightDiagnostic &diag,
+                                         ValueDecl *VD,
+                                         Optional<StaticKind> newSpelling) {
+  auto *staticAttr = VD->getAttrs().getAttribute<StaticAttr>();
+  if (!newSpelling || !staticAttr || staticAttr->isImplicit())
     return;
 
   // If we're changing to `static`, remove explicit `final` keyword.
-  if (newSpelling == StaticSpellingKind::KeywordStatic)
+  if (newSpelling == StaticKind::Static)
     if (auto finalAttr = VD->getAttrs().getAttribute<FinalAttr>())
       diag.fixItRemove(finalAttr->getRange());
 
-  auto spellingLoc = spelling->Loc;
+  auto spellingLoc = staticAttr->getRange();
 
-  switch (spelling->Item) {
-  case StaticSpellingKind::None:
+  switch (VD->getStaticKind()) {
+  case StaticKind::None:
     switch (*newSpelling) {
-    case StaticSpellingKind::None:
+    case StaticKind::None:
       // Do nothing
       return;
 
-    case StaticSpellingKind::KeywordClass:
+    case StaticKind::Class:
       diag.fixItInsert(VD->getAttributeInsertionLoc(/*forModifier=*/true),
                        "class ");
       return;
 
-    case StaticSpellingKind::KeywordStatic:
+    case StaticKind::Static:
       diag.fixItInsert(VD->getAttributeInsertionLoc(/*forModifier=*/true),
                        "static ");
       return;
     }
 
-  case StaticSpellingKind::KeywordClass:
+  case StaticKind::Class:
     switch (*newSpelling) {
-    case StaticSpellingKind::None:
+    case StaticKind::None:
       diag.fixItRemove(spellingLoc);
       return;
 
-    case StaticSpellingKind::KeywordClass:
+    case StaticKind::Class:
       // Do nothing
       return;
 
-    case StaticSpellingKind::KeywordStatic:
+    case StaticKind::Static:
       diag.fixItReplace(spellingLoc, "static");
       return;
     }
 
-  case StaticSpellingKind::KeywordStatic:
+  case StaticKind::Static:
     switch (*newSpelling) {
-    case StaticSpellingKind::None:
+    case StaticKind::None:
       diag.fixItReplace(spellingLoc, "final");
       return;
 
-    case StaticSpellingKind::KeywordClass:
+    case StaticKind::Class:
       diag.fixItReplace(spellingLoc, "class");
       return;
 
-    case StaticSpellingKind::KeywordStatic:
+    case StaticKind::Static:
       // Do nothing
       return;
     }
   }
 
-  llvm_unreachable("unknown StaticSpellingKind");
+  llvm_unreachable("unknown StaticKind");
 }
 
 namespace {
@@ -3397,7 +3369,7 @@ private:
                            diag::objc_implementation_class_or_instance_mismatch,
                            cand->getDescriptiveKind(), cand,
                            req->getDescriptiveKind());
-      fixDeclarationStaticSpelling(diag, cand, getStaticSpelling(req));
+      fixDeclarationStaticSpelling(diag, cand, req->getStaticKind());
       return;
     }
 

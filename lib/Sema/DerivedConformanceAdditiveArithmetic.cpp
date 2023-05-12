@@ -187,7 +187,7 @@ static ValueDecl *deriveMathOperator(DerivedConformance &derived,
   auto operatorId = C.getIdentifier(getMathOperatorName(op));
   DeclName operatorDeclName(C, operatorId, params);
   auto *const operatorDecl = FuncDecl::createImplicit(
-      C, StaticSpellingKind::KeywordStatic, operatorDeclName,
+      C, StaticKind::Static, operatorDeclName,
       /*NameLoc=*/SourceLoc(),
       /*Async=*/false,
       /*Throws=*/false,
@@ -303,7 +303,7 @@ static ValueDecl *deriveAdditiveArithmetic_zero(DerivedConformance &derived) {
   PatternBindingDecl *pbDecl;
   std::tie(propDecl, pbDecl) = derived.declareDerivedProperty(
       DerivedConformance::SynthesizedIntroducer::Var, C.Id_zero,
-      returnInterfaceTy, returnTy, /*isStatic*/ true,
+      returnInterfaceTy, returnTy, StaticKind::Static,
       /*isFinal*/ true);
 
   // Create property getter.

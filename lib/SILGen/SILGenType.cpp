@@ -1197,7 +1197,7 @@ public:
     // Emit initializers.
     for (auto i : range(pd->getNumPatternEntries())) {
       if (pd->getExecutableInit(i)) {
-        if (pd->isStatic())
+        if (pd->hasStaticVar())
           SGM.emitGlobalInitialization(pd, i);
         else
           SGM.emitStoredPropertyInitialization(pd, i);
@@ -1362,7 +1362,7 @@ public:
     // Emit initializers for static variables.
     for (auto i : range(pd->getNumPatternEntries())) {
       if (pd->getExecutableInit(i)) {
-        if (pd->isStatic())
+        if (pd->hasStaticVar())
           SGM.emitGlobalInitialization(pd, i);
         else if (isa<ExtensionDecl>(pd->getDeclContext()) &&
                  cast<ExtensionDecl>(pd->getDeclContext())

@@ -903,14 +903,27 @@ void EnumRawValuesRequest::noteCycleStep(DiagnosticEngine &diags) const {
 // IsStaticRequest computation.
 //----------------------------------------------------------------------------//
 
-Optional<bool> IsStaticRequest::getCachedResult() const {
-  auto *FD = std::get<0>(getStorage());
-  return FD->getCachedIsStatic();
+Optional<StaticKind> IsStaticRequest::getCachedResult() const {
+  auto *VD = std::get<0>(getStorage());
+  if (!VD->LazySemanticInfo.StaticKindComputed)
+    return None;
+
+  return StaticKind(VD->LazySemanticInfo.StaticKind);
 }
 
-void IsStaticRequest::cacheResult(bool result) const {
-  auto *FD = std::get<0>(getStorage());
-  FD->setStatic(result);
+void IsStaticRequest::cacheResult(StaticKind result) const {
+  auto *VD = std::get<0>(getStorage());
+  VD->LazySemanticInfo.StaticKindComputed = true;
+  VD->LazySemanticInfo.StaticKind = unsigned(result);
+  assert(StaticKind(VD->LazySemanticInfo.StaticKind) == result && "truncated!");
+
+  // Add an attribute for printing.
+  if (result != StaticKind::None &&
+      !VD->getAttrs().hasAttribute<StaticAttr>()) {
+    auto &ctx = VD->getASTContext();
+    auto *mutableVD = const_cast<ValueDecl *>(VD);
+    mutableVD->getAttrs().add(StaticAttr::createImplicit(ctx, result));
+  }
 }
 
 //----------------------------------------------------------------------------//

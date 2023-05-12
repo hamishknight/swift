@@ -151,13 +151,12 @@ TEST(SourceLoc, StmtConditionElement) {
   auto bufferID = C.Ctx.SourceMgr //       0123456789012345678901234567890
                         .addMemBufferCopy("if let x = Optional.some(1) { }");
   SourceLoc start = C.Ctx.SourceMgr.getLocForBufferStart(bufferID);
-  
-  auto vardecl = new (C.Ctx) VarDecl(/*IsStatic*/false,
-                                     VarDecl::Introducer::Let,
-                                     start.getAdvancedLoc(7)
-                                    , C.Ctx.getIdentifier("x")
-                                    , nullptr);
-  auto pattern = new (C.Ctx) NamedPattern(vardecl);
+
+  auto *vardecl =
+      VarDecl::createParsed(C.Ctx, VarDecl::Introducer::Let,
+                            start.getAdvancedLoc(7), C.Ctx.getIdentifier("x"),
+                            /*dc*/ nullptr);
+  auto pattern = NamedPattern::createParsed(C.Ctx, vardecl);
   auto init = new (C.Ctx) IntegerLiteralExpr( "1", start.getAdvancedLoc(25)
                                             , false);
   

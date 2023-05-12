@@ -1026,8 +1026,6 @@ public:
 
   /// Parse the optional modifiers before a declaration.
   ParserStatus parseDeclModifierList(DeclAttributes &Attributes,
-                                     SourceLoc &StaticLoc,
-                                     StaticSpellingKind &StaticSpelling,
                                      bool isFromClangAttribute = false);
 
   /// Parse an availability attribute of the form
@@ -1231,13 +1229,11 @@ public:
   parseDeclStruct(ParseDeclOptions Flags, DeclAttributes &Attributes);
   ParserResult<ClassDecl>
   parseDeclClass(ParseDeclOptions Flags, DeclAttributes &Attributes);
-  ParserResult<PatternBindingDecl>
-  parseDeclVar(ParseDeclOptions Flags, DeclAttributes &Attributes,
-               SmallVectorImpl<Decl *> &Decls,
-               SourceLoc StaticLoc,
-               StaticSpellingKind StaticSpelling,
-               SourceLoc TryLoc,
-               bool HasLetOrVarKeyword = true);
+  ParserResult<PatternBindingDecl> parseDeclVar(ParseDeclOptions Flags,
+                                                DeclAttributes &Attributes,
+                                                SmallVectorImpl<Decl *> &Decls,
+                                                SourceLoc TryLoc,
+                                                bool HasLetOrVarKeyword = true);
 
   struct ParsedAccessors;
 
@@ -1245,16 +1241,13 @@ public:
       SourceLoc Loc, AccessorKind Kind, ParsedAccessors &accessors,
       bool &hasEffectfulGet, ParameterList *Indices, bool &parsingLimitedSyntax,
       DeclAttributes &Attributes, ParseDeclOptions Flags,
-      AbstractStorageDecl *storage, SourceLoc StaticLoc, ParserStatus &Status
-  );
+      AbstractStorageDecl *storage, ParserStatus &Status);
 
   ParserStatus parseGetSet(ParseDeclOptions Flags, ParameterList *Indices,
                            TypeRepr *ResultType, ParsedAccessors &accessors,
-                           AbstractStorageDecl *storage, SourceLoc StaticLoc);
+                           AbstractStorageDecl *storage);
   ParserResult<VarDecl> parseDeclVarGetSet(PatternBindingEntry &entry,
                                            ParseDeclOptions Flags,
-                                           SourceLoc StaticLoc,
-                                           StaticSpellingKind StaticSpelling,
                                            SourceLoc VarLoc,
                                            bool hasInitializer,
                                            const DeclAttributes &Attributes,
@@ -1287,9 +1280,7 @@ public:
   /// member list.
   void parseExpandedMemberList(SmallVectorImpl<ASTNode> &items);
 
-  ParserResult<FuncDecl> parseDeclFunc(SourceLoc StaticLoc,
-                                       StaticSpellingKind StaticSpelling,
-                                       ParseDeclOptions Flags,
+  ParserResult<FuncDecl> parseDeclFunc(ParseDeclOptions Flags,
                                        DeclAttributes &Attributes,
                                        bool HasFuncKeyword = true);
   BodyAndFingerprint
@@ -1308,8 +1299,7 @@ public:
                                                DeclAttributes &Attributes);
 
   ParserResult<SubscriptDecl>
-  parseDeclSubscript(SourceLoc StaticLoc, StaticSpellingKind StaticSpelling,
-                     ParseDeclOptions Flags, DeclAttributes &Attributes,
+  parseDeclSubscript(ParseDeclOptions Flags, DeclAttributes &Attributes,
                      SmallVectorImpl<Decl *> &Decls);
 
   ParserResult<ConstructorDecl>

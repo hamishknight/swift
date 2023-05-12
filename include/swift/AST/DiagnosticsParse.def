@@ -236,13 +236,13 @@ ERROR(decl_inner_scope,none,
       "declaration is only valid at file scope", ())
 
 ERROR(decl_not_static,none,
-      "declaration cannot be marked %0", (StaticSpellingKind))
+      "declaration cannot be marked %0", (StaticKind))
 
 ERROR(cskeyword_not_attribute,none,
       "'%0' is a declaration modifier, not an attribute", (StringRef))
 
 ERROR(decl_already_static,none,
-      "%0 cannot appear after another 'static' or 'class' keyword", (StaticSpellingKind))
+      "%0 cannot appear after another 'static' or 'class' keyword", (StaticKind))
 
 ERROR(enum_case_dot_prefix,none,
       "extraneous '.' in enum 'case' declaration", ())
@@ -250,7 +250,7 @@ ERROR(enum_case_dot_prefix,none,
 // Variable getters/setters
 ERROR(static_var_decl_global_scope,none,
       "%select{%error|static properties|class properties}0 may only be declared on a type",
-      (StaticSpellingKind))
+      (StaticKind))
 ERROR(unexpected_curly_braces_in_decl, none,
       "unexpected '{' in declaration", ())
 ERROR(missing_accessor_return_decl,none,
@@ -345,7 +345,7 @@ ERROR(func_decl_without_paren,PointsToFirstBadToken,
       "expected '(' in argument list of function declaration", ())
 ERROR(static_func_decl_global_scope,none,
       "%select{%error|static methods|class methods}0 may only be declared on a type",
-      (StaticSpellingKind))
+      (StaticKind))
 ERROR(func_decl_expected_arrow,none,
       "expected '->' after function parameter tuple", ())
 ERROR(operator_static_in_protocol,none,

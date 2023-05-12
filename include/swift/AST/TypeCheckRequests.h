@@ -2128,11 +2128,10 @@ public:
   bool isCached() const { return true; }
 };
 
-/// Determines if a function declaration is 'static'.
-class IsStaticRequest :
-    public SimpleRequest<IsStaticRequest,
-                         bool(FuncDecl *),
-                         RequestFlags::SeparatelyCached> {
+/// Determines if a declaration is 'static'.
+class IsStaticRequest
+    : public SimpleRequest<IsStaticRequest, StaticKind(const ValueDecl *),
+                           RequestFlags::SeparatelyCached> {
 public:
   using SimpleRequest::SimpleRequest;
 
@@ -2140,14 +2139,13 @@ private:
   friend SimpleRequest;
 
   // Evaluation.
-  bool
-  evaluate(Evaluator &evaluator, FuncDecl *value) const;
+  StaticKind evaluate(Evaluator &evaluator, const ValueDecl *value) const;
 
 public:
   // Separate caching.
   bool isCached() const { return true; }
-  Optional<bool> getCachedResult() const;
-  void cacheResult(bool value) const;
+  Optional<StaticKind> getCachedResult() const;
+  void cacheResult(StaticKind result) const;
 };
 
 /// Determines if a method override should introduce a new vtable entry,

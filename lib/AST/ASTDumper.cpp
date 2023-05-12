@@ -759,6 +759,8 @@ namespace {
       case LifetimeAnnotation::None:
         break;
       }
+      if (auto *SA = attrs.getAttribute<StaticAttr>())
+        OS << " " << SA->getAttrName();
     }
 
     void printCommon(NominalTypeDecl *NTD, const char *Name,
@@ -838,9 +840,6 @@ namespace {
     }
 
     void printStorageImpl(AbstractStorageDecl *D) {
-      if (D->isStatic())
-        PrintWithColorRAII(OS, DeclModifierColor) << " type";
-
       if (D->hasInterfaceType()) {
         auto impl = D->getImplInfo();
         PrintWithColorRAII(OS, DeclModifierColor)
@@ -1138,8 +1137,6 @@ namespace {
 
     void printCommonFD(FuncDecl *FD, const char *type) {
       printCommonAFD(FD, type);
-      if (FD->isStatic())
-        OS << " type";
     }
 
     void visitFuncDecl(FuncDecl *FD) {

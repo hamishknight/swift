@@ -204,9 +204,9 @@ deriveBodyEquatable_enum_hasAssociatedValues_eq(AbstractFunctionDecl *eqDecl,
       auto copy = C.Allocate<VarDecl *>(lhsPayloadVars.size());
       for (unsigned i : indices(lhsPayloadVars)) {
         auto *vOld = lhsPayloadVars[i];
-        auto *vNew = new (C) VarDecl(
-            /*IsStatic*/ false, vOld->getIntroducer(),
-            vOld->getNameLoc(), vOld->getName(), vOld->getDeclContext());
+        auto *vNew = VarDecl::createImplicit(
+            C, StaticKind::None, vOld->getIntroducer(), vOld->getNameLoc(),
+            vOld->getName(), vOld->getDeclContext());
         vNew->setImplicit();
         copy[i] = vNew;
       }
@@ -408,7 +408,7 @@ deriveEquatable_eq(
 
   DeclName name(C, generatedIdentifier, params);
   auto *const eqDecl = FuncDecl::createImplicit(
-      C, StaticSpellingKind::KeywordStatic, name, /*NameLoc=*/SourceLoc(),
+      C, StaticKind::Static, name, /*NameLoc=*/SourceLoc(),
       /*Async=*/false,
       /*Throws=*/false,
       /*GenericParams=*/nullptr, params, boolTy, parentDC);
@@ -545,7 +545,7 @@ deriveHashable_hashInto(
   // Func name: hash(into: inout Hasher) -> ()
   DeclName name(C, C.Id_hash, params);
   auto *const hashDecl = FuncDecl::createImplicit(
-      C, StaticSpellingKind::None, name, /*NameLoc=*/SourceLoc(),
+      C, StaticKind::None, name, /*NameLoc=*/SourceLoc(),
       /*Async=*/false,
       /*Throws=*/false,
       /*GenericParams=*/nullptr, params, returnType, parentDC);
@@ -733,9 +733,9 @@ deriveBodyHashable_enum_hasAssociatedValues_hashInto(
       auto copy = C.Allocate<VarDecl *>(payloadVars.size());
       for (unsigned i : indices(payloadVars)) {
         auto *vOld = payloadVars[i];
-        auto *vNew = new (C) VarDecl(
-            /*IsStatic*/ false, vOld->getIntroducer(),
-            vOld->getNameLoc(), vOld->getName(), vOld->getDeclContext());
+        auto *vNew = VarDecl::createImplicit(
+            C, StaticKind::None, vOld->getIntroducer(), vOld->getNameLoc(),
+            vOld->getName(), vOld->getDeclContext());
         vNew->setImplicit();
         copy[i] = vNew;
       }
@@ -881,9 +881,8 @@ static ValueDecl *deriveHashable_hashValue(DerivedConformance &derived) {
     return nullptr;
   }
 
-  VarDecl *hashValueDecl =
-    new (C) VarDecl(/*IsStatic*/false, VarDecl::Introducer::Var,
-                    SourceLoc(), C.Id_hashValue, parentDC);
+  auto *hashValueDecl = VarDecl::createImplicit(
+      C, StaticKind::None, VarDecl::Introducer::Var, C.Id_hashValue, parentDC);
   hashValueDecl->setInterfaceType(intType);
   hashValueDecl->setSynthesized();
   hashValueDecl->setImplicit();
@@ -897,7 +896,6 @@ static ValueDecl *deriveHashable_hashValue(DerivedConformance &derived) {
       C,
       /*FuncLoc=*/SourceLoc(), /*AccessorKeywordLoc=*/SourceLoc(),
       AccessorKind::Get, hashValueDecl,
-      /*StaticLoc=*/SourceLoc(), StaticSpellingKind::None,
       /*Async=*/false, /*AsyncLoc=*/SourceLoc(),
       /*Throws=*/false, /*ThrowsLoc=*/SourceLoc(), params, intType, parentDC);
   getterDecl->setImplicit();
@@ -921,8 +919,7 @@ static ValueDecl *deriveHashable_hashValue(DerivedConformance &derived) {
   hashValuePat->setType(intType);
 
   auto *patDecl = PatternBindingDecl::createImplicit(
-      C, StaticSpellingKind::None, hashValuePat, /*InitExpr*/ nullptr,
-      parentDC);
+      C, hashValuePat, /*InitExpr*/ nullptr, parentDC);
 
   derived.addMembersToConformanceContext({hashValueDecl, patDecl});
 

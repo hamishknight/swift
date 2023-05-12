@@ -1576,6 +1576,16 @@ StringRef DeclAttribute::getAttrName() const {
     return getAccessLevelSpelling(access);
   }
 
+  case DAK_Static: {
+    switch (cast<StaticAttr>(this)->getSpelling()) {
+    case StaticAttr::Spelling::Static:
+        return "static";
+    case StaticAttr::Spelling::Class:
+        return "class";
+    }
+    llvm_unreachable("Unhandled case in switch!");
+  }
+
   case DAK_SPIAccessControl:
     return "_spi";
   case DAK_ReferenceOwnership:
@@ -1833,6 +1843,42 @@ Type TypeEraserAttr::getResolvedType(const ProtocolDecl *PD) const {
                                const_cast<ProtocolDecl *>(PD),
                                const_cast<TypeEraserAttr *>(this)},
                            ErrorType::get(ctx));
+}
+
+StaticAttr *StaticAttr::createParsed(ASTContext &ctx, SourceRange range,
+                                     Spelling spelling) {
+  return new (ctx) StaticAttr(range, spelling, /*isImplicit*/ false);
+}
+StaticAttr *StaticAttr::createImplicit(ASTContext &ctx, Spelling spelling) {
+  return new (ctx) StaticAttr(/*range*/ SourceRange(), spelling,
+                              /*isImplicit*/ true);
+}
+
+StaticAttr *StaticAttr::createImplicit(ASTContext &ctx, StaticKind staticKind) {
+  switch (staticKind) {
+  case StaticKind::Static:
+    return createImplicit(ctx, Spelling::Static);
+  case StaticKind::Class:
+    return createImplicit(ctx, Spelling::Class);
+  case StaticKind::None:
+    llvm_unreachable("Invalid static kind!");
+  }
+  llvm_unreachable("Unhandled case in switch!");
+}
+
+StaticAttr *StaticAttr::createDeserialized(ASTContext &ctx, Spelling spelling,
+                                           bool isImplicit) {
+  return new (ctx) StaticAttr(/*range*/ SourceRange(), spelling, isImplicit);
+}
+
+StaticKind StaticAttr::getStaticKind() const {
+  switch (getSpelling()) {
+  case Spelling::Static:
+    return StaticKind::Static;
+  case Spelling::Class:
+    return StaticKind::Class;
+  }
+  llvm_unreachable("Unhandled case in switch!");
 }
 
 AvailableAttr *

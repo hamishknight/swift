@@ -97,7 +97,7 @@ static bool isInSystemModule(const DeclContext *D) {
 }
 
 static FuncDecl *createFuncOrAccessor(ClangImporter::Implementation &impl,
-                                      SourceLoc funcLoc,
+                                      bool isStatic, SourceLoc funcLoc,
                                       Optional<AccessorInfo> accessorInfo,
                                       DeclName name, SourceLoc nameLoc,
                                       GenericParamList *genericParams,
@@ -109,12 +109,11 @@ static FuncDecl *createFuncOrAccessor(ClangImporter::Implementation &impl,
     decl = AccessorDecl::create(
         impl.SwiftContext, funcLoc,
         /*accessorKeywordLoc*/ SourceLoc(), accessorInfo->Kind,
-        accessorInfo->Storage,
-        /*StaticLoc*/ SourceLoc(), StaticSpellingKind::None, async,
-        /*AsyncLoc=*/SourceLoc(), throws, /*ThrowsLoc=*/SourceLoc(), bodyParams,
-        resultTy, dc, clangNode);
+        accessorInfo->Storage, async, /*AsyncLoc=*/SourceLoc(), throws,
+        /*ThrowsLoc=*/SourceLoc(), bodyParams, resultTy, dc, clangNode);
   } else {
-    decl = FuncDecl::createImported(impl.SwiftContext, funcLoc, name, nameLoc,
+    decl = FuncDecl::createImported(impl.SwiftContext, isStatic,
+                                    funcLoc, name, nameLoc,
                                     async, throws, bodyParams, resultTy,
                                     genericParams, dc, clangNode);
   }
@@ -606,13 +605,9 @@ static bool addErrorDomain(NominalTypeDecl *swiftDecl,
     return false;
   }
 
-  bool isStatic = true;
-  bool isImplicit = true;
-
   // Make the property decl
-  auto errorDomainPropertyDecl = new (C) VarDecl(
-      /*IsStatic*/isStatic, VarDecl::Introducer::Var,
-      SourceLoc(), C.Id_errorDomain, swiftDecl);
+  auto *errorDomainPropertyDecl = VarDecl::createImplicit(
+      C, StaticKind::Static, VarDecl::Introducer::Var, C.Id_errorDomain, swiftDecl);
   errorDomainPropertyDecl->setInterfaceType(stringTy);
   errorDomainPropertyDecl->setAccess(AccessLevel::Public);
 
@@ -623,7 +618,6 @@ static bool addErrorDomain(NominalTypeDecl *swiftDecl,
       /*FuncLoc=*/SourceLoc(),
       /*AccessorKeywordLoc=*/SourceLoc(), AccessorKind::Get,
       errorDomainPropertyDecl,
-      /*StaticLoc=*/SourceLoc(), StaticSpellingKind::None,
       /*Async=*/false, /*AsyncLoc=*/SourceLoc(),
       /*Throws=*/false,
       /*ThrowsLoc=*/SourceLoc(), params, stringTy, swiftDecl);
@@ -638,7 +632,7 @@ static bool addErrorDomain(NominalTypeDecl *swiftDecl,
   getterDecl->setAccess(AccessLevel::Public);
 
   llvm::PointerIntPair<ValueDecl *, 1, bool> contextData(swiftValueDecl,
-                                                         isImplicit);
+                                                         /*isImplicit*/ true);
   getterDecl->setBodySynthesizer(synthesizeErrorDomainGetterBody,
                                  contextData.getOpaqueValue());
 
@@ -1646,11 +1640,9 @@ namespace {
           // Create the _nsError member.
           //   public let _nsError: NSError
           auto nsErrorType = nsErrorDecl->getDeclaredInterfaceType();
-          auto nsErrorProp = new (C) VarDecl(/*IsStatic*/false,
-                                             VarDecl::Introducer::Let,
-                                             loc, C.Id_nsError,
-                                             errorWrapper);
-          nsErrorProp->setImplicit();
+          auto *nsErrorProp = VarDecl::createImplicit(
+              C, StaticKind::None, VarDecl::Introducer::Let, loc, C.Id_nsError,
+              errorWrapper);
           nsErrorProp->setAccess(AccessLevel::Public);
           nsErrorProp->setInterfaceType(nsErrorType);
 
@@ -1659,7 +1651,7 @@ namespace {
               synthesizer.createTypedNamedPattern(nsErrorProp);
 
           auto *nsErrorBinding = PatternBindingDecl::createImplicit(
-              C, StaticSpellingKind::None, nsErrorPattern, /*InitExpr*/ nullptr,
+              C, nsErrorPattern, /*InitExpr*/ nullptr,
               /*ParentDC*/ errorWrapper, /*VarLoc*/ loc);
           errorWrapper->addMember(nsErrorProp);
           errorWrapper->addMember(nsErrorBinding);
@@ -1725,11 +1717,8 @@ namespace {
             synthesizer.makeEnumRawValueConstructor(enumDecl);
 
         auto varName = C.Id_rawValue;
-        auto rawValue = new (C) VarDecl(/*IsStatic*/false,
-                                        VarDecl::Introducer::Var,
-                                        SourceLoc(), varName,
-                                        enumDecl);
-        rawValue->setImplicit();
+        auto *rawValue = VarDecl::createImplicit(
+            C, StaticKind::None, VarDecl::Introducer::Var, varName, enumDecl);
         rawValue->setAccess(AccessLevel::Public);
         rawValue->setSetterAccess(AccessLevel::Private);
         rawValue->setInterfaceType(underlyingType);
@@ -1738,8 +1727,7 @@ namespace {
         Pattern *varPattern = synthesizer.createTypedNamedPattern(rawValue);
 
         auto *rawValueBinding = PatternBindingDecl::createImplicit(
-            C, StaticSpellingKind::None, varPattern, /*InitExpr*/ nullptr,
-            enumDecl);
+            C, varPattern, /*InitExpr*/ nullptr, enumDecl);
 
         synthesizer.makeEnumRawValueGetter(enumDecl, rawValue);
 
@@ -3460,25 +3448,26 @@ namespace {
             bodyParams, genericParams, dc);
       } else {
         auto resultTy = importedType.getType();
+        bool isStatic = !dc->isModuleScopeContext() && !selfIdx;
 
         FuncDecl *func =
-            createFuncOrAccessor(Impl, loc, accessorInfo, name,
+            createFuncOrAccessor(Impl, isStatic, loc, accessorInfo, name,
                                  nameLoc, genericParams, bodyParams, resultTy,
                                  /*async=*/false, /*throws=*/false, dc,
                                  clangNode);
         result = func;
 
+        if (isStatic)
+          func->setImportAsStaticMember();
+
         if (!dc->isModuleScopeContext()) {
-          if (selfIsInOut)
+          if (selfIsInOut) {
             func->setSelfAccessKind(SelfAccessKind::Mutating);
-          else
-            func->setSelfAccessKind(SelfAccessKind::NonMutating);
-          if (selfIdx) {
-            func->setSelfIndex(selfIdx.value());
           } else {
-            func->setStatic();
-            func->setImportAsStaticMember();
+            func->setSelfAccessKind(SelfAccessKind::NonMutating);
           }
+          if (selfIdx)
+            func->setSelfIndex(selfIdx.value());
         }
 
         if (importedName.isSubscriptAccessor() && !importFuncWithoutSignature) {
@@ -4322,8 +4311,10 @@ namespace {
           isIUO = nullability == OTK_ImplicitlyUnwrappedOptional;
         }
       }
+      // Mark class methods as static.
+      bool isStatic = decl->isClassMethod() || forceClassMethod;
 
-      auto result = createFuncOrAccessor(Impl,
+      auto result = createFuncOrAccessor(Impl, isStatic,
                                          /*funcLoc*/ SourceLoc(), accessorInfo,
                                          importedName.getDeclName(),
                                          /*nameLoc*/ SourceLoc(),
@@ -4335,13 +4326,10 @@ namespace {
 
       // Optional methods in protocols.
       if (decl->getImplementationControl() == clang::ObjCMethodDecl::Optional &&
-          isa<ProtocolDecl>(dc))
+          isa<ProtocolDecl>(dc)) {
         result->getAttrs().add(new (Impl.SwiftContext)
-                                      OptionalAttr(/*implicit*/false));
-
-      // Mark class methods as static.
-      if (decl->isClassMethod() || forceClassMethod)
-        result->setStatic();
+                               OptionalAttr(/*implicit*/false));
+      }
       if (forceClassMethod)
         result->setImplicit();
 
@@ -7793,11 +7781,8 @@ ClangImporter::Implementation::importSwiftAttrAttributes(Decl *MappedDecl) {
             MappedDecl->getAttrs(), atLoc, initContext,
             /*isFromClangAttribute=*/true).isError();
       } else {
-        SourceLoc staticLoc;
-        StaticSpellingKind staticSpelling;
         hadError = parser
-                       .parseDeclModifierList(MappedDecl->getAttrs(), staticLoc,
-                                              staticSpelling,
+                       .parseDeclModifierList(MappedDecl->getAttrs(),
                                               /*isFromClangAttribute=*/true)
                        .isError();
       }

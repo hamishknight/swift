@@ -111,8 +111,8 @@ protected:
   VarDecl *captureExpr(Expr *expr, SmallVectorImpl<ASTNode> &container) {
     auto *var = builder.buildVar(expr->getStartLoc());
     Pattern *pattern = NamedPattern::createImplicit(ctx, var);
-    auto *PB = PatternBindingDecl::createImplicit(
-        ctx, StaticSpellingKind::None, pattern, expr, dc, var->getStartLoc());
+    auto *PB = PatternBindingDecl::createImplicit(ctx, pattern, expr, dc,
+                                                  var->getStartLoc());
     return recordVar(PB, container);
   }
 
@@ -124,8 +124,7 @@ protected:
         ctx, NamedPattern::createImplicit(ctx, var),
         type ? type : PlaceholderType::get(ctx, var));
     auto *PB = PatternBindingDecl::createImplicit(
-        ctx, StaticSpellingKind::None, placeholder, /*init=*/initExpr, dc,
-        var->getStartLoc());
+        ctx, placeholder, /*init=*/initExpr, dc, var->getStartLoc());
     return recordVar(PB, container);
   }
 
@@ -1576,10 +1575,8 @@ ResultBuilder::ResultBuilder(ConstraintSystem &CS, DeclContext *DC,
           ? ctx.Id_buildOptional
           : ctx.Id_buildIf;
 
-  BuilderSelf = new (ctx) VarDecl(
-      /*isStatic=*/false, VarDecl::Introducer::Let,
-      /*nameLoc=*/SourceLoc(), ctx.Id_builderSelf, DC);
-  BuilderSelf->setImplicit();
+  BuilderSelf = VarDecl::createImplicit(
+      ctx, StaticKind::None, VarDecl::Introducer::Let, ctx.Id_builderSelf, DC);
   CS.setType(BuilderSelf, MetatypeType::get(BuilderType));
 }
 
@@ -1655,12 +1652,9 @@ Expr *ResultBuilder::buildCall(SourceLoc loc, Identifier fnName,
 VarDecl *ResultBuilder::buildVar(SourceLoc loc) {
   auto &ctx = DC->getASTContext();
   // Create the implicit variable.
-  Identifier name =
-      ctx.getIdentifier(("$__builder" + Twine(VarCounter++)).str());
-  auto var = new (ctx)
-      VarDecl(/*isStatic=*/false, VarDecl::Introducer::Var, loc, name, DC);
-  var->setImplicit();
-  return var;
+  auto name = ctx.getIdentifier(("$__builder" + Twine(VarCounter++)).str());
+  return VarDecl::createImplicit(ctx, StaticKind::None,
+                                 VarDecl::Introducer::Var, loc, name, DC);
 }
 
 DeclRefExpr *ResultBuilder::buildVarRef(VarDecl *var, SourceLoc loc) {

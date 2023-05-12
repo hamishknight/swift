@@ -4930,8 +4930,6 @@ makeBaseClassMemberAccessors(DeclContext *declContext,
       ctx,
       /*FuncLoc=*/SourceLoc(),
       /*AccessorKeywordLoc=*/SourceLoc(), AccessorKind::Get, computedVar,
-      /*StaticLoc=*/SourceLoc(),
-      StaticSpellingKind::None, // TODO: we should handle static vars.
       /*Async=*/false, /*AsyncLoc=*/SourceLoc(),
       /*Throws=*/false,
       /*ThrowsLoc=*/SourceLoc(), bodyParams, computedType, declContext);
@@ -4962,8 +4960,6 @@ makeBaseClassMemberAccessors(DeclContext *declContext,
       ctx,
       /*FuncLoc=*/SourceLoc(),
       /*AccessorKeywordLoc=*/SourceLoc(), AccessorKind::Set, computedVar,
-      /*StaticLoc=*/SourceLoc(),
-      StaticSpellingKind::None, // TODO: we should handle static vars.
       /*Async=*/false, /*AsyncLoc=*/SourceLoc(),
       /*Throws=*/false,
       /*ThrowsLoc=*/SourceLoc(), setterBodyParams, TupleType::getEmpty(ctx),
@@ -5006,6 +5002,11 @@ DeclAttributes cloneImportedAttributes(ValueDecl *decl, ASTContext &context) {
       attrs.add(new (context) FinalAttr(true));
       break;
     }
+    case DAK_Static: {
+      auto *SA = cast<StaticAttr>(attr);
+      attrs.add(StaticAttr::createImplicit(context, SA->getSpelling()));
+      break;
+    }
     case DAK_Transparent: {
       attrs.add(new (context) TransparentAttr(true));
       break;
@@ -5024,6 +5025,8 @@ DeclAttributes cloneImportedAttributes(ValueDecl *decl, ASTContext &context) {
 
 static ValueDecl *
 cloneBaseMemberDecl(ValueDecl *decl, DeclContext *newContext) {
+  ASTContext &context = decl->getASTContext();
+
   if (auto fn = dyn_cast<FuncDecl>(decl)) {
     // TODO: function templates are specialized during type checking so to
     // support these we need to tell Swift to type check the synthesized bodies.
@@ -5034,9 +5037,9 @@ cloneBaseMemberDecl(ValueDecl *decl, DeclContext *newContext) {
          isa<clang::FunctionTemplateDecl>(fn->getClangDecl())))
       return nullptr;
 
-    ASTContext &context = decl->getASTContext();
+    // FIXME: uhhhhhhhhhh
     auto out = FuncDecl::createImplicit(
-        context, fn->getStaticSpelling(), fn->getName(),
+        context, fn->getStaticKind(), fn->getName(),
         fn->getNameLoc(), fn->hasAsync(), fn->hasThrows(),
         fn->getGenericParams(), fn->getParameters(),
         fn->getResultInterfaceType(), newContext);
@@ -5050,10 +5053,11 @@ cloneBaseMemberDecl(ValueDecl *decl, DeclContext *newContext) {
 
   if (auto subscript = dyn_cast<SubscriptDecl>(decl)) {
     auto out = SubscriptDecl::create(
-        subscript->getASTContext(), subscript->getName(), subscript->getStaticLoc(),
-        subscript->getStaticSpelling(), subscript->getSubscriptLoc(),
+        subscript->getASTContext(), subscript->getName(), subscript->getSubscriptLoc(),
         subscript->getIndices(), subscript->getNameLoc(), subscript->getElementInterfaceType(),
         newContext, subscript->getGenericParams());
+    auto inheritedAttributes = cloneImportedAttributes(decl, context);
+    out->getAttrs().add(inheritedAttributes);
     out->copyFormalAccessFrom(subscript);
     out->setAccessors(SourceLoc(),
                       makeBaseClassMemberAccessors(newContext, out, subscript),
@@ -5063,11 +5067,9 @@ cloneBaseMemberDecl(ValueDecl *decl, DeclContext *newContext) {
   }
 
   if (auto var = dyn_cast<VarDecl>(decl)) {
-    auto rawMemory = allocateMemoryForDecl<VarDecl>(var->getASTContext(),
-                                                    sizeof(VarDecl), false);
-    auto out =
-        new (rawMemory) VarDecl(var->isStatic(), var->getIntroducer(),
-                                var->getLoc(), var->getName(), newContext);
+    auto out = VarDecl::createImplicit(context, var->getStaticKind(),
+                                       var->getIntroducer(),
+                                       var->getLoc(), var->getName(), newContext);
     out->setInterfaceType(var->getInterfaceType());
     out->setIsObjC(var->isObjC());
     out->setIsDynamic(var->isDynamic());
@@ -5873,12 +5875,11 @@ static ValueDecl *rewriteIntegerTypes(SubstitutionMap subst, ValueDecl *oldDecl,
     if (auto func = dyn_cast<FuncDecl>(newDecl)) {
       // We have to rebuild the whole function.
       auto newFnDecl = FuncDecl::createImported(
-          func->getASTContext(), func->getNameLoc(),
+          func->getASTContext(), func->getStaticKind(), func->getNameLoc(),
           func->getName(), func->getNameLoc(),
           func->hasAsync(), func->hasThrows(),
           fixedParams, originalFnSubst->getResult(),
           /*genericParams=*/nullptr, func->getDeclContext(), newDecl->getClangDecl());
-      if (func->isStatic()) newFnDecl->setStatic();
       if (func->isImportAsStaticMember()) newFnDecl->setImportAsStaticMember();
       if (func->getImportAsMemberStatus().isInstance()) {
         newFnDecl->setSelfAccessKind(func->getSelfAccessKind());
@@ -6039,14 +6040,13 @@ static ValueDecl *addThunkForDependentTypes(FuncDecl *oldDecl,
 
   // We have to rebuild the whole function.
   auto newFnDecl = FuncDecl::createImplicit(
-      newDecl->getASTContext(), newDecl->getStaticSpelling(),
+      newDecl->getASTContext(), newDecl->getStaticKind(),
       newDecl->getName(), newDecl->getNameLoc(), newDecl->hasAsync(),
       newDecl->hasThrows(), /*genericParams=*/nullptr, fixedParams,
       fixedResultType, newDecl->getDeclContext());
   newFnDecl->copyFormalAccessFrom(newDecl);
   newFnDecl->setBodySynthesizer(synthesizeDependentTypeThunkParamForwarding, newDecl);
   newFnDecl->setSelfAccessKind(newDecl->getSelfAccessKind());
-  if (newDecl->isStatic()) newFnDecl->setStatic();
   newFnDecl->getAttrs().add(
       new (newDecl->getASTContext()) TransparentAttr(/*IsImplicit=*/true));
   return newFnDecl;
@@ -6166,14 +6166,13 @@ static ValueDecl *generateThunkForExtraMetatypes(SubstitutionMap subst,
       ParameterList::create(newDecl->getASTContext(), SourceLoc(), newParams, SourceLoc());
 
   auto thunk = FuncDecl::createImplicit(
-      newDecl->getASTContext(), newDecl->getStaticSpelling(), oldDecl->getName(),
+      newDecl->getASTContext(), newDecl->getStaticKind(), oldDecl->getName(),
       newDecl->getNameLoc(), newDecl->hasAsync(), newDecl->hasThrows(),
       /*genericParams=*/nullptr, newParamList,
       newDecl->getResultInterfaceType(), newDecl->getDeclContext());
   thunk->copyFormalAccessFrom(newDecl);
   thunk->setBodySynthesizer(synthesizeForwardingThunkBody, newDecl);
   thunk->setSelfAccessKind(newDecl->getSelfAccessKind());
-  if (newDecl->isStatic()) thunk->setStatic();
   thunk->getAttrs().add(
       new (newDecl->getASTContext()) TransparentAttr(/*IsImplicit=*/true));
 

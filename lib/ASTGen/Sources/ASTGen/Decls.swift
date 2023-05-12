@@ -79,9 +79,7 @@ extension ASTGenVisitor {
 
     // TODO: don't drop "initializer" on the floor.
     return .decl(
-      VarDecl_create(
-        ctx, pattern, initializer, loc, isStatic,
-        isLet, declContext))
+      VarDecl_create(ctx, pattern, initializer, loc, isLet, declContext))
   }
 
   public func visit(_ node: FunctionParameterSyntax) -> ASTNode {
@@ -137,9 +135,8 @@ extension ASTGenVisitor {
     let params = node.signature.input.parameterList.map { visit($0).rawValue }
     let out = params.withBridgedArrayRef { ref in
       FuncDecl_create(
-        ctx, staticLoc, false, funcLoc, name, nameLoc, false, nil, false, nil, rParamLoc, ref,
-        lParamLoc,
-        returnType?.rawValue, declContext)
+        ctx, funcLoc, name, nameLoc, false, nil, false, nil, rParamLoc, ref,
+        lParamLoc, returnType?.rawValue, declContext)
     }
 
     let oldDeclContext = declContext

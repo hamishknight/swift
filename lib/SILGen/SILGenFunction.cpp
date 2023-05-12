@@ -1424,7 +1424,7 @@ void SILGenFunction::emitAsyncMainThreadStart(SILDeclRef entryPoint) {
     // internal func _asyncMainDrainQueue() -> Never
     ParameterList *emptyParams = ParameterList::createEmpty(getASTContext());
     drainQueueFuncDecl = FuncDecl::createImplicit(
-        getASTContext(), StaticSpellingKind::None,
+        getASTContext(), StaticKind::None,
         DeclName(
             getASTContext(),
             DeclBaseName(getASTContext().getIdentifier("_asyncMainDrainQueue")),
