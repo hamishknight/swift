@@ -609,9 +609,8 @@ static bool addErrorDomain(NominalTypeDecl *swiftDecl,
   bool isImplicit = true;
 
   // Make the property decl
-  auto errorDomainPropertyDecl = new (C) VarDecl(
-      /*IsStatic*/isStatic, VarDecl::Introducer::Var,
-      SourceLoc(), C.Id_errorDomain, swiftDecl);
+  auto *errorDomainPropertyDecl = VarDecl::createImplicit(
+      C, isStatic, VarDecl::Introducer::Var, C.Id_errorDomain, swiftDecl);
   errorDomainPropertyDecl->setInterfaceType(stringTy);
   errorDomainPropertyDecl->setAccess(AccessLevel::Public);
 
@@ -1645,11 +1644,9 @@ namespace {
           // Create the _nsError member.
           //   public let _nsError: NSError
           auto nsErrorType = nsErrorDecl->getDeclaredInterfaceType();
-          auto nsErrorProp = new (C) VarDecl(/*IsStatic*/false,
-                                             VarDecl::Introducer::Let,
-                                             loc, C.Id_nsError,
-                                             errorWrapper);
-          nsErrorProp->setImplicit();
+          auto *nsErrorProp = VarDecl::createImplicit(
+              C, /*IsStatic*/ false, VarDecl::Introducer::Let, loc,
+              C.Id_nsError, errorWrapper);
           nsErrorProp->setAccess(AccessLevel::Public);
           nsErrorProp->setInterfaceType(nsErrorType);
 
@@ -1724,11 +1721,8 @@ namespace {
             synthesizer.makeEnumRawValueConstructor(enumDecl);
 
         auto varName = C.Id_rawValue;
-        auto rawValue = new (C) VarDecl(/*IsStatic*/false,
-                                        VarDecl::Introducer::Var,
-                                        SourceLoc(), varName,
-                                        enumDecl);
-        rawValue->setImplicit();
+        auto *rawValue = VarDecl::createImplicit(
+            C, /*IsStatic*/ false, VarDecl::Introducer::Var, varName, enumDecl);
         rawValue->setAccess(AccessLevel::Public);
         rawValue->setSetterAccess(AccessLevel::Private);
         rawValue->setInterfaceType(underlyingType);

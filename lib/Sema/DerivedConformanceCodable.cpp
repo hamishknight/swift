@@ -570,9 +570,8 @@ static VarDecl *createKeyedContainer(ASTContext &C, DeclContext *DC,
                                              C.AllocateCopy(boundType));
 
   // let container : Keyed*Container<KeyType>
-  auto *containerDecl = new (C) VarDecl(/*IsStatic=*/false, introducer,
-                                        SourceLoc(), identifier, DC);
-  containerDecl->setImplicit();
+  auto *containerDecl = VarDecl::createImplicit(C, /*IsStatic=*/false,
+                                                introducer, identifier, DC);
   containerDecl->setSynthesized();
   containerDecl->setInterfaceType(containerType);
   return containerDecl;
@@ -951,11 +950,10 @@ createEnumSwitch(ASTContext &C, DeclContext *DC, Expr *expr, EnumDecl *enumDecl,
         auto copy = C.Allocate<VarDecl *>(payloadVars.size());
         for (unsigned i : indices(payloadVars)) {
           auto *vOld = payloadVars[i];
-          auto *vNew = new (C) VarDecl(
+          copy[i] = VarDecl::createImplicit(
+              C,
               /*IsStatic*/ false, vOld->getIntroducer(), vOld->getNameLoc(),
               vOld->getName(), vOld->getDeclContext());
-          vNew->setImplicit();
-          copy[i] = vNew;
         }
         caseBodyVarDecls.emplace(copy);
       }
@@ -1602,10 +1600,8 @@ deriveBodyDecodable_enum_init(AbstractFunctionDecl *initDecl, void *) {
         /*throws*/ true);
 
     // generate: var allKeys = ArraySlice(container.allKeys);
-    auto *allKeysDecl =
-        new (C) VarDecl(/*IsStatic=*/false, VarDecl::Introducer::Var,
-                        SourceLoc(), C.Id_allKeys, funcDC);
-    allKeysDecl->setImplicit();
+    auto *allKeysDecl = VarDecl::createImplicit(
+        C, /*IsStatic=*/false, VarDecl::Introducer::Var, C.Id_allKeys, funcDC);
     allKeysDecl->setSynthesized();
     {
       auto *arraySliceRef =
@@ -1634,9 +1630,8 @@ deriveBodyDecodable_enum_init(AbstractFunctionDecl *initDecl, void *) {
     //    throw DecodingError.typeMismatch(Foo.self, context)
     //  }
     auto *theKeyDecl =
-        new (C) VarDecl(/*IsStatic=*/false, VarDecl::Introducer::Let,
-                        SourceLoc(), C.getIdentifier("onlyKey"), funcDC);
-    theKeyDecl->setImplicit();
+        VarDecl::createImplicit(C, /*IsStatic=*/false, VarDecl::Introducer::Let,
+                                C.getIdentifier("onlyKey"), funcDC);
     theKeyDecl->setSynthesized();
 
     SmallVector<StmtConditionElement, 2> guardElements;

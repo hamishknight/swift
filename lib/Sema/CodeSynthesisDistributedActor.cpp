@@ -90,10 +90,8 @@ static VarDecl *addImplicitDistributedActorIDProperty(
   // ==== Synthesize and add 'id' property to the actor decl
   Type propertyType = getDistributedActorIDType(nominal);
 
-  auto *propDecl = new (C)
-      VarDecl(/*IsStatic*/false, VarDecl::Introducer::Let,
-              SourceLoc(), C.Id_id, nominal);
-  propDecl->setImplicit();
+  auto *propDecl = VarDecl::createImplicit(
+      C, /*IsStatic*/ false, VarDecl::Introducer::Let, C.Id_id, nominal);
   propDecl->setSynthesized();
   propDecl->copyFormalAccessFrom(nominal, /*sourceIsParentContext*/ true);
   propDecl->setInterfaceType(propertyType);
@@ -140,10 +138,9 @@ static VarDecl *addImplicitDistributedActorActorSystemProperty(
   // ==== Synthesize and add 'actorSystem' property to the actor decl
   Type propertyType = getDistributedActorSystemType(nominal);
 
-  auto *propDecl = new (C)
-      VarDecl(/*IsStatic*/false, VarDecl::Introducer::Let,
-              SourceLoc(), C.Id_actorSystem, nominal);
-  propDecl->setImplicit();
+  auto *propDecl =
+      VarDecl::createImplicit(C, /*IsStatic*/ false, VarDecl::Introducer::Let,
+                              C.Id_actorSystem, nominal);
   propDecl->setSynthesized();
   propDecl->copyFormalAccessFrom(nominal, /*sourceIsParentContext*/ true);
   propDecl->setInterfaceType(propertyType);
@@ -299,10 +296,9 @@ deriveBodyDistributed_thunk(AbstractFunctionDecl *thunk, void *context) {
           C.Id_actorSystem);
 
   auto *systemVar =
-      new (C) VarDecl(/*isStatic=*/false, VarDecl::Introducer::Let, sloc,
-                      C.Id_system, thunk);
+      VarDecl::createImplicit(C, /*isStatic=*/false, VarDecl::Introducer::Let,
+                              sloc, C.Id_system, thunk);
   systemVar->setInterfaceType(systemProperty->getInterfaceType());
-  systemVar->setImplicit();
   systemVar->setSynthesized();
 
   Pattern *systemPattern = NamedPattern::createImplicit(C, systemVar);
@@ -316,10 +312,9 @@ deriveBodyDistributed_thunk(AbstractFunctionDecl *thunk, void *context) {
 
   // --- invocationEncoder = system.makeInvocationEncoder()
   auto *invocationVar =
-      new (C) VarDecl(/*isStatic=*/false, VarDecl::Introducer::Var, sloc,
-                      C.Id_invocation, thunk);
+      VarDecl::createImplicit(C, /*isStatic=*/false, VarDecl::Introducer::Var,
+                              sloc, C.Id_invocation, thunk);
   invocationVar->setInterfaceType(invocationEncoderTy);
-  invocationVar->setImplicit();
   invocationVar->setSynthesized();
 
   {
@@ -402,10 +397,9 @@ deriveBodyDistributed_thunk(AbstractFunctionDecl *thunk, void *context) {
       // --- Prepare the RemoteCallArgument<Value> for the argument
       auto argumentVarName = C.getIdentifier("_" + parameterName.str());
       StructDecl *RCA = C.getRemoteCallArgumentDecl();
-      VarDecl *callArgVar =
-          new (C) VarDecl(/*isStatic=*/false, VarDecl::Introducer::Let, sloc,
-                          argumentVarName, thunk);
-      callArgVar->setImplicit();
+      auto *callArgVar = VarDecl::createImplicit(C, /*isStatic=*/false,
+                                                 VarDecl::Introducer::Let, sloc,
+                                                 argumentVarName, thunk);
       callArgVar->setSynthesized();
 
       Pattern *callArgPattern = NamedPattern::createImplicit(C, callArgVar);
@@ -542,8 +536,9 @@ deriveBodyDistributed_thunk(AbstractFunctionDecl *thunk, void *context) {
   }
 
   // === Prepare the 'RemoteCallTarget'
-  auto *targetVar = new (C) VarDecl(
-      /*isStatic=*/false, VarDecl::Introducer::Let, sloc, C.Id_target, thunk);
+  auto *targetVar =
+      VarDecl::createImplicit(C, /*isStatic=*/false, VarDecl::Introducer::Let,
+                              sloc, C.Id_target, thunk);
 
   {
     // --- Mangle the thunk name

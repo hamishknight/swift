@@ -2086,11 +2086,9 @@ ParserResult<Expr> Parser::parseExprStringLiteral() {
     SmallVector<ASTNode, 4> Stmts;
 
     // Make the variable which will contain our temporary value.
-    auto InterpolationVar =
-      new (Context) VarDecl(/*IsStatic=*/false, VarDecl::Introducer::Var,
-                            /*NameLoc=*/SourceLoc(),
-                            Context.Id_dollarInterpolation, CurDeclContext);
-    InterpolationVar->setImplicit(true);
+    auto *InterpolationVar = VarDecl::createImplicit(
+        Context, /*IsStatic=*/false, VarDecl::Introducer::Var,
+        Context.Id_dollarInterpolation, CurDeclContext);
     InterpolationVar->setUserAccessible(false);
     
     Stmts.push_back(InterpolationVar);
@@ -2625,9 +2623,9 @@ ParserStatus Parser::parseClosureSignatureIfPresent(
       auto introducer = (ownershipKind != ReferenceOwnership::Weak
                          ? VarDecl::Introducer::Let
                          : VarDecl::Introducer::Var);
-      auto *VD = new (Context) VarDecl(/*isStatic*/false, introducer,
+      auto *VD = VarDecl::createParsed(Context, /*isStatic*/ false, introducer,
                                        nameLoc, name, CurDeclContext);
-        
+
       // If we captured something under the name "self", remember that.
       if (name == Context.Id_self)
         capturedSelfDecl = VD;

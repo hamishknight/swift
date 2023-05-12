@@ -1486,10 +1486,10 @@ synthesizeLazyGetterBody(AccessorDecl *Get, VarDecl *VD, VarDecl *Storage,
   SmallVector<ASTNode, 6> Body;
 
   // Load the existing storage and store it into the 'tmp1' temporary.
-  auto *Tmp1VD = new (Ctx) VarDecl(/*IsStatic*/false, VarDecl::Introducer::Let,
-                                   SourceLoc(), Ctx.getIdentifier("tmp1"), Get);
+  auto *Tmp1VD =
+      VarDecl::createImplicit(Ctx, /*IsStatic*/ false, VarDecl::Introducer::Let,
+                              Ctx.getIdentifier("tmp1"), Get);
   Tmp1VD->setInterfaceType(VD->getValueInterfaceType());
-  Tmp1VD->setImplicit();
 
   auto *Named = NamedPattern::createImplicit(Ctx, Tmp1VD, Tmp1VD->getType());
   auto *Let =
@@ -1518,13 +1518,10 @@ synthesizeLazyGetterBody(AccessorDecl *Get, VarDecl *VD, VarDecl *Storage,
                                   /*elseloc*/SourceLoc(), /*else*/nullptr,
                                   /*implicit*/ true));
 
-
-  auto *Tmp2VD = new (Ctx) VarDecl(/*IsStatic*/false, VarDecl::Introducer::Let,
-                                   SourceLoc(), Ctx.getIdentifier("tmp2"),
-                                   Get);
+  auto *Tmp2VD =
+      VarDecl::createImplicit(Ctx, /*IsStatic*/ false, VarDecl::Introducer::Let,
+                              Ctx.getIdentifier("tmp2"), Get);
   Tmp2VD->setInterfaceType(VD->getValueInterfaceType());
-  Tmp2VD->setImplicit();
-
 
   // Take the initializer from the PatternBindingDecl for VD.
   // TODO: This doesn't work with complicated patterns like:
@@ -1796,9 +1793,9 @@ synthesizeObservedSetterBody(AccessorDecl *Set, TargetImpl target,
         OldValueExpr = new (Ctx) LoadExpr(OldValueExpr, VD->getType());
       }
 
-      OldValue = new (Ctx) VarDecl(/*IsStatic*/ false, VarDecl::Introducer::Let,
-                                   SourceLoc(), Ctx.getIdentifier("tmp"), Set);
-      OldValue->setImplicit();
+      OldValue = VarDecl::createImplicit(Ctx, /*IsStatic*/ false,
+                                         VarDecl::Introducer::Let,
+                                         Ctx.getIdentifier("tmp"), Set);
       OldValue->setInterfaceType(VD->getValueInterfaceType());
       auto *tmpPattern =
           NamedPattern::createImplicit(Ctx, OldValue, OldValue->getType());
@@ -2616,15 +2613,14 @@ LazyStoragePropertyRequest::evaluate(Evaluator &evaluator,
   auto StorageInterfaceTy = OptionalType::get(VD->getInterfaceType());
   auto StorageTy = OptionalType::get(VD->getType());
 
-  auto *Storage = new (Context) VarDecl(/*IsStatic*/false, VarDecl::Introducer::Var,
-                                        VD->getLoc(), StorageName,
-                                        VD->getDeclContext());
+  auto *Storage = VarDecl::createImplicit(
+      Context, /*IsStatic*/ false, VarDecl::Introducer::Var, VD->getLoc(),
+      StorageName, VD->getDeclContext());
   Storage->setInterfaceType(StorageInterfaceTy);
   Storage->setLazyStorageProperty(true);
   Storage->setUserAccessible(false);
 
-  // The storage is implicit and private.
-  Storage->setImplicit();
+  // The storage is private.
   Storage->overwriteAccess(AccessLevel::Private);
   Storage->overwriteSetterAccess(AccessLevel::Private);
 
@@ -2665,10 +2661,9 @@ static VarDecl *synthesizeLocalWrappedValueVar(VarDecl *var) {
   }
   Identifier name = ctx.getIdentifier(nameBuf);
 
-  VarDecl *localVar = new (ctx) VarDecl(/*IsStatic=*/false,
-                                        VarDecl::Introducer::Var,
-                                        var->getLoc(), name, dc);
-  localVar->setImplicit();
+  auto *localVar =
+      VarDecl::createImplicit(ctx, /*IsStatic=*/false, VarDecl::Introducer::Var,
+                              var->getLoc(), name, dc);
   localVar->getAttrs() = var->getAttrs();
   localVar->overwriteAccess(var->getFormalAccess());
 
@@ -2737,11 +2732,9 @@ static VarDecl *synthesizePropertyWrapperProjectionVar(
 
   // Form the property.
   auto dc = var->getDeclContext();
-  VarDecl *property = new (ctx) VarDecl(/*IsStatic=*/var->isStatic(),
-                                        VarDecl::Introducer::Var,
-                                        var->getLoc(),
-                                        name, dc);
-  property->setImplicit();
+  auto *property = VarDecl::createImplicit(ctx, /*IsStatic=*/var->isStatic(),
+                                           VarDecl::Introducer::Var,
+                                           var->getLoc(), name, dc);
   property->setOriginalWrappedProperty(var);
   addMemberToContextIfNeeded(property, dc, var);
 
@@ -2992,11 +2985,8 @@ PropertyWrapperAuxiliaryVariablesRequest::evaluate(Evaluator &evaluator,
     backingVar->setName(name);
   } else {
     auto introducer = isa<ParamDecl>(var) ? VarDecl::Introducer::Let : VarDecl::Introducer::Var;
-    backingVar = new (ctx) VarDecl(/*IsStatic=*/var->isStatic(),
-                                   introducer,
-                                   var->getLoc(),
-                                   name, dc);
-    backingVar->setImplicit();
+    backingVar = VarDecl::createImplicit(ctx, /*IsStatic=*/var->isStatic(),
+                                         introducer, var->getLoc(), name, dc);
     backingVar->setOriginalWrappedProperty(var);
 
     // The backing storage is 'private'.

@@ -361,9 +361,13 @@ public:
 class NamedPattern : public Pattern {
   VarDecl *const Var;
 
-public:
   explicit NamedPattern(VarDecl *Var)
       : Pattern(PatternKind::Named), Var(Var) { }
+
+public:
+  static NamedPattern *createParsed(ASTContext &Ctx, VarDecl *Var) {
+    return new (Ctx) NamedPattern(Var);
+  }
 
   static NamedPattern *createImplicit(ASTContext &Ctx, VarDecl *Var,
                                       Type ty = Type()) {

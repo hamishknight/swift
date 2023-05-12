@@ -100,14 +100,13 @@ VarDecl *SemaTest::addExtensionVarMember(NominalTypeDecl *decl,
   decl->addExtension(ext);
   ext->setExtendedNominal(decl);
 
-  auto *VD = new (Context) VarDecl(/*isStatic=*/ true, VarDecl::Introducer::Var,
-                                   /*nameLoc=*/ SourceLoc(),
-                                   Context.getIdentifier(name), ext);
+  auto *VD = VarDecl::createImplicit(Context, /*isStatic=*/true,
+                                     VarDecl::Introducer::Var,
+                                     Context.getIdentifier(name), ext);
 
   ext->addMember(VD);
-  auto *pat = new (Context) NamedPattern(VD);
+  auto *pat = NamedPattern::createImplicit(Context, VD, type);
   VD->setNamingPattern(pat);
-  pat->setType(type);
 
   return VD;
 }

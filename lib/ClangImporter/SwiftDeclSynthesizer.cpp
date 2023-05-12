@@ -163,9 +163,7 @@ Pattern *SwiftDeclSynthesizer::createTypedNamedPattern(VarDecl *decl) {
   ASTContext &Ctx = decl->getASTContext();
   Type ty = decl->getType();
 
-  Pattern *P = new (Ctx) NamedPattern(decl);
-  P->setType(ty);
-  P->setImplicit();
+  auto *P = NamedPattern::createImplicit(Ctx, decl, ty);
   return TypedPattern::createImplicit(Ctx, P, ty);
 }
 
@@ -730,11 +728,11 @@ void SwiftDeclSynthesizer::makeStructRawValuedWithBridge(
       /*isImplicit=*/true, AccessLevel::Private, AccessLevel::Private);
 
   // Create a computed value variable.
-  auto computedVar = new (ctx) VarDecl(
-      /*IsStatic*/ false, VarDecl::Introducer::Var, SourceLoc(),
-      computedVarName, structDecl);
+  auto *computedVar =
+      VarDecl::createImplicit(ctx,
+                              /*IsStatic*/ false, VarDecl::Introducer::Var,
+                              computedVarName, structDecl);
   computedVar->setInterfaceType(bridgedType);
-  computedVar->setImplicit();
   computedVar->setAccess(AccessLevel::Public);
   computedVar->setSetterAccess(AccessLevel::Private);
 
@@ -1679,9 +1677,9 @@ VarDecl *SwiftDeclSynthesizer::makeDereferencedPointeeProperty(
                              ? rawElementTy->getAnyPointerElementType()
                              : rawElementTy;
 
-  auto result = new (ctx)
-      VarDecl(/*isStatic*/ false, VarDecl::Introducer::Var,
-              dereferenceFunc->getStartLoc(), ctx.getIdentifier("pointee"), dc);
+  auto *result = VarDecl::createImplicit(
+      ctx, /*isStatic*/ false, VarDecl::Introducer::Var,
+      dereferenceFunc->getStartLoc(), ctx.getIdentifier("pointee"), dc);
   result->setInterfaceType(elementTy);
   result->setAccess(AccessLevel::Public);
   result->setImplInfo(StorageImplInfo::getImmutableComputed());
@@ -1975,9 +1973,9 @@ SwiftDeclSynthesizer::makeComputedPropertyFromCXXMethods(FuncDecl *getter,
   assert(bridgingInfo.classify() == CXXMethodBridging::Kind::getter);
 
   auto importedName = bridgingInfo.importNameAsCamelCaseName();
-  auto result =
-      new (ctx) VarDecl(false, VarDecl::Introducer::Var, getter->getStartLoc(),
-                        ctx.getIdentifier(importedName), dc);
+  auto *result = VarDecl::createImplicit(
+      ctx, /*isStatic*/ false, VarDecl::Introducer::Var, getter->getStartLoc(),
+      ctx.getIdentifier(importedName), dc);
   result->setInterfaceType(getter->getResultInterfaceType());
   result->setAccess(AccessLevel::Public);
   result->setImplInfo(StorageImplInfo::getMutableComputed());

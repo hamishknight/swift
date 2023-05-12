@@ -753,12 +753,10 @@ public:
       MaybeLoadInitExpr = InitExpr;
     }
 
-    VarDecl *VD =
-        new (Context) VarDecl(/*IsStatic*/false, VarDecl::Introducer::Let,
-                              SourceLoc(), Context.getIdentifier(NameBuf),
-                              TypeCheckDC);
+    auto *VD = VarDecl::createImplicit(
+        Context, /*IsStatic*/ false, VarDecl::Introducer::Let,
+        Context.getIdentifier(NameBuf), TypeCheckDC);
     VD->setInterfaceType(MaybeLoadInitExpr->getType()->mapTypeOutOfContext());
-    VD->setImplicit();
 
     NamedPattern *NP = NamedPattern::createImplicit(Context, VD, VD->getType());
     PatternBindingDecl *PBD = PatternBindingDecl::createImplicit(

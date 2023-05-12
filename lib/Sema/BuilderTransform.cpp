@@ -1574,10 +1574,9 @@ ResultBuilder::ResultBuilder(ConstraintSystem &CS, DeclContext *DC,
           ? ctx.Id_buildOptional
           : ctx.Id_buildIf;
 
-  BuilderSelf = new (ctx) VarDecl(
-      /*isStatic=*/false, VarDecl::Introducer::Let,
-      /*nameLoc=*/SourceLoc(), ctx.Id_builderSelf, DC);
-  BuilderSelf->setImplicit();
+  BuilderSelf = VarDecl::createImplicit(
+      ctx,
+      /*isStatic=*/false, VarDecl::Introducer::Let, ctx.Id_builderSelf, DC);
   CS.setType(BuilderSelf, MetatypeType::get(BuilderType));
 }
 
@@ -1653,12 +1652,9 @@ Expr *ResultBuilder::buildCall(SourceLoc loc, Identifier fnName,
 VarDecl *ResultBuilder::buildVar(SourceLoc loc) {
   auto &ctx = DC->getASTContext();
   // Create the implicit variable.
-  Identifier name =
-      ctx.getIdentifier(("$__builder" + Twine(VarCounter++)).str());
-  auto var = new (ctx)
-      VarDecl(/*isStatic=*/false, VarDecl::Introducer::Var, loc, name, DC);
-  var->setImplicit();
-  return var;
+  auto name = ctx.getIdentifier(("$__builder" + Twine(VarCounter++)).str());
+  return VarDecl::createImplicit(ctx, /*isStatic=*/false,
+                                 VarDecl::Introducer::Var, loc, name, DC);
 }
 
 DeclRefExpr *ResultBuilder::buildVarRef(VarDecl *var, SourceLoc loc) {

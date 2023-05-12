@@ -4362,10 +4362,9 @@ generateForEachStmtConstraints(ConstraintSystem &cs,
     name += "$generator";
   }
 
-  auto *makeIteratorVar = new (ctx)
-      VarDecl(/*isStatic=*/false, VarDecl::Introducer::Var,
-              sequenceExpr->getStartLoc(), ctx.getIdentifier(name), dc);
-  makeIteratorVar->setImplicit();
+  auto *makeIteratorVar = VarDecl::createImplicit(
+      ctx, /*isStatic=*/false, VarDecl::Introducer::Var,
+      sequenceExpr->getStartLoc(), ctx.getIdentifier(name), dc);
 
   // First, let's form a call from sequence to `.makeIterator()` and save
   // that in a special variable which is going to be used by SILGen.

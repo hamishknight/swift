@@ -1812,18 +1812,14 @@ namespace {
             // Introduce a capture variable.
             cs.cacheType(base);
             solution.setExprTypes(base);
-            auto capture = new (context) VarDecl(/*static*/ false,
-                                                 VarDecl::Introducer::Let,
-                                                 SourceLoc(),
-                                                 context.getIdentifier("$base$"),
-                                                 dc);
-            capture->setImplicit();
+            auto *capture = VarDecl::createImplicit(
+                context, /*static*/ false, VarDecl::Introducer::Let,
+                context.getIdentifier("$base$"), dc);
             capture->setInterfaceType(base->getType()->mapTypeOutOfContext());
-            
-            NamedPattern *capturePat = new (context) NamedPattern(capture);
-            capturePat->setImplicit();
-            capturePat->setType(base->getType());
-            
+
+            auto *capturePat =
+                NamedPattern::createImplicit(context, capture, base->getType());
+
             auto capturePBE = PatternBindingEntry(capturePat,
                                                   SourceLoc(), base, dc);
             auto captureDecl = PatternBindingDecl::create(context, SourceLoc(),
@@ -5159,18 +5155,13 @@ namespace {
       closure->setParameterList(params);
 
       // The capture list.
-      VarDecl *outerParam = new (ctx) VarDecl(/*static*/ false,
-                                          VarDecl::Introducer::Let,
-                                          SourceLoc(),
-                                          ctx.getIdentifier("$kp$"),
-                                          dc);
-      outerParam->setImplicit();
+      auto *outerParam = VarDecl::createImplicit(ctx, /*static*/ false,
+                                                 VarDecl::Introducer::Let,
+                                                 ctx.getIdentifier("$kp$"), dc);
       outerParam->setInterfaceType(keyPathTy->mapTypeOutOfContext());
-      
-      NamedPattern *outerParamPat = new (ctx) NamedPattern(outerParam);
-      outerParamPat->setImplicit();
-      outerParamPat->setType(keyPathTy);
-      
+
+      auto *outerParamPat =
+          NamedPattern::createImplicit(ctx, outerParam, keyPathTy);
       auto outerParamPBE = PatternBindingEntry(outerParamPat,
                                                SourceLoc(), E, dc);
       solution.setExprTypes(E);

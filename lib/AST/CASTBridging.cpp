@@ -254,11 +254,11 @@ void *SwiftVarDecl_create(void *ctx, BridgedIdentifier _Nullable nameId,
   ASTContext &Context = *static_cast<ASTContext *>(ctx);
   auto name = (UnresolvedDeclRefExpr *)nameId;
   auto sourceLoc = getSourceLocFromPointer(loc);
-  auto varDecl = new (Context) VarDecl(
-      isStatic, isLet ? VarDecl::Introducer::Let : VarDecl::Introducer::Var,
-      sourceLoc, name->getName().getBaseIdentifier(),
-      reinterpret_cast<DeclContext *>(dc));
-  auto pattern = NamedPattern::createImplicit(Context, varDecl);
+  auto *varDecl = VarDecl::createParsed(
+      Context, isStatic,
+      isLet ? VarDecl::Introducer::Let : VarDecl::Introducer::Var, sourceLoc,
+      name->getName().getBaseIdentifier(), reinterpret_cast<DeclContext *>(dc));
+  auto *pattern = NamedPattern::createParsed(Context, varDecl);
   return PatternBindingDecl::create(
       Context, sourceLoc,
       isStatic ? StaticSpellingKind::KeywordStatic : StaticSpellingKind::None,

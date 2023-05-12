@@ -7407,15 +7407,14 @@ Parser::parseDeclVarGetSet(PatternBindingEntry &entry, ParseDeclOptions Flags,
   // formation rule that an AccessorDecl always has a VarDecl.
   VarDecl *storage = PrimaryVar;
   if (!storage) {
-    storage = new (Context) VarDecl(StaticLoc.isValid(),
-                                    VarDecl::Introducer::Var,
-                                    VarLoc, Identifier(),
-                                    CurDeclContext);
+    storage = VarDecl::createImplicit(Context, StaticLoc.isValid(),
+                                      VarDecl::Introducer::Var, VarLoc,
+                                      Identifier(), CurDeclContext);
     storage->setInvalid();
 
+    pattern = NamedPattern::createImplicit(Context, storage);
     pattern =
-      TypedPattern::createImplicit(Context, new (Context) NamedPattern(storage),
-                                   ErrorType::get(Context));
+        TypedPattern::createImplicit(Context, pattern, ErrorType::get(Context));
     entry.setPattern(pattern);
   }
 

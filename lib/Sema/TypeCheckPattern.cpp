@@ -771,10 +771,8 @@ ExprPatternMatchRequest::evaluate(Evaluator &evaluator,
 
   // Create a 'let' binding to stand in for the RHS value.
   auto *matchVar =
-      new (ctx) VarDecl(/*IsStatic*/ false, VarDecl::Introducer::Let,
-                        EP->getLoc(), ctx.Id_PatternMatchVar, DC);
-  matchVar->setImplicit();
-
+      VarDecl::createImplicit(ctx, /*IsStatic*/ false, VarDecl::Introducer::Let,
+                              EP->getLoc(), ctx.Id_PatternMatchVar, DC);
   // Build the 'expr ~= var' expression.
   auto *matchOp = new (ctx) UnresolvedDeclRefExpr(
       DeclNameRef(ctx.Id_MatchOperator), DeclRefKind::BinaryOperator,

@@ -6747,6 +6747,27 @@ Expr *VarDecl::getParentExecutableInitializer() const {
   return nullptr;
 }
 
+VarDecl *VarDecl::createParsed(ASTContext &ctx, bool isStatic,
+                               Introducer introducer, SourceLoc nameLoc,
+                               Identifier name, DeclContext *dc) {
+  return new (ctx) VarDecl(isStatic, introducer, nameLoc, name, dc);
+}
+
+VarDecl *VarDecl::createImplicit(ASTContext &ctx, bool isStatic,
+                                 Introducer introducer, SourceLoc nameLoc,
+                                 Identifier name, DeclContext *dc) {
+  auto *VD = new (ctx) VarDecl(isStatic, introducer, nameLoc, name, dc);
+  VD->setImplicit();
+  return VD;
+}
+
+VarDecl *VarDecl::createImplicit(ASTContext &ctx, bool isStatic,
+                                 Introducer introducer, Identifier name,
+                                 DeclContext *dc) {
+  return VarDecl::createImplicit(ctx, isStatic, introducer,
+                                 /*nameLoc*/ SourceLoc(), name, dc);
+}
+
 SourceRange VarDecl::getSourceRange() const {
   if (auto Param = dyn_cast<ParamDecl>(this))
     return Param->getSourceRange();

@@ -135,9 +135,9 @@ deriveBodyDistributed_doInvokeOnReturn(AbstractFunctionDecl *afd, void *arg) {
   auto returnTypeParam = afd->getParameters()->get(0);
   SmallVector<ASTNode, 8> stmts;
 
-  VarDecl *resultVar =
-      new (C) VarDecl(/*isStatic=*/false, VarDecl::Introducer::Let, sloc,
-                      C.getIdentifier("result"), afd);
+  auto *resultVar =
+      VarDecl::createImplicit(C, /*isStatic=*/false, VarDecl::Introducer::Let,
+                              sloc, C.getIdentifier("result"), afd);
   {
     auto resultLoadCall = CallExpr::createImplicit(
         C,
@@ -298,9 +298,9 @@ deriveBodyDistributed_invokeHandlerOnReturn(AbstractFunctionDecl *afd,
   SmallVector<ASTNode, 8> stmts;
 
   // --- `let m = metatype as! SerializationRequirement.Type`
-  VarDecl *metatypeVar =
-      new (C) VarDecl(/*isStatic=*/false, VarDecl::Introducer::Let, sloc,
-                      C.getIdentifier("m"), func);
+  auto *metatypeVar =
+      VarDecl::createImplicit(C, /*isStatic=*/false, VarDecl::Introducer::Let,
+                              sloc, C.getIdentifier("m"), func);
   {
     metatypeVar->setImplicit();
     metatypeVar->setSynthesized();

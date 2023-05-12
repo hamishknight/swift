@@ -139,11 +139,9 @@ deriveBodyComparable_enum_hasAssociatedValues_lt(AbstractFunctionDecl *ltDecl, v
       auto copy = C.Allocate<VarDecl *>(lhsPayloadVars.size());
       for (unsigned i : indices(lhsPayloadVars)) {
         auto *vOld = lhsPayloadVars[i];
-        auto *vNew = new (C) VarDecl(
-            /*IsStatic*/ false, vOld->getIntroducer(),
-            vOld->getNameLoc(), vOld->getName(), vOld->getDeclContext());
-        vNew->setImplicit();
-        copy[i] = vNew;
+        copy[i] = VarDecl::createImplicit(
+            C, /*IsStatic*/ false, vOld->getIntroducer(), vOld->getNameLoc(),
+            vOld->getName(), vOld->getDeclContext());
       }
       caseBodyVarDecls.emplace(copy);
     }

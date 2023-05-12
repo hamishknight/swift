@@ -204,9 +204,10 @@ deriveBodyEquatable_enum_hasAssociatedValues_eq(AbstractFunctionDecl *eqDecl,
       auto copy = C.Allocate<VarDecl *>(lhsPayloadVars.size());
       for (unsigned i : indices(lhsPayloadVars)) {
         auto *vOld = lhsPayloadVars[i];
-        auto *vNew = new (C) VarDecl(
-            /*IsStatic*/ false, vOld->getIntroducer(),
-            vOld->getNameLoc(), vOld->getName(), vOld->getDeclContext());
+        auto *vNew = VarDecl::createImplicit(
+            C,
+            /*IsStatic*/ false, vOld->getIntroducer(), vOld->getNameLoc(),
+            vOld->getName(), vOld->getDeclContext());
         vNew->setImplicit();
         copy[i] = vNew;
       }
@@ -737,9 +738,10 @@ deriveBodyHashable_enum_hasAssociatedValues_hashInto(
       auto copy = C.Allocate<VarDecl *>(payloadVars.size());
       for (unsigned i : indices(payloadVars)) {
         auto *vOld = payloadVars[i];
-        auto *vNew = new (C) VarDecl(
-            /*IsStatic*/ false, vOld->getIntroducer(),
-            vOld->getNameLoc(), vOld->getName(), vOld->getDeclContext());
+        auto *vNew = VarDecl::createImplicit(
+            C,
+            /*IsStatic*/ false, vOld->getIntroducer(), vOld->getNameLoc(),
+            vOld->getName(), vOld->getDeclContext());
         vNew->setImplicit();
         copy[i] = vNew;
       }
@@ -885,9 +887,9 @@ static ValueDecl *deriveHashable_hashValue(DerivedConformance &derived) {
     return nullptr;
   }
 
-  VarDecl *hashValueDecl =
-    new (C) VarDecl(/*IsStatic*/false, VarDecl::Introducer::Var,
-                    SourceLoc(), C.Id_hashValue, parentDC);
+  auto *hashValueDecl =
+      VarDecl::createImplicit(C, /*IsStatic*/ false, VarDecl::Introducer::Var,
+                              C.Id_hashValue, parentDC);
   hashValueDecl->setInterfaceType(intType);
   hashValueDecl->setSynthesized();
 

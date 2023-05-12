@@ -1136,12 +1136,10 @@ static void parseGuardedPattern(Parser &P, GuardedPattern &result,
       P.Tok.isAny(tok::l_brace, tok::kw_where)) {
     auto loc = P.Tok.getLoc();
     auto errorName = P.Context.Id_error;
-    auto var = new (P.Context) VarDecl(/*IsStatic*/false,
-                                       VarDecl::Introducer::Let,
-                                       loc, errorName,
-                                       P.CurDeclContext);
-    var->setImplicit();
-    auto namePattern = new (P.Context) NamedPattern(var);
+    auto *var = VarDecl::createImplicit(P.Context, /*IsStatic*/ false,
+                                        VarDecl::Introducer::Let, loc,
+                                        errorName, P.CurDeclContext);
+    auto *namePattern = NamedPattern::createImplicit(P.Context, var);
     auto varPattern = new (P.Context)
         BindingPattern(loc, VarDecl::Introducer::Let, namePattern);
     varPattern->setImplicit();
@@ -2214,11 +2212,10 @@ ParserResult<CaseStmt> Parser::parseStmtCatch() {
     auto Result = Context.AllocateUninitialized<VarDecl *>(tmp.size());
     for (unsigned i : indices(tmp)) {
       auto *vOld = tmp[i];
-      auto *vNew = new (Context) VarDecl(
-          /*IsStatic*/ false, vOld->getIntroducer(),
-          vOld->getNameLoc(), vOld->getName(), vOld->getDeclContext());
-      vNew->setImplicit();
-      Result[i] = vNew;
+      Result[i] = VarDecl::createImplicit(
+          Context,
+          /*IsStatic*/ false, vOld->getIntroducer(), vOld->getNameLoc(),
+          vOld->getName(), vOld->getDeclContext());
     }
     caseBodyDecls.emplace(Result);
   }
@@ -2571,11 +2568,10 @@ parseStmtCase(Parser &P, SourceLoc &CaseLoc,
     auto Result = P.Context.AllocateUninitialized<VarDecl *>(tmp.size());
     for (unsigned i : indices(tmp)) {
       auto *vOld = tmp[i];
-      auto *vNew = new (P.Context) VarDecl(
-          /*IsStatic*/ false, vOld->getIntroducer(),
-          vOld->getNameLoc(), vOld->getName(), vOld->getDeclContext());
-      vNew->setImplicit();
-      Result[i] = vNew;
+      Result[i] = VarDecl::createImplicit(
+          P.Context,
+          /*IsStatic*/ false, vOld->getIntroducer(), vOld->getNameLoc(),
+          vOld->getName(), vOld->getDeclContext());
     }
     CaseBodyDecls.emplace(Result);
   }

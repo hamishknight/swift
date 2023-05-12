@@ -1077,9 +1077,10 @@ ParserResult<Pattern> Parser::parsePattern() {
     // VarDecl inside.
     if (CurDeclContext->isTypeContext() &&
         SF.Kind == SourceFileKind::Interface) {
-      auto VD = new (Context) VarDecl(
-        /*IsStatic*/false, introducer,
-        consumeToken(tok::kw__), Identifier(), CurDeclContext);
+      auto *VD = VarDecl::createParsed(Context,
+                                       /*IsStatic*/ false, introducer,
+                                       consumeToken(tok::kw__), Identifier(),
+                                       CurDeclContext);
       return makeParserResult(NamedPattern::createImplicit(Context, VD));
     }
 
@@ -1174,9 +1175,9 @@ ParserResult<Pattern> Parser::parsePattern() {
 
 Pattern *Parser::createBindingFromPattern(SourceLoc loc, Identifier name,
                                           VarDecl::Introducer introducer) {
-  auto var = new (Context) VarDecl(/*IsStatic*/false, introducer,
-                                   loc, name, CurDeclContext);
-  return new (Context) NamedPattern(var);
+  auto *var = VarDecl::createParsed(Context, /*IsStatic*/ false, introducer,
+                                    loc, name, CurDeclContext);
+  return NamedPattern::createParsed(Context, var);
 }
 
 /// Parse an element of a tuple pattern.

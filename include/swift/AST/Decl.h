@@ -5581,10 +5581,22 @@ protected:
   }
 
 public:
-  VarDecl(bool isStatic, Introducer introducer,
-          SourceLoc nameLoc, Identifier name, DeclContext *dc)
-    : VarDecl(DeclKind::Var, isStatic, introducer, nameLoc,
-              name, dc, StorageIsMutable_t(introducer == Introducer::Var)) {}
+  VarDecl(bool isStatic, Introducer introducer, SourceLoc nameLoc,
+          Identifier name, DeclContext *dc)
+      : VarDecl(DeclKind::Var, isStatic, introducer, nameLoc, name, dc,
+                StorageIsMutable_t(introducer == Introducer::Var)) {}
+
+  static VarDecl *createParsed(ASTContext &ctx, bool isStatic,
+                               Introducer introducer, SourceLoc nameLoc,
+                               Identifier name, DeclContext *dc);
+
+  static VarDecl *createImplicit(ASTContext &ctx, bool isStatic,
+                                 Introducer introducer, SourceLoc nameLoc,
+                                 Identifier name, DeclContext *dc);
+
+  static VarDecl *createImplicit(ASTContext &ctx, bool isStatic,
+                                 Introducer introducer, Identifier name,
+                                 DeclContext *dc);
 
   SourceRange getSourceRange() const;
 

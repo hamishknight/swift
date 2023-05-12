@@ -28,8 +28,10 @@ TEST_F(SemaTest, TestPlaceholderInferenceForArrayLiteral) {
   auto placeholderTy = PlaceholderType::get(Context, placeholderRepr);
   auto *arrayTy = ArraySliceType::get(placeholderTy);
 
-  auto *varDecl = new (Context) VarDecl(false, VarDecl::Introducer::Let, SourceLoc(), Context.getIdentifier("x"), DC);
-  auto *namedPattern = new (Context) NamedPattern(varDecl);
+  auto *varDecl = VarDecl::createImplicit(Context, /*isStatic*/ false,
+                                          VarDecl::Introducer::Let,
+                                          Context.getIdentifier("x"), DC);
+  auto *namedPattern = NamedPattern::createImplicit(Context, varDecl);
   auto *typedPattern = new (Context) TypedPattern(namedPattern, arrayRepr);
 
   auto target = SyntacticElementTarget::forInitialization(
@@ -70,8 +72,10 @@ TEST_F(SemaTest, TestPlaceholderInferenceForDictionaryLiteral) {
   auto valPlaceholderTy = PlaceholderType::get(Context, valPlaceholderRepr);
   auto *dictTy = DictionaryType::get(keyPlaceholderTy, valPlaceholderTy);
 
-  auto *varDecl = new (Context) VarDecl(false, VarDecl::Introducer::Let, SourceLoc(), Context.getIdentifier("x"), DC);
-  auto *namedPattern = new (Context) NamedPattern(varDecl);
+  auto *varDecl = VarDecl::createImplicit(Context, /*isStatic*/ false,
+                                          VarDecl::Introducer::Let,
+                                          Context.getIdentifier("x"), DC);
+  auto *namedPattern = NamedPattern::createImplicit(Context, varDecl);
   auto *typedPattern = new (Context) TypedPattern(namedPattern, dictRepr);
 
   auto target = SyntacticElementTarget::forInitialization(
