@@ -283,30 +283,48 @@ enum class ImplicitlyFinalReason : unsigned {
   /// The containing class is final.
   FinalClass,
   /// A member was declared as 'static'.
-  Static
+  Static,
+  /// Operator function.
+  OperatorFunc,
 };
 }
 
 static bool inferFinalAndDiagnoseIfNeeded(ValueDecl *D, ClassDecl *cls,
                                           FinalAttr *explicitFinalAttr) {
+  auto &eval = D->getASTContext().evaluator;
+
   // Are there any reasons to infer 'final'? Prefer 'static' over the class
   // being final for the purposes of diagnostics.
-  Optional<ImplicitlyFinalReason> reason;
-  if (D->getStaticKind() == StaticKind::Static) {
-    reason = ImplicitlyFinalReason::Static;
-
-    if (explicitFinalAttr) {
-      auto finalRange = explicitFinalAttr->getRange();
-      if (finalRange.isValid()) {
-        auto &context = D->getASTContext();
-        context.Diags
+  auto reason = [&]() -> Optional<ImplicitlyFinalReason> {
+    auto *SA = D->getAttrs().getAttribute<StaticAttr>();
+    if (SA && SA->getSpelling() == StaticAttr::Spelling::Static) {
+      if (explicitFinalAttr) {
+        auto finalRange = explicitFinalAttr->getRange();
+        if (finalRange.isValid()) {
+          auto &context = D->getASTContext();
+          context.Diags
             .diagnose(finalRange.Start, diag::static_decl_already_final)
             .fixItRemove(finalRange);
+        }
+      }
+      return ImplicitlyFinalReason::Static;
+    }
+    if (cls->isFinal())
+      return ImplicitlyFinalReason::FinalClass;
+
+    // Operator functions need to be final.
+    if (auto *FD = dyn_cast<FuncDecl>(D)) {
+      if (FD->isOperator()) {
+        FD->diagnose(diag::nonfinal_operator_in_class,
+                     FD->getBaseIdentifier(),
+                     cls->getDeclaredInterfaceType())
+          .fixItInsert(FD->getAttributeInsertionLoc(/*forModifier=*/true),
+                     "final ");
+        return ImplicitlyFinalReason::OperatorFunc;
       }
     }
-  } else if (cls->isFinal()) {
-    reason = ImplicitlyFinalReason::FinalClass;
-  }
+    return None;
+  }();
 
   if (!reason)
     return false;
@@ -922,12 +940,24 @@ bool IsMoveOnlyRequest::evaluate(Evaluator &evaluator, ValueDecl *decl) const {
   return false;
 }
 
-StaticKind IsStaticRequest::evaluate(Evaluator &evaluator,
+const StaticAttr *
+SemanticStaticAttrRequest::evaluate(Evaluator &eval,
+                                  const ValueDecl *decl) const {
+  if (auto *SA = decl->getAttrs().getAttribute<StaticAttr>())
+    return SA;
+
+  if (auto *accessor = dyn_cast<AccessorDecl>(decl))
+    return accessor->getStorage()->getAttrs().getAttribute<StaticAttr>();
+
+  return nullptr;
+}
+
+StaticKind IsStaticRequest::evaluate(Evaluator &eval,
                                      const ValueDecl *decl) const {
   auto *DC = decl->getDeclContext();
   auto &ctx = DC->getASTContext();
 
-  if (auto *SA = decl->getAttrs().getAttribute<StaticAttr>()) {
+  if (auto *SA = evaluateOrDefault(eval, SemanticStaticAttrRequest{decl}, nullptr)) {
     auto kind = SA->getStaticKind();
     auto loc = SA->getLocation();
     if (!DC->isTypeContext()) {
@@ -936,17 +966,18 @@ StaticKind IsStaticRequest::evaluate(Evaluator &evaluator,
       return StaticKind::None;
     }
     auto *CD = DC->getSelfClassDecl();
-    if (kind == StaticKind::Class && (!CD || CD->isActor())) {
-      ctx.Diags.diagnose(loc, diag::class_static_decl_not_in_class,
-                         decl->getDescriptiveKind(), isa<ProtocolDecl>(DC))
+    if (kind == StaticKind::Class) {
+      if (!CD || CD->isActor()) {
+        ctx.Diags.diagnose(loc, diag::class_static_decl_not_in_class,
+                           decl->getDescriptiveKind(), isa<ProtocolDecl>(DC))
         .fixItReplace(SA->getRange(), "static");
-      return StaticKind::Static;
+        return StaticKind::Static;
+      }
+      if (decl->isFinal())
+        return StaticKind::Static;
     }
     return kind;
   }
-
-  if (auto *accessor = dyn_cast<AccessorDecl>(decl))
-    return accessor->getStorage()->getStaticKind();
 
   if (decl->isOperator() && DC->isTypeContext()) {
     const auto operatorName = decl->getBaseIdentifier();
@@ -1916,23 +1947,9 @@ FunctionOperatorRequest::evaluate(Evaluator &evaluator, FuncDecl *FD) const {
   auto &diags = C.Diags;
   const auto operatorName = FD->getBaseIdentifier();
 
-  // Check for static/final/class when we're in a type.
   auto dc = FD->getDeclContext();
-  if (dc->isTypeContext()) {
-    if (auto classDecl = dc->getSelfClassDecl()) {
-      // For a class, we also need the function or class to be 'final'.
-      if (!classDecl->isSemanticallyFinal() && !FD->isFinal() &&
-          FD->getStaticKind() == StaticKind::Class) {
-        FD->diagnose(diag::nonfinal_operator_in_class,
-                     operatorName, dc->getDeclaredInterfaceType())
-          .fixItInsert(FD->getAttributeInsertionLoc(/*forModifier=*/true),
-                       "final ");
-        FD->getAttrs().add(new (C) FinalAttr(/*IsImplicit=*/true));
-      }
-    }
-  } else if (!dc->isModuleScopeContext()) {
+  if (!dc->isModuleScopeContext() && !dc->isTypeContext())
     FD->diagnose(diag::operator_in_local_scope);
-  }
 
   NullablePtr<OperatorDecl> op;
   if (FD->isUnaryOperator()) {

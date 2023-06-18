@@ -2128,6 +2128,20 @@ public:
   bool isCached() const { return true; }
 };
 
+class SemanticStaticAttrRequest
+    : public SimpleRequest<SemanticStaticAttrRequest,
+                           const StaticAttr *(const ValueDecl *),
+                           RequestFlags::Uncached> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  // Evaluation.
+  const StaticAttr *evaluate(Evaluator &evaluator, const ValueDecl *decl) const;
+};
+
 /// Determines if a declaration is 'static'.
 class IsStaticRequest
     : public SimpleRequest<IsStaticRequest, StaticKind(const ValueDecl *),

@@ -5399,7 +5399,6 @@ Parser::parseDecl(ParseDeclOptions Flags,
 
     // Parse as a macro expansion.
     DeclResult = parseDeclMacroExpansion(Flags, Attributes);
-    StaticLoc = SourceLoc(); // Ignore 'static' on macro expansion
     break;
 
   case tok::pound_if:

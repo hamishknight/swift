@@ -3156,12 +3156,14 @@ ERROR(open_decl_cannot_be_final,none,
       "%0 cannot be declared both 'final' and 'open'", (DescriptiveDeclKind))
 ERROR(implicitly_final_cannot_be_open,none,
       "%select{'let' properties|members of 'final' classes|"
-      "static declarations}0 are implicitly 'final'; use 'public' instead of "
-      "'open'", (unsigned))
+      "static declarations|operator functions}0 are implicitly 'final'; use "
+      "'public' instead of 'open'",
+      (unsigned))
 WARNING(implicitly_final_cannot_be_open_swift4,none,
         "%select{'let' properties|members of 'final' classes|"
-        "static declarations}0 are implicitly 'final'; use 'public' instead of "
-        "'open'", (unsigned))
+        "static declarations|operator functions}0 are implicitly 'final'; use "
+        "'public' instead of 'open'",
+        (unsigned))
 
 WARNING(override_swift3_objc_inference,Deprecation,
         "override of %0 %1 from extension of %2 depends on deprecated "
