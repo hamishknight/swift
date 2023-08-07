@@ -175,7 +175,8 @@ static void appendToVector(void *declPtr, void *vecPtr) {
 extern "C" void *swift_ASTGen_parseSourceFile(const char *buffer,
                                               size_t bufferLength,
                                               const char *moduleName,
-                                              const char *filename);
+                                              const char *filename,
+                                              void *_Nullable ctx);
 
 /// Destroy a source file parsed with swift_ASTGen_parseSourceFile.
 extern "C" void swift_ASTGen_destroySourceFile(void *sourceFile);
@@ -328,7 +329,7 @@ void *ExportedSourceFileRequest::evaluate(Evaluator &evaluator,
   auto exportedSourceFile = swift_ASTGen_parseSourceFile(
       contents.begin(), contents.size(),
       SF->getParentModule()->getName().str().str().c_str(),
-      SF->getFilename().str().c_str());
+      SF->getFilename().str().c_str(), &ctx);
 
   ctx.addCleanup([exportedSourceFile] {
     swift_ASTGen_destroySourceFile(exportedSourceFile);
