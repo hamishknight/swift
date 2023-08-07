@@ -1758,6 +1758,15 @@ Stmt *Traversal::visitYieldStmt(YieldStmt *YS) {
   return YS;
 }
 
+Stmt *Traversal::visitThenStmt(ThenStmt *TS) {
+  auto *E = doIt(TS->getResult());
+  if (!E)
+    return nullptr;
+
+  TS->setResult(E);
+  return TS;
+}
+
 Stmt *Traversal::visitDeferStmt(DeferStmt *DS) {
   if (doIt(DS->getTempDecl()))
     return nullptr;

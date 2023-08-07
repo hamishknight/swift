@@ -293,6 +293,7 @@ public:
   }
 
   void completeReturnStmt(CodeCompletionExpr *E) override;
+  void completeThenStmt(CodeCompletionExpr *E) override;
   void completeYieldStmt(CodeCompletionExpr *E,
                          llvm::Optional<unsigned> yieldIndex) override;
   void completeAfterPoundExpr(CodeCompletionExpr *E,
@@ -589,6 +590,12 @@ void CodeCompletionCallbacksImpl::completeReturnStmt(CodeCompletionExpr *E) {
   CurDeclContext = P.CurDeclContext;
   CodeCompleteTokenExpr = E;
   Kind = CompletionKind::ReturnStmtExpr;
+}
+
+void CodeCompletionCallbacksImpl::completeThenStmt(CodeCompletionExpr *E) {
+  CurDeclContext = P.CurDeclContext;
+  CodeCompleteTokenExpr = E;
+  Kind = CompletionKind::ThenStmtExpr;
 }
 
 void CodeCompletionCallbacksImpl::completeYieldStmt(
@@ -1026,6 +1033,7 @@ void CodeCompletionCallbacksImpl::addKeywords(CodeCompletionResultSink &Sink,
 
     LLVM_FALLTHROUGH;
   case CompletionKind::ReturnStmtExpr:
+  case CompletionKind::ThenStmtExpr:
   case CompletionKind::YieldStmtExpr:
   case CompletionKind::ForEachSequence:
     addSuperKeyword(Sink, CurDeclContext);
@@ -1533,11 +1541,19 @@ bool CodeCompletionCallbacksImpl::trySolverCompletion(bool MaybeFuncBody) {
   case CompletionKind::CaseStmtBeginning:
   case CompletionKind::ForEachSequence:
   case CompletionKind::PostfixExprBeginning:
-  case CompletionKind::StmtOrExpr: {
+  case CompletionKind::StmtOrExpr:
+  case CompletionKind::ThenStmtExpr: {
     assert(CurDeclContext);
 
-    bool AddUnresolvedMemberCompletions =
-        (Kind == CompletionKind::CaseStmtBeginning);
+    bool AddUnresolvedMemberCompletions = false;
+    switch (Kind) {
+    case CompletionKind::CaseStmtBeginning:
+    case CompletionKind::ThenStmtExpr:
+      AddUnresolvedMemberCompletions = true;
+      break;
+    default:
+      break;
+    }
     ExprTypeCheckCompletionCallback Lookup(
         CodeCompleteTokenExpr, CurDeclContext, AddUnresolvedMemberCompletions);
     if (CodeCompleteTokenExpr) {
@@ -1705,6 +1721,7 @@ void CodeCompletionCallbacksImpl::doneParsing(SourceFile *SrcFile) {
   case CompletionKind::CaseStmtBeginning:
   case CompletionKind::PostfixExprParen:
   case CompletionKind::PostfixExpr:
+  case CompletionKind::ThenStmtExpr:
     llvm_unreachable("should be already handled");
     return;
 
