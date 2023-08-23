@@ -1301,3 +1301,50 @@ struct SomeEraserP: EraserP {}
 dynamic func testDynamicOpaqueErase() -> some EraserP {
   switch Bool.random() { default: SomeEraserP() }
 }
+
+// MARK: Out of place switch exprs
+
+func inDefaultArg(x: Int = switch Bool.random() { default: 0 }) {}
+// expected-error@-1 {{'switch' may only be used as expression in return, throw, or as the source of an assignment}}
+
+func inDefaultArg2(x: Int = { (switch Bool.random() { default: 0 }) }()) {}
+// expected-error@-1 {{'switch' may only be used as expression in return, throw, or as the source of an assignment}}
+
+struct InType {
+  let inPropertyInit1 = switch Bool.random() { case true: 0 case false: 1 }
+  let inPropertyInit2 = (switch Bool.random() { case true: 0 case false: 1 })
+  // expected-error@-1 {{'switch' may only be used as expression in return, throw, or as the source of an assignment}}
+
+  let inPropertyInit3 = {
+    let _ = switch Bool.random() { case true: 0 case false: 1 }
+    let _ = (switch Bool.random() { case true: 0 case false: 1 })
+    // expected-error@-1 {{'switch' may only be used as expression in return, throw, or as the source of an assignment}}
+
+    func foo() {
+      let _ = switch Bool.random() { case true: 0 case false: 1 }
+      let _ = (switch Bool.random() { case true: 0 case false: 1 })
+      // expected-error@-1 {{'switch' may only be used as expression in return, throw, or as the source of an assignment}}
+    }
+    if .random() {
+      return switch Bool.random() { case true: 0 case false: 1 }
+    } else {
+      return (switch Bool.random() { case true: 0 case false: 1 })
+      // expected-error@-1 {{'switch' may only be used as expression in return, throw, or as the source of an assignment}}
+    }
+  }
+
+  subscript(x: Int = switch Bool.random() { case true: 0 case false: 0 }) -> Int {
+    // expected-error@-1 {{'switch' may only be used as expression in return, throw, or as the source of an assignment}}
+
+    let _ = switch Bool.random() { case true: 0 case false: 1 }
+    let _ = (switch Bool.random() { case true: 0 case false: 1 })
+    // expected-error@-1 {{'switch' may only be used as expression in return, throw, or as the source of an assignment}}
+    return 0
+  }
+}
+
+func testCaptureList() {
+  let _ = { [x = switch Bool.random() { default: 1 }] in x }
+  let _ = { [x = (switch Bool.random() { default: 1 })] in x }
+  // expected-error@-1 {{'switch' may only be used as expression in return, throw, or as the source of an assignment}}
+}

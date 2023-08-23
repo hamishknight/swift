@@ -1029,3 +1029,50 @@ struct SomeEraserP: EraserP {}
 dynamic func testDynamicOpaqueErase() -> some EraserP {
   if .random() { SomeEraserP() } else { SomeEraserP() }
 }
+
+// MARK: Out of place if exprs
+
+func inDefaultArg(x: Int = if .random() { 0 } else { 0 }) {}
+// expected-error@-1 {{'if' may only be used as expression in return, throw, or as the source of an assignment}}
+
+func inDefaultArg2(x: Int = { (if .random() { 0 } else { 0 }) }()) {}
+// expected-error@-1 {{'if' may only be used as expression in return, throw, or as the source of an assignment}}
+
+struct InType {
+  let inPropertyInit1 = if .random() { 0 } else { 1 }
+  let inPropertyInit2 = (if .random() { 0 } else { 1 })
+  // expected-error@-1 {{'if' may only be used as expression in return, throw, or as the source of an assignment}}
+
+  let inPropertyInit3 = {
+    let _ = if .random() { 0 } else { 1 }
+    let _ = (if .random() { 0 } else { 1 })
+    // expected-error@-1 {{'if' may only be used as expression in return, throw, or as the source of an assignment}}
+
+    func foo() {
+      let _ = if .random() { 0 } else { 1 }
+      let _ = (if .random() { 0 } else { 1 })
+      // expected-error@-1 {{'if' may only be used as expression in return, throw, or as the source of an assignment}}
+    }
+    if .random() {
+      return if .random() { 0 } else { 1 }
+    } else {
+      return (if .random() { 0 } else { 1 })
+      // expected-error@-1 {{'if' may only be used as expression in return, throw, or as the source of an assignment}}
+    }
+  }
+
+  subscript(x: Int = if .random() { 0 } else { 0 }) -> Int {
+    // expected-error@-1 {{'if' may only be used as expression in return, throw, or as the source of an assignment}}
+
+    let _ = if .random() { 0 } else { 1 }
+    let _ = (if .random() { 0 } else { 1 })
+    // expected-error@-1 {{'if' may only be used as expression in return, throw, or as the source of an assignment}}
+    return 0
+  }
+}
+
+func testCaptureList() {
+  let _ = { [x = if .random() { 0 } else { 1 }] in x }
+  let _ = { [x = (if .random() { 0 } else { 1 })] in x }
+  // expected-error@-1 {{'if' may only be used as expression in return, throw, or as the source of an assignment}}
+}
