@@ -3982,7 +3982,7 @@ private:
     return Action::Continue(S);
   }
 
-  PreWalkAction walkToDeclPre(Decl *D) override {
+  void visitDecl(Decl *D) {
     // Valid as an initializer of a pattern binding.
     if (auto *PBD = dyn_cast<PatternBindingDecl>(D)) {
       for (auto idx : range(PBD->getNumPatternEntries()))
@@ -3995,7 +3995,19 @@ private:
       if (AFD->hasSingleExpressionBody())
         markValidSingleValueStmt(AFD->getSingleExpressionBody());
     }
+  }
+
+  PreWalkAction walkToDeclPre(Decl *D) override {
+    visitDecl(D);
     return Action::Continue();
+  }
+
+public:
+  /// Walk only the body of a given function.
+  void walkBody(AbstractFunctionDecl *AFD) {
+    // We need to first visit the decl to catch single expression returns.
+    visitDecl(AFD);
+    AFD->getBody()->walk(*this);
   }
 };
 } // end anonymous namespace
@@ -4007,8 +4019,7 @@ performTopLevelDeclDiagnostics(TopLevelCodeDecl *TLCD) {
   auto &ctx = TLCD->getDeclContext()->getASTContext();
   VarDeclUsageChecker checker(TLCD, ctx.Diags);
   TLCD->walk(checker);
-  SingleValueStmtUsageChecker sveChecker(ctx);
-  TLCD->walk(sveChecker);
+  performAdditionalDeclSyntacticDiagnostics(TLCD);
 }
 
 /// Perform diagnostics for func/init/deinit declarations.
@@ -4025,9 +4036,12 @@ void swift::performAbstractFuncDeclDiagnostics(AbstractFunctionDecl *AFD) {
     VarDeclUsageChecker checker(AFD, ctx.Diags);
     AFD->walk(checker);
 
-    // Do a similar walk to check for out of place SingleValueStmtExprs.
+    // Do a similar walk to check for out of place SingleValueStmtExprs. We
+    // only need to walk the body, as the rest of the function (e.g default
+    // arguments) will be walked as a part of
+    // performAdditionalDeclSyntacticDiagnostics.
     SingleValueStmtUsageChecker sveChecker(ctx);
-    AFD->walk(sveChecker);
+    sveChecker.walkBody(AFD);
   }
 
   auto *body = AFD->getBody();
@@ -4049,6 +4063,32 @@ void swift::performAbstractFuncDeclDiagnostics(AbstractFunctionDecl *AFD) {
     // type inferred in the body to replace it.
     if (resultIFaceTy && resultIFaceTy->hasPlaceholder()) {
       ReturnTypePlaceholderReplacer(FD, body).check();
+    }
+  }
+}
+
+void swift::performAdditionalDeclSyntacticDiagnostics(Decl *D) {
+  // Decls in a local context will be walked as a part of their parent context.
+  if (D->getDeclContext()->isLocalContext())
+    return;
+
+  SingleValueStmtUsageChecker sveChecker(D->getASTContext());
+
+  // We need to walk property inits, top-level code, default arguments, and
+  // custom attributes. Everything else should be visited as a part of
+  // performAbstractFuncDeclDiagnostics.
+  if (isa<PatternBindingDecl>(D) || isa<TopLevelCodeDecl>(D)) {
+    D->walk(sveChecker);
+  } else if (auto *VD = dyn_cast<ValueDecl>(D)) {
+    if (auto *PL = getParameterList(VD)) {
+      for (auto *P : *PL)
+        P->walk(sveChecker);
+    }
+  }
+  for (auto *attr : D->getSemanticAttrs()) {
+    if (auto *CA = dyn_cast<CustomAttr>(attr)) {
+      if (auto *args = CA->getArgs())
+        args->walk(sveChecker);
     }
   }
 }

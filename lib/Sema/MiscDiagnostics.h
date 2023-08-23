@@ -49,7 +49,11 @@ void performAbstractFuncDeclDiagnostics(AbstractFunctionDecl *AFD);
 
 /// Perform diagnostics on the top level code declaration.
 void performTopLevelDeclDiagnostics(TopLevelCodeDecl *TLCD);
-  
+
+/// Perform additional syntactic diagnostics for a decl, for cases that haven't
+/// been walked as a part of function body or statement diagnostics.
+void performAdditionalDeclSyntacticDiagnostics(Decl *D);
+
 /// Emit a fix-it to set the access of \p VD to \p desiredAccess.
 ///
 /// This actually updates \p VD as well.

@@ -1932,6 +1932,7 @@ public:
             { });
       }
     }
+    performAdditionalDeclSyntacticDiagnostics(decl);
   }
 
 
