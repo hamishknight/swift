@@ -911,8 +911,6 @@ namespace {
     ASTContext &Ctx;
     DeclContext *DC;
 
-    Expr *ParentExpr;
-
     /// Indicates whether pre-check is allowed to insert
     /// implicit `ErrorExpr` in place of invalid references.
     bool UseErrorExprs;
@@ -986,11 +984,11 @@ namespace {
     void markAcceptableDiscardExprs(Expr *E);
 
   public:
-    PreCheckExpression(DeclContext *dc, Expr *parent,
+    PreCheckExpression(DeclContext *dc,
                        bool replaceInvalidRefsWithErrors,
                        bool leaveClosureBodiesUnchecked)
         : Ctx(dc->getASTContext()), DC(dc),
-          ParentExpr(parent), UseErrorExprs(replaceInvalidRefsWithErrors),
+          UseErrorExprs(replaceInvalidRefsWithErrors),
           LeaveClosureBodiesUnchecked(leaveClosureBodiesUnchecked) {}
 
     ASTContext &getASTContext() const { return Ctx; }
@@ -1103,11 +1101,9 @@ namespace {
         if (expr->isImplicit())
           return finish(true, expr);
 
-        auto parents = ParentExpr->getParentMap();
-
-        auto result = parents.find(expr);
-        if (result != parents.end()) {
-          auto *parent = result->getSecond();
+        if (!ExprStack.empty()) {
+          auto parents = ExprStack.front()->getParentMap();
+          auto *parent = parents.find(expr)->getSecond();
 
           if (isa<SequenceExpr>(parent))
             return finish(true, expr);
@@ -1362,8 +1358,7 @@ namespace {
       // Constraint generation is responsible for pattern verification and
       // type-checking in the body of the closure and single value stmt expr,
       // so there is no need to walk into patterns.
-      return Action::SkipChildrenIf(
-          isa<ClosureExpr>(DC) || SingleValueStmtExprDepth > 0, pattern);
+      return Action::SkipChildren(pattern);
     }
   };
 } // end anonymous namespace
@@ -2330,13 +2325,28 @@ bool ConstraintSystem::preCheckExpression(Expr *&expr, DeclContext *dc,
   auto &ctx = dc->getASTContext();
   FrontendStatsTracer StatsTracer(ctx.Stats, "precheck-expr", expr);
 
-  PreCheckExpression preCheck(dc, expr,
-                              replaceInvalidRefsWithErrors,
+  PreCheckExpression preCheck(dc, replaceInvalidRefsWithErrors,
                               leaveClosureBodiesUnchecked);
 
   // Perform the pre-check.
   if (auto result = expr->walk(preCheck)) {
     expr = result;
+    return false;
+  }
+  return true;
+}
+
+bool ConstraintSystem::preCheckBody(Stmt *&body, DeclContext *dc,
+                                    bool replaceInvalidRefsWithErrors,
+                                    bool leaveClosureBodiesUnchecked) {
+  auto &ctx = dc->getASTContext();
+  FrontendStatsTracer StatsTracer(ctx.Stats, "precheck-body", body);
+
+  PreCheckExpression preCheck(dc, replaceInvalidRefsWithErrors,
+                              leaveClosureBodiesUnchecked);
+  // Perform the pre-check.
+  if (auto result = body->walk(preCheck)) {
+    body = result;
     return false;
   }
   return true;

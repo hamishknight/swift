@@ -1274,6 +1274,26 @@ public:
   ResultBuilderBodyPreCheck run() {
     Stmt *oldBody = Fn.getBody();
 
+    if (!SkipPrecheck) {
+      auto *DC = Fn.getAsDeclContext();
+      auto &diagEngine = DC->getASTContext().Diags;
+
+      // Suppress any diagnostics which could be produced by this expression.
+      DiagnosticTransaction transaction(diagEngine);
+
+      HasError |= ConstraintSystem::preCheckBody(
+          oldBody, DC, /*replaceInvalidRefsWithErrors=*/true,
+          /*leaveClosureBodiesUnchecked=*/false);
+
+      HasError |= transaction.hasErrors();
+
+      if (SuppressDiagnostics)
+        transaction.abort();
+
+      if (HasError)
+        return ResultBuilderBodyPreCheck::Error;
+    }
+
     Stmt *newBody = oldBody->walk(*this);
 
     // If the walk was aborted, it was because we had a problem of some kind.
@@ -1295,36 +1315,10 @@ public:
   }
 
   PreWalkResult<Expr *> walkToExprPre(Expr *E) override {
-    if (SkipPrecheck)
-      return Action::SkipChildren(E);
+    if (containsErrorExpr(E))
+      return Action::Stop();
 
-    // Pre-check the expression.  If this fails, abort the walk immediately.
-    // Otherwise, replace the expression with the result of pre-checking.
-    // In either case, don't recurse into the expression.
-    {
-      auto *DC = Fn.getAsDeclContext();
-      auto &diagEngine = DC->getASTContext().Diags;
-
-      // Suppress any diagnostics which could be produced by this expression.
-      DiagnosticTransaction transaction(diagEngine);
-
-      HasError |= ConstraintSystem::preCheckExpression(
-          E, DC, /*replaceInvalidRefsWithErrors=*/true,
-          /*leaveClosureBodiesUnchecked=*/false);
-
-      HasError |= transaction.hasErrors();
-
-      if (!HasError)
-        HasError |= containsErrorExpr(E);
-
-      if (SuppressDiagnostics)
-        transaction.abort();
-
-      if (HasError)
-        return Action::Stop();
-
-      return Action::SkipChildren(E);
-    }
+    return Action::SkipChildren(E);
   }
 
   PreWalkResult<Stmt *> walkToStmtPre(Stmt *S) override {
