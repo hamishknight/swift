@@ -732,7 +732,6 @@ public:
 
   /// True if pattern resolution has been applied to the subexpression.
   bool isResolved() const { return SubExprAndIsResolved.getInt(); }
-  void setResolved(bool isResolved) { SubExprAndIsResolved.setInt(isResolved); }
 
   static bool classof(const Pattern *P) {
     return P->getKind() == PatternKind::Expr;

@@ -526,6 +526,38 @@ ExprPattern *ExprPattern::createParsed(ASTContext &ctx, Expr *E,
 
 ExprPattern *ExprPattern::createResolved(ASTContext &ctx, Expr *E,
                                          DeclContext *DC) {
+  // When creating a resolved ExprPattern, we may be left with unresolved
+  // nested ExprPatterns within UnresolvedPatternExprs. These should be treated
+  // as resolved, and will be diagnosed during type-checking.
+  class ResolveWalker final : public ASTWalker {
+    ASTContext &Ctx;
+
+  public:
+    ResolveWalker(ASTContext &ctx) : Ctx(ctx) {}
+
+    PreWalkResult<Pattern *> walkToPatternPre(Pattern *P) override {
+      if (auto *EP = dyn_cast<ExprPattern>(P)) {
+        if (!EP->isResolved()) {
+          EP = ExprPattern::createResolved(Ctx, EP->getSubExpr(),
+                                           EP->getDeclContext());
+          return Action::SkipChildren(EP);
+        }
+      }
+      return Action::Continue(P);
+    }
+
+    PreWalkResult<Stmt *> walkToStmtPre(Stmt *S) override {
+      return Action::SkipChildren(S);
+    }
+    PreWalkAction walkToDeclPre(Decl *D) override {
+      return Action::SkipChildren();
+    }
+    PreWalkAction walkToTypeReprPre(TypeRepr *T) override {
+      return Action::SkipChildren();
+    }
+  };
+  ResolveWalker walker(ctx);
+  E = E->walk(walker);
   return new (ctx) ExprPattern(E, DC, /*isResolved*/ true);
 }
 

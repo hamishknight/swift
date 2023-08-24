@@ -2937,6 +2937,9 @@ namespace {
       }
 
       case PatternKind::Expr: {
+        assert(cast<ExprPattern>(pattern)->isResolved() &&
+               "Must resolve ExprPatterns before generating constraints");
+
         // We generate constraints for ExprPatterns in a separate pass. For
         // now, just create a type variable.
         return setType(CS.createTypeVariable(CS.getConstraintLocator(locator),

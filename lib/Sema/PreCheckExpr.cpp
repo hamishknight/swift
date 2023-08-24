@@ -911,8 +911,6 @@ namespace {
     ASTContext &Ctx;
     DeclContext *DC;
 
-    Expr *ParentExpr;
-
     /// Indicates whether pre-check is allowed to insert
     /// implicit `ErrorExpr` in place of invalid references.
     bool UseErrorExprs;
@@ -935,9 +933,6 @@ namespace {
 
     /// The current number of nested \c SequenceExprs that we're within.
     unsigned SequenceExprDepth = 0;
-
-    /// The current number of nested \c SingleValueStmtExprs that we're within.
-    unsigned SingleValueStmtExprDepth = 0;
 
     /// Simplify expressions which are type sugar productions that got parsed
     /// as expressions due to the parser not knowing which identifiers are
@@ -986,11 +981,11 @@ namespace {
     void markAcceptableDiscardExprs(Expr *E);
 
   public:
-    PreCheckExpression(DeclContext *dc, Expr *parent,
+    PreCheckExpression(DeclContext *dc,
                        bool replaceInvalidRefsWithErrors,
                        bool leaveClosureBodiesUnchecked)
         : Ctx(dc->getASTContext()), DC(dc),
-          ParentExpr(parent), UseErrorExprs(replaceInvalidRefsWithErrors),
+          UseErrorExprs(replaceInvalidRefsWithErrors),
           LeaveClosureBodiesUnchecked(leaveClosureBodiesUnchecked) {}
 
     ASTContext &getASTContext() const { return Ctx; }
@@ -1062,12 +1057,8 @@ namespace {
       if (auto closure = dyn_cast<ClosureExpr>(expr))
         return finish(walkToClosureExprPre(closure), expr);
 
-      if (auto *SVE = dyn_cast<SingleValueStmtExpr>(expr)) {
-        // Record the scope of a single value stmt expr, as we want to skip
-        // pre-checking of any patterns, similar to closures.
-        SingleValueStmtExprDepth += 1;
+      if (auto *SVE = dyn_cast<SingleValueStmtExpr>(expr))
         return finish(true, expr);
-      }
 
       if (auto unresolved = dyn_cast<UnresolvedDeclRefExpr>(expr)) {
         TypeChecker::checkForForbiddenPrefix(
@@ -1103,11 +1094,10 @@ namespace {
         if (expr->isImplicit())
           return finish(true, expr);
 
-        auto parents = ParentExpr->getParentMap();
-
-        auto result = parents.find(expr);
-        if (result != parents.end()) {
-          auto *parent = result->getSecond();
+        ArrayRef<Expr *> parentStack = ExprStack;
+        if (!parentStack.empty()) {
+          auto *parent = parentStack.back();
+          parentStack = parentStack.drop_back();
 
           if (isa<SequenceExpr>(parent))
             return finish(true, expr);
@@ -1116,12 +1106,13 @@ namespace {
           // Unwrap to the outermost paren in the sequence.
           // e.g. `foo(((&bar))`
           while (auto *PE = dyn_cast<ParenExpr>(parent)) {
-            auto nextParent = parents.find(parent);
-            if (nextParent == parents.end())
+            if (parentStack.empty())
               break;
 
             lastInnerParenLoc = PE->getLParenLoc();
-            parent = nextParent->second;
+
+            parent = parentStack.back();
+            parentStack = parentStack.drop_back();
           }
 
           if (isa<ApplyExpr>(parent) || isa<UnresolvedMemberExpr>(parent)) {
@@ -1192,10 +1183,6 @@ namespace {
         assert(DC == ce && "DeclContext imbalance");
         DC = ce->getParent();
       }
-
-      // Restore the depth for the single value stmt counter.
-      if (isa<SingleValueStmtExpr>(expr))
-        SingleValueStmtExprDepth -= 1;
 
       // A 'self.init' or 'super.init' application inside a constructor will
       // evaluate to void, with the initializer's result implicitly rebound
@@ -1359,11 +1346,13 @@ namespace {
     }
 
     PreWalkResult<Pattern *> walkToPatternPre(Pattern *pattern) override {
-      // Constraint generation is responsible for pattern verification and
-      // type-checking in the body of the closure and single value stmt expr,
-      // so there is no need to walk into patterns.
-      return Action::SkipChildrenIf(
-          isa<ClosureExpr>(DC) || SingleValueStmtExprDepth > 0, pattern);
+      // Skip walking into unresolved ExprPatterns, they will be resolved and
+      // pre-checked by constraint generation.
+      // FIXME: We ought to be resolving and pre-checking them here.
+      if (auto *EP = dyn_cast<ExprPattern>(pattern))
+        return Action::VisitChildrenIf(EP->isResolved(), pattern);
+
+      return Action::Continue(pattern);
     }
   };
 } // end anonymous namespace
@@ -2330,13 +2319,28 @@ bool ConstraintSystem::preCheckExpression(Expr *&expr, DeclContext *dc,
   auto &ctx = dc->getASTContext();
   FrontendStatsTracer StatsTracer(ctx.Stats, "precheck-expr", expr);
 
-  PreCheckExpression preCheck(dc, expr,
-                              replaceInvalidRefsWithErrors,
+  PreCheckExpression preCheck(dc, replaceInvalidRefsWithErrors,
                               leaveClosureBodiesUnchecked);
 
   // Perform the pre-check.
   if (auto result = expr->walk(preCheck)) {
     expr = result;
+    return false;
+  }
+  return true;
+}
+
+bool ConstraintSystem::preCheckBody(Stmt *&body, DeclContext *dc,
+                                    bool replaceInvalidRefsWithErrors,
+                                    bool leaveClosureBodiesUnchecked) {
+  auto &ctx = dc->getASTContext();
+  FrontendStatsTracer StatsTracer(ctx.Stats, "precheck-body", body);
+
+  PreCheckExpression preCheck(dc, replaceInvalidRefsWithErrors,
+                              leaveClosureBodiesUnchecked);
+  // Perform the pre-check.
+  if (auto result = body->walk(preCheck)) {
+    body = result;
     return false;
   }
   return true;

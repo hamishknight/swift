@@ -338,13 +338,7 @@ public:
       return P;
 
     // Try to convert to a pattern.
-    Pattern *exprAsPattern = visit(P->getSubExpr());
-    // If we failed, keep the ExprPattern as is.
-    if (!exprAsPattern) {
-      P->setResolved(true);
-      return P;
-    }
-    return exprAsPattern;
+    return getSubExprPattern(P->getSubExpr());
   }
   
   // Most exprs remain exprs and should be wrapped in ExprPatterns.

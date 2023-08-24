@@ -471,6 +471,8 @@ namespace {
     }
     void visitExprPattern(ExprPattern *P) {
       printCommon(P, "pattern_expr");
+      if (P->isResolved())
+        PrintWithColorRAII(OS, ExprModifierColor) << " resolved";
       OS << '\n';
       if (auto m = P->getCachedMatchExpr())
         printRec(m);

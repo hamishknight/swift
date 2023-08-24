@@ -5218,6 +5218,10 @@ public:
                                  bool replaceInvalidRefsWithErrors,
                                  bool leaveClosureBodiesUnchecked);
 
+  static bool preCheckBody(Stmt *&body, DeclContext *dc,
+                           bool replaceInvalidRefsWithErrors,
+                           bool leaveClosureBodiesUnchecked);
+
   /// Solve the system of constraints generated from provided target.
   ///
   /// \param target The target that we'll generate constraints from, which

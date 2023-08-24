@@ -289,6 +289,18 @@ case (let (_, _, _)) + 1:
   ()
 }
 
+enum EnumWithStatic {
+  static func x(_ x: Int) -> EnumWithStatic { fatalError() }
+}
+
+func testInvalidInUME(_ x: EnumWithStatic) {
+  switch x {
+  case .x((let (_) + 1) + 1):
+    // expected-error@-1 {{'_' can only appear in a pattern or on the left side of an assignment}}
+    break
+  }
+}
+
 // "isa" patterns.
 
 // https://github.com/apple/swift/issues/56139
