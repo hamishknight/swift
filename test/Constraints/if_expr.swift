@@ -437,7 +437,6 @@ func testAssignment() {
 struct TestBadReturn {
   var y = if .random() { return } else { 0 }
   // expected-error@-1 {{return invalid outside of a func}}
-  // expected-error@-2 {{cannot 'return' in 'if' when used as expression}}
 }
 
 struct SomeError: Error {}

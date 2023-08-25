@@ -193,7 +193,6 @@ func testAssignment() {
 struct TestBadReturn {
   var y = switch Bool.random() { case true: return case false: 0 } 
   // expected-error@-1 {{return invalid outside of a func}}
-  // expected-error@-2 {{cannot 'return' in 'switch' when used as expression}}
 }
 
 func testNil1(_ x: Bool) {

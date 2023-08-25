@@ -826,6 +826,276 @@ TypeChecker::getSelfForInitDelegationInConstructor(DeclContext *DC,
 }
 
 namespace {
+template <typename Derived>
+class PreCheckExpressionWalker : public ASTWalker {
+protected:
+  ASTContext &Ctx;
+  bool LeaveClosureBodiesUnchecked;
+
+  /// A stack of expressions being walked, used to determine where to
+  /// insert RebindSelfInConstructorExpr nodes.
+  llvm::SmallVector<Expr *, 8> ExprStack;
+
+  /// The current number of nested \c SequenceExprs that we're within.
+  unsigned SequenceExprDepth = 0;
+
+  PreCheckExpressionWalker(ASTContext &ctx, bool leaveClosureBodiesUnchecked)
+      : Ctx(ctx), LeaveClosureBodiesUnchecked(leaveClosureBodiesUnchecked) {}
+
+private:
+  Derived &asDerived() { return *static_cast<Derived *>(this); }
+
+  bool shouldWalkCaptureInitializerExpressions() override { return true; }
+
+  MacroWalking getMacroWalkingBehavior() const override {
+    return MacroWalking::Arguments;
+  }
+
+  PreWalkResult<Expr *> walkToExprPre(Expr *E) override final {
+    PostWalkResult<Expr *> result = asDerived().visitExprPre(E);
+    switch (result.Action.Action) {
+    case PostWalkAction::Stop:
+      return Action::Stop();
+    case PostWalkAction::Continue:
+      E = *result.Value;
+    }
+
+    if (auto *CE = dyn_cast<ClosureExpr>(E)) {
+      // If we won't be checking the body of the closure,
+      // don't walk into it here.
+      if (!CE->hasSingleExpressionBody()) {
+        if (LeaveClosureBodiesUnchecked)
+          return Action::SkipChildren(CE);
+      }
+    }
+    // We're going to recurse, record this expression on the stack.
+    if (isa<SequenceExpr>(E))
+      SequenceExprDepth++;
+    ExprStack.push_back(E);
+    return Action::Continue(E);
+  }
+
+  PostWalkResult<Expr *> walkToExprPost(Expr *E) override final {
+    // Remove this expression from the stack.
+    assert(ExprStack.back() == E);
+    ExprStack.pop_back();
+
+    if (isa<SequenceExpr>(E))
+      SequenceExprDepth--;
+
+    return asDerived().visitExprPost(E);
+  }
+
+  PreWalkResult<Stmt *> walkToStmtPre(Stmt *S) override final {
+    PostWalkResult<Stmt *> Result = asDerived().visitStmtPre(S);
+    switch (Result.Action.Action) {
+    case PostWalkAction::Stop:
+      return Action::Stop();
+    case PostWalkAction::Continue:
+      return Action::Continue(*Result.Value);
+    }
+  }
+
+  PreWalkAction walkToDeclPre(Decl *D) override final {
+    PostWalkAction Result = asDerived().visitDeclPre(D);
+    switch (Result.Action) {
+    case PostWalkAction::Stop:
+      return Action::Stop();
+    case PostWalkAction::Continue:
+      break;
+    }
+    return Action::VisitChildrenIf(isa<PatternBindingDecl>(D));
+  }
+
+  PreWalkResult<Pattern *> walkToPatternPre(Pattern *pattern) override final {
+    // Skip walking into unresolved ExprPatterns, they will be resolved and
+    // pre-checked by constraint generation.
+    // FIXME: We ought to be resolving and pre-checking them here.
+    if (auto *EP = dyn_cast<ExprPattern>(pattern))
+      return Action::VisitChildrenIf(EP->isResolved(), pattern);
+
+    return Action::Continue(pattern);
+  }
+};
+
+struct TopLevelExprInfo {
+  /// The top-level expression we're pre-checking.
+  Expr *E;
+
+  /// The top-level expression contextual type purpose.
+  ContextualTypePurpose CTP;
+};
+
+class SingleValueStmtUsageChecker final
+    : public PreCheckExpressionWalker<SingleValueStmtUsageChecker> {
+  DiagnosticEngine &Diags;
+  llvm::DenseSet<SingleValueStmtExpr *> ValidSingleValueStmtExprs;
+
+public:
+  SingleValueStmtUsageChecker(ASTContext &ctx,
+                              llvm::Optional<TopLevelExprInfo> topLevelExpr,
+                              bool leaveClosureBodiesUnchecked)
+      : PreCheckExpressionWalker(ctx, leaveClosureBodiesUnchecked),
+        Diags(ctx.Diags) {
+    if (topLevelExpr)
+      markAnyValidTopLevelSingleValueStmt(*topLevelExpr);
+  }
+
+private:
+  /// Mark a given expression as a valid position for a SingleValueStmtExpr.
+  void markValidSingleValueStmt(Expr *E) {
+    if (!E)
+      return;
+
+    if (auto *SVE = SingleValueStmtExpr::tryDigOutSingleValueStmtExpr(E))
+      ValidSingleValueStmtExprs.insert(SVE);
+  }
+
+  void markAnyValidTopLevelSingleValueStmt(TopLevelExprInfo topLevelExpr) {
+    // Allowed in returns, throws, and bindings.
+    switch (topLevelExpr.CTP) {
+    case CTP_ReturnStmt:
+    case CTP_ReturnSingleExpr:
+    case CTP_ThrowStmt:
+    case CTP_Initialization:
+      break;
+    default:
+      return;
+    }
+    markValidSingleValueStmt(topLevelExpr.E);
+  }
+
+  AssignExpr *findAssignment(Expr *E) const {
+    // Don't consider assignments if we have a parent expression (as otherwise
+    // this would be effectively allowing it in an arbitrary expression
+    // position).
+    if (Parent.getAsExpr())
+      return nullptr;
+
+    // Look through optional exprs, which are present for e.g x?.y = z, as
+    // we wrap the entire assign in the optional evaluation of the destination.
+    if (auto *OEE = dyn_cast<OptionalEvaluationExpr>(E)) {
+      E = OEE->getSubExpr();
+      while (auto *IIO = dyn_cast<InjectIntoOptionalExpr>(E))
+        E = IIO->getSubExpr();
+    }
+    return dyn_cast<AssignExpr>(E);
+  }
+
+public:
+  // We're using a post-walk action here to eliminate the SkipChildren case.
+  PostWalkResult<Expr *> visitExprPre(Expr *E) {
+    if (auto *SVE = dyn_cast<SingleValueStmtExpr>(E)) {
+      // Diagnose a SingleValueStmtExpr in a context that we do not currently
+      // support.
+      if (!ValidSingleValueStmtExprs.contains(SVE)) {
+        Diags.diagnose(SVE->getLoc(), diag::single_value_stmt_out_of_place,
+                       SVE->getStmt()->getKind());
+      }
+
+      // Nested SingleValueStmtExprs are allowed.
+      SmallVector<Expr *, 4> scratch;
+      for (auto *branch : SVE->getSingleExprBranches(scratch))
+        markValidSingleValueStmt(branch);
+
+      // Diagnose invalid SingleValueStmtExprs. This should only happen for
+      // expressions in positions that we didn't support before
+      // (e.g assignment or *explicit* return).
+      auto *S = SVE->getStmt();
+      auto mayProduceSingleValue = S->mayProduceSingleValue(Ctx);
+      switch (mayProduceSingleValue.getKind()) {
+      case IsSingleValueStmtResult::Kind::Valid:
+        break;
+      case IsSingleValueStmtResult::Kind::UnterminatedBranches: {
+        for (auto *branch : mayProduceSingleValue.getUnterminatedBranches()) {
+          if (auto *BS = dyn_cast<BraceStmt>(branch)) {
+            if (BS->empty()) {
+              Diags.diagnose(branch->getStartLoc(),
+                             diag::single_value_stmt_branch_empty,
+                             S->getKind());
+              continue;
+            }
+          }
+          Diags.diagnose(branch->getEndLoc(),
+                         diag::single_value_stmt_branch_must_end_in_throw,
+                         S->getKind());
+        }
+        break;
+      }
+      case IsSingleValueStmtResult::Kind::NonExhaustiveIf: {
+        Diags.diagnose(S->getStartLoc(),
+                       diag::if_expr_must_be_syntactically_exhaustive);
+        break;
+      }
+      case IsSingleValueStmtResult::Kind::HasLabel: {
+        // FIXME: We should offer a fix-it to remove (currently we don't track
+        // the colon SourceLoc).
+        auto label = cast<LabeledStmt>(S)->getLabelInfo();
+        Diags
+            .diagnose(label.Loc, diag::single_value_stmt_must_be_unlabeled,
+                      S->getKind())
+            .highlight(label.Loc);
+        break;
+      }
+      case IsSingleValueStmtResult::Kind::InvalidJumps: {
+        // Diagnose each invalid jump.
+        for (auto *jump : mayProduceSingleValue.getInvalidJumps()) {
+          Diags
+              .diagnose(jump->getStartLoc(),
+                        diag::cannot_jump_in_single_value_stmt, jump->getKind(),
+                        S->getKind())
+              .highlight(jump->getSourceRange());
+        }
+        break;
+      }
+      case IsSingleValueStmtResult::Kind::NoExpressionBranches:
+        // This is fine, we will have typed the expression as Void (we verify
+        // as such in the ASTVerifier).
+        break;
+      case IsSingleValueStmtResult::Kind::CircularReference:
+        // Already diagnosed.
+        break;
+      case IsSingleValueStmtResult::Kind::UnhandledStmt:
+        break;
+      }
+      return Action::Continue(E);
+    }
+
+    // Valid as the source of an assignment.
+    if (auto *AE = findAssignment(E))
+      markValidSingleValueStmt(AE->getSrc());
+
+    return Action::Continue(E);
+  }
+
+  PostWalkResult<Expr *> visitExprPost(Expr *E) { return Action::Continue(E); }
+
+  // We're using a post-walk action here to eliminate the SkipChildren case.
+  PostWalkResult<Stmt *> visitStmtPre(Stmt *S) {
+    // Valid in a return/throw.
+    if (auto *RS = dyn_cast<ReturnStmt>(S)) {
+      if (RS->hasResult())
+        markValidSingleValueStmt(RS->getResult());
+    }
+    if (auto *TS = dyn_cast<ThrowStmt>(S))
+      markValidSingleValueStmt(TS->getSubExpr());
+
+    return Action::Continue(S);
+  }
+
+  // We're using a post-walk action here to eliminate the SkipChildren case.
+  PostWalkAction visitDeclPre(Decl *D) {
+    // Valid as an initializer of a pattern binding.
+    if (auto *PBD = dyn_cast<PatternBindingDecl>(D)) {
+      for (auto idx : range(PBD->getNumPatternEntries()))
+        markValidSingleValueStmt(PBD->getInit(idx));
+    }
+    return Action::Continue();
+  }
+};
+} // end anonymous namespace
+
+namespace {
   /// Update the function reference kind based on adding a direct call to a
   /// callee with this kind.
   FunctionRefKind addingDirectCall(FunctionRefKind kind) {
@@ -907,31 +1177,13 @@ namespace {
     }
   }
 
-  struct TopLevelExprInfo {
-    /// The top-level expression we're pre-checking.
-    Expr *E;
-
-    /// The top-level expression contextual type purpose.
-    ContextualTypePurpose CTP;
-  };
-
-  class PreCheckExpression : public ASTWalker {
-    ASTContext &Ctx;
+  class PreCheckExpression
+      : public PreCheckExpressionWalker<PreCheckExpression> {
     DeclContext *DC;
-
-    /// The top-level expression we're pre-checking, or \c None if we're
-    /// pre-checking an entire function body.
-    llvm::Optional<TopLevelExprInfo> TopLevelExpr;
 
     /// Indicates whether pre-check is allowed to insert
     /// implicit `ErrorExpr` in place of invalid references.
     bool UseErrorExprs;
-
-    bool LeaveClosureBodiesUnchecked;
-
-    /// A stack of expressions being walked, used to determine where to
-    /// insert RebindSelfInConstructorExpr nodes.
-    llvm::SmallVector<Expr *, 8> ExprStack;
 
     /// The 'self' variable to use when rebinding 'self' in a constructor.
     VarDecl *UnresolvedCtorSelf = nullptr;
@@ -942,12 +1194,6 @@ namespace {
 
     /// Keep track of acceptable DiscardAssignmentExpr's.
     llvm::SmallPtrSet<DiscardAssignmentExpr*, 2> CorrectDiscardAssignmentExprs;
-
-    /// Keep track of valid SingleValueStmtExprs.
-    llvm::DenseSet<SingleValueStmtExpr *> ValidSingleValueStmtExprs;
-
-    /// The current number of nested \c SequenceExprs that we're within.
-    unsigned SequenceExprDepth = 0;
 
     /// Simplify expressions which are type sugar productions that got parsed
     /// as expressions due to the parser not knowing which identifiers are
@@ -995,46 +1241,46 @@ namespace {
     /// in simple pattern-like expressions, so we reject anything complex here.
     void markAcceptableDiscardExprs(Expr *E);
 
-    AssignExpr *findTopLevelAssignment(Expr *E) const;
-
-    /// Mark a given expression as a valid position for a SingleValueStmtExpr.
-    void markValidSingleValueStmt(Expr *E);
-
-    /// Validate a SingleValueStmtExpr, diagnosing those that are invalid.
-    void validateSingleValueStmt(SingleValueStmtExpr *SVE);
-
-    /// Mark any valid SingleValueStmtExprs in various positions.
-    void markAnyValidTopLevelSingleValueStmt();
-    void markAnyValidSingleValueStmts(Expr *S);
-    void markAnyValidSingleValueStmts(Stmt *S);
-    void markAnyValidSingleValueStmts(Decl *D);
+    PreCheckExpression(DeclContext *dc, bool replaceInvalidRefsWithErrors,
+                       bool leaveClosureBodiesUnchecked)
+        : PreCheckExpressionWalker(dc->getASTContext(),
+                                   leaveClosureBodiesUnchecked),
+          DC(dc), UseErrorExprs(replaceInvalidRefsWithErrors) {}
 
   public:
-    PreCheckExpression(DeclContext *dc,
+    static ASTNode run(ASTNode node, DeclContext *dc,
                        llvm::Optional<TopLevelExprInfo> topLevelExpr,
                        bool replaceInvalidRefsWithErrors,
-                       bool leaveClosureBodiesUnchecked)
-        : Ctx(dc->getASTContext()), DC(dc), TopLevelExpr(topLevelExpr),
-          UseErrorExprs(replaceInvalidRefsWithErrors),
-          LeaveClosureBodiesUnchecked(leaveClosureBodiesUnchecked) {
-            markAnyValidTopLevelSingleValueStmt();
-          }
+                       bool leaveClosureBodiesUnchecked) {
+      ASTContext &ctx = dc->getASTContext();
+      auto isTopLevel = topLevelExpr && ASTNode(topLevelExpr->E) == node;
+
+      PreCheckExpression preCheck(dc, replaceInvalidRefsWithErrors,
+                                  leaveClosureBodiesUnchecked);
+      node = node.walk(preCheck);
+      if (!node)
+        return nullptr;
+
+      if (isTopLevel)
+        topLevelExpr->E = castToExpr(node);
+
+      SingleValueStmtUsageChecker sveChecker(ctx, topLevelExpr,
+                                             leaveClosureBodiesUnchecked);
+      node = node.walk(sveChecker);
+      if (!node)
+        return nullptr;
+
+      return node;
+    }
 
     ASTContext &getASTContext() const { return Ctx; }
 
-    bool walkToClosureExprPre(ClosureExpr *expr);
+    void visitClosureExprPre(ClosureExpr *expr);
 
-    bool shouldWalkCaptureInitializerExpressions() override { return true; }
+    VarDecl *getImplicitSelfDeclForSuperContext(SourceLoc Loc);
 
-    MacroWalking getMacroWalkingBehavior() const override {
-      return MacroWalking::Arguments;
-    }
-
-    VarDecl *getImplicitSelfDeclForSuperContext(SourceLoc Loc) ;
-
-    PreWalkResult<Expr *> walkToExprPre(Expr *expr) override {
-      validateSingleValueStmt(expr);
-
+    // We're using a post-walk action here to eliminate the SkipChildren case.
+    PostWalkResult<Expr *> visitExprPre(Expr *expr) {
       // FIXME(diagnostics): `InOutType` could appear here as a result
       // of successful re-typecheck of the one of the sub-expressions e.g.
       // `let _: Int = { (s: inout S) in s.bar() }`. On the first
@@ -1059,40 +1305,21 @@ namespace {
         }
       }
 
-      // Local function used to finish up processing before returning. Every
-      // return site should call through here.
-      auto finish = [&](bool recursive, Expr *expr) -> PreWalkResult<Expr *> {
-        if (!expr)
-          return Action::Stop();
-
-        // If we're going to recurse, record this expression on the stack.
-        if (recursive) {
-          if (isa<SequenceExpr>(expr))
-            SequenceExprDepth++;
-          ExprStack.push_back(expr);
-        }
-        return Action::VisitChildrenIf(recursive, expr);
-      };
-
       // Resolve 'super' references.
       if (auto *superRef = dyn_cast<SuperRefExpr>(expr)) {
         auto loc = superRef->getLoc();
         auto *selfDecl = getImplicitSelfDeclForSuperContext(loc);
         if (selfDecl == nullptr)
-          return finish(true, new (Ctx) ErrorExpr(loc));
+          return Action::Continue(new (Ctx) ErrorExpr(loc));
 
         superRef->setSelf(selfDecl);
-        return finish(true, superRef);
+        return Action::Continue(superRef);
       }
 
-      // For closures, type-check the patterns and result type as written,
-      // but do not walk into the body. That will be type-checked after
-      // we've determine the complete function type.
-      if (auto closure = dyn_cast<ClosureExpr>(expr))
-        return finish(walkToClosureExprPre(closure), expr);
-
-      if (auto *SVE = dyn_cast<SingleValueStmtExpr>(expr))
-        validateSingleValueStmt(SVE);
+      if (auto closure = dyn_cast<ClosureExpr>(expr)) {
+        visitClosureExprPre(closure);
+        return Action::Continue(closure);
+      }
 
       if (auto unresolved = dyn_cast<UnresolvedDeclRefExpr>(expr)) {
         TypeChecker::checkForForbiddenPrefix(
@@ -1114,7 +1341,7 @@ namespace {
           }
         }
 
-        return finish(true, refExpr);
+        return Action::Continue(refExpr);
       }
 
       // Let's try to figure out if `InOutExpr` is out of place early
@@ -1126,7 +1353,7 @@ namespace {
         // If this is an implicit `inout` expression we assume that
         // compiler knowns what it's doing.
         if (expr->isImplicit())
-          return finish(true, expr);
+          return Action::Continue(expr);
 
         ArrayRef<Expr *> parentStack = ExprStack;
         if (!parentStack.empty()) {
@@ -1134,7 +1361,7 @@ namespace {
           parentStack = parentStack.drop_back();
 
           if (isa<SequenceExpr>(parent))
-            return finish(true, expr);
+            return Action::Continue(expr);
 
           SourceLoc lastInnerParenLoc;
           // Unwrap to the outermost paren in the sequence.
@@ -1159,38 +1386,34 @@ namespace {
                                       diag::extraneous_address_of);
               diag.fixItExchange(expr->getLoc(), lastInnerParenLoc);
             }
-            return finish(true, expr);
+            return Action::Continue(expr);
           }
 
           if (isa<SubscriptExpr>(parent)) {
             getASTContext().Diags.diagnose(
                 expr->getStartLoc(),
                 diag::cannot_pass_inout_arg_to_subscript);
-            return finish(false, nullptr);
+            return Action::Stop();
           }
         }
 
         getASTContext().Diags.diagnose(expr->getStartLoc(),
                                        diag::extraneous_address_of);
-        return finish(false, nullptr);
+        return Action::Stop();
       }
 
       if (auto *ISLE = dyn_cast<InterpolatedStringLiteralExpr>(expr)) {
         if (!correctInterpolationIfStrange(ISLE))
-          return finish(false, nullptr);
+          return Action::Stop();
       }
 
       if (auto *assignment = dyn_cast<AssignExpr>(expr))
         markAcceptableDiscardExprs(assignment->getDest());
 
-      return finish(true, expr);
+      return Action::Continue(expr);
     }
 
-    PostWalkResult<Expr *> walkToExprPost(Expr *expr) override {
-      // Remove this expression from the stack.
-      assert(ExprStack.back() == expr);
-      ExprStack.pop_back();
-
+    PostWalkResult<Expr *> visitExprPost(Expr *expr) {
       // Mark the direct callee as being a callee.
       if (auto *call = dyn_cast<ApplyExpr>(expr))
         markDirectCallee(call->getFn());
@@ -1198,7 +1421,6 @@ namespace {
       // Fold sequence expressions.
       if (auto *seqExpr = dyn_cast<SequenceExpr>(expr)) {
         auto result = TypeChecker::foldSequence(seqExpr, DC);
-        SequenceExprDepth--;
         result = result->walk(*this);
         if (!result)
           return Action::Stop();
@@ -1360,9 +1582,8 @@ namespace {
       return Action::Continue(expr);
     }
 
-    PreWalkResult<Stmt *> walkToStmtPre(Stmt *stmt) override {
-      markAnyValidSingleValueStmts(stmt);
-
+    // We're using a post-walk action here to eliminate the SkipChildren case.
+    PostWalkResult<Stmt *> visitStmtPre(Stmt *stmt) {
       if (auto *RS = dyn_cast<ReturnStmt>(stmt)) {
         // Pre-check a return statement, which includes potentially turning it
         // into a FailStmt.
@@ -1377,26 +1598,11 @@ namespace {
       return Action::Continue(stmt);
     }
 
-    PreWalkAction walkToDeclPre(Decl *D) override {
-      markValidSingleValueStmts(D);
-      return Action::VisitChildrenIf(isa<PatternBindingDecl>(D));
-    }
-
-    PreWalkResult<Pattern *> walkToPatternPre(Pattern *pattern) override {
-      // Skip walking into unresolved ExprPatterns, they will be resolved and
-      // pre-checked by constraint generation.
-      // FIXME: We ought to be resolving and pre-checking them here.
-      if (auto *EP = dyn_cast<ExprPattern>(pattern))
-        return Action::VisitChildrenIf(EP->isResolved(), pattern);
-
-      return Action::Continue(pattern);
-    }
+    PostWalkAction visitDeclPre(Decl *decl) { return Action::Continue(); }
   };
 } // end anonymous namespace
 
-/// Perform prechecking of a ClosureExpr before we dive into it.  This returns
-/// true when we want the body to be considered part of this larger expression.
-bool PreCheckExpression::walkToClosureExprPre(ClosureExpr *closure) {
+void PreCheckExpression::visitClosureExprPre(ClosureExpr *closure) {
   // If we have a single statement that can become an expression, turn it
   // into an expression now. This needs to happen before we check
   // LeaveClosureBodiesUnchecked, as the closure may become a single expression
@@ -1412,19 +1618,12 @@ bool PreCheckExpression::walkToClosureExprPre(ClosureExpr *closure) {
     }
   }
 
-  // If we won't be checking the body of the closure, don't walk into it here.
-  if (!closure->hasSingleExpressionBody()) {
-    if (LeaveClosureBodiesUnchecked)
-      return false;
-  }
-
   // Update the current DeclContext to be the closure we're about to
   // recurse into.
   assert((closure->getParent() == DC ||
           closure->getParent()->isChildContextOf(DC)) &&
          "Decl context isn't correct");
   DC = closure;
-  return true;
 }
 
 TypeExpr *PreCheckExpression::simplifyNestedTypeExpr(UnresolvedDotExpr *UDE) {
@@ -2306,152 +2505,6 @@ Expr *PreCheckExpression::simplifyTypeConstructionWithLiteralArg(Expr *E) {
              : nullptr;
 }
 
-void PreCheckExpression::markValidSingleValueStmt(Expr *E) {
-  if (!E)
-    return;
-
-  if (auto *SVE = SingleValueStmtExpr::tryDigOutSingleValueStmtExpr(E))
-    ValidSingleValueStmtExprs.insert(SVE);
-}
-
-AssignExpr *PreCheckExpression::findTopLevelAssignment(Expr *E) const {
-  // Don't consider assignments if we have a parent expression (as otherwise
-  // this would be effectively allowing it in an arbitrary expression
-  // position).
-  if (Parent.getAsExpr())
-    return nullptr;
-
-  // Look through optional exprs, which are present for e.g x?.y = z, as
-  // we wrap the entire assign in the optional evaluation of the destination.
-  if (auto *OEE = dyn_cast<OptionalEvaluationExpr>(E)) {
-    E = OEE->getSubExpr();
-    while (auto *IIO = dyn_cast<InjectIntoOptionalExpr>(E))
-      E = IIO->getSubExpr();
-  }
-  return dyn_cast<AssignExpr>(E);
-}
-
-void PreCheckExpression::validateSingleValueStmt(SingleValueStmtExpr *SVE) {
-  // Only validate while we're outside of a SequenceExpr. We'll walk the folded
-  // expression tree afterwards.
-  if (SequenceExprDepth != 0)
-    return;
-
-  // Diagnose a SingleValueStmtExpr in a context that we do not currently
-  // support.
-  if (!ValidSingleValueStmtExprs.contains(SVE)) {
-    Ctx.Diags.diagnose(SVE->getLoc(), diag::single_value_stmt_out_of_place,
-                       SVE->getStmt()->getKind());
-  }
-
-  // Diagnose invalid SingleValueStmtExprs. This should only happen for
-  // expressions in positions that we didn't support before
-  // (e.g assignment or *explicit* return).
-  auto *S = SVE->getStmt();
-  auto mayProduceSingleValue = S->mayProduceSingleValue(Ctx);
-  switch (mayProduceSingleValue.getKind()) {
-  case IsSingleValueStmtResult::Kind::Valid:
-    break;
-  case IsSingleValueStmtResult::Kind::UnterminatedBranches: {
-    for (auto *branch : mayProduceSingleValue.getUnterminatedBranches()) {
-      if (auto *BS = dyn_cast<BraceStmt>(branch)) {
-        if (BS->empty()) {
-          Ctx.Diags.diagnose(branch->getStartLoc(),
-                             diag::single_value_stmt_branch_empty,
-                             S->getKind());
-          continue;
-        }
-      }
-      Ctx.Diags.diagnose(branch->getEndLoc(),
-                         diag::single_value_stmt_branch_must_end_in_throw,
-                         S->getKind());
-    }
-    break;
-  }
-  case IsSingleValueStmtResult::Kind::NonExhaustiveIf: {
-    Ctx.Diags.diagnose(S->getStartLoc(),
-                       diag::if_expr_must_be_syntactically_exhaustive);
-    break;
-  }
-  case IsSingleValueStmtResult::Kind::HasLabel: {
-    // FIXME: We should offer a fix-it to remove (currently we don't track
-    // the colon SourceLoc).
-    auto label = cast<LabeledStmt>(S)->getLabelInfo();
-    Ctx.Diags.diagnose(label.Loc,
-                       diag::single_value_stmt_must_be_unlabeled, S->getKind())
-    .highlight(label.Loc);
-    break;
-  }
-  case IsSingleValueStmtResult::Kind::InvalidJumps: {
-    // Diagnose each invalid jump.
-    for (auto *jump : mayProduceSingleValue.getInvalidJumps()) {
-      Ctx.Diags.diagnose(jump->getStartLoc(),
-                         diag::cannot_jump_in_single_value_stmt,
-                         jump->getKind(), S->getKind())
-      .highlight(jump->getSourceRange());
-    }
-    break;
-  }
-  case IsSingleValueStmtResult::Kind::NoExpressionBranches:
-    // This is fine, we will have typed the expression as Void (we verify
-    // as such in the ASTVerifier).
-    break;
-  case IsSingleValueStmtResult::Kind::CircularReference:
-    // Already diagnosed.
-    break;
-  case IsSingleValueStmtResult::Kind::UnhandledStmt:
-    break;
-  }
-}
-
-void PreCheckExpression::markAnyValidTopLevelSingleValueStmt() {
-  if (!TopLevelExpr)
-    return;
-
-  // Allowed in returns, throws, and bindings.
-  switch (TopLevelExpr->CTP) {
-  case CTP_ReturnStmt:
-  case CTP_ReturnSingleExpr:
-  case CTP_ThrowStmt:
-  case CTP_Initialization:
-    break;
-  default:
-    return;
-  }
-  markValidSingleValueStmt(TopLevelExpr->E);
-}
-
-void PreCheckExpression::markAnyValidSingleValueStmts(Expr *E) {
-  // Valid as the source of an assignment.
-  if (auto *AE = findTopLevelAssignment(E))
-    markValidSingleValueStmt(AE->getSrc());
-
-  // Nested SingleValueStmtExprs are allowed.
-  if (auto *SVE = dyn_cast<SingleValueStmtExpr>(E)) {
-    SmallVector<Expr *, 4> scratch;
-    for (auto *branch : SVE->getSingleExprBranches(scratch))
-      markValidSingleValueStmt(branch);
-  }
-}
-
-void PreCheckExpression::markAnyValidSingleValueStmts(Stmt *S) {
-  // Valid in a return/throw.
-  if (auto *RS = dyn_cast<ReturnStmt>(S)) {
-    if (RS->hasResult())
-      markValidSingleValueStmt(RS->getResult());
-  }
-  if (auto *TS = dyn_cast<ThrowStmt>(S))
-    markValidSingleValueStmt(TS->getSubExpr());
-}
-
-void PreCheckExpression::markAnyValidSingleValueStmts(Decl *D) {
-  // Valid as an initializer of a pattern binding.
-  if (auto *PBD = dyn_cast<PatternBindingDecl>(D)) {
-    for (auto idx : range(PBD->getNumPatternEntries()))
-      markValidSingleValueStmt(PBD->getInit(idx));
-  }
-}
-
 bool ConstraintSystem::preCheckTarget(SyntacticElementTarget &target,
                                       bool replaceInvalidRefsWithErrors,
                                       bool leaveClosureBodiesUnchecked) {
@@ -2460,10 +2513,9 @@ bool ConstraintSystem::preCheckTarget(SyntacticElementTarget &target,
   bool hadErrors = false;
 
   if (auto *expr = target.getAsExpr()) {
-    hadErrors |= preCheckExpression(expr, DC,
-                                    target.getExprContextualTypePurpose(),
-                                    replaceInvalidRefsWithErrors,
-                                    leaveClosureBodiesUnchecked);
+    hadErrors |= preCheckExpression(
+        expr, DC, target.getExprContextualTypePurpose(),
+        replaceInvalidRefsWithErrors, leaveClosureBodiesUnchecked);
     // Even if the pre-check fails, expression still has to be re-set.
     target.setExpr(expr);
   }
@@ -2505,16 +2557,14 @@ bool ConstraintSystem::preCheckExpression(Expr *&expr, DeclContext *dc,
   auto &ctx = dc->getASTContext();
   FrontendStatsTracer StatsTracer(ctx.Stats, "precheck-expr", expr);
 
-  PreCheckExpression preCheck(dc, TopLevelExprInfo{expr, ctp},
-                              replaceInvalidRefsWithErrors,
-                              leaveClosureBodiesUnchecked);
+  auto result = PreCheckExpression::run(expr, dc, TopLevelExprInfo{expr, ctp},
+                                        replaceInvalidRefsWithErrors,
+                                        leaveClosureBodiesUnchecked);
+  if (!result)
+    return true;
 
-  // Perform the pre-check.
-  if (auto result = expr->walk(preCheck)) {
-    expr = result;
-    return false;
-  }
-  return true;
+  expr = castToExpr(result);
+  return false;
 }
 
 bool ConstraintSystem::preCheckBody(Stmt *&body, DeclContext *dc,
@@ -2523,13 +2573,12 @@ bool ConstraintSystem::preCheckBody(Stmt *&body, DeclContext *dc,
   auto &ctx = dc->getASTContext();
   FrontendStatsTracer StatsTracer(ctx.Stats, "precheck-body", body);
 
-  PreCheckExpression preCheck(dc, /*topLevelExpr*/ llvm::None,
-                              replaceInvalidRefsWithErrors,
-                              leaveClosureBodiesUnchecked);
-  // Perform the pre-check.
-  if (auto result = body->walk(preCheck)) {
-    body = result;
-    return false;
-  }
-  return true;
+  auto result = PreCheckExpression::run(body, dc, /*topLevelExpr*/ llvm::None,
+                                        replaceInvalidRefsWithErrors,
+                                        leaveClosureBodiesUnchecked);
+  if (!result)
+    return true;
+
+  body = castToStmt(result);
+  return false;
 }

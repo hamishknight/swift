@@ -58,8 +58,8 @@ namespace swift {
     /// Return the location of the end of the statement.
     SourceLoc getEndLoc() const;
 
-    void walk(ASTWalker &Walker);
-    void walk(ASTWalker &&walker) { walk(walker); }
+    ASTNode walk(ASTWalker &Walker);
+    ASTNode walk(ASTWalker &&walker) { return walk(walker); }
 
     /// get the underlying entity as a decl context if it is one,
     /// otherwise, return nullptr;

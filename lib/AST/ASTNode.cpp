@@ -87,29 +87,6 @@ bool ASTNode::isImplicit() const {
   llvm_unreachable("unsupported AST node");
 }
 
-void ASTNode::walk(ASTWalker &Walker) {
-  if (auto *E = this->dyn_cast<Expr*>())
-    E->walk(Walker);
-  else if (auto *S = this->dyn_cast<Stmt*>())
-    S->walk(Walker);
-  else if (auto *D = this->dyn_cast<Decl*>())
-    D->walk(Walker);
-  else if (auto *P = this->dyn_cast<Pattern*>())
-    P->walk(Walker);
-  else if (auto *T = this->dyn_cast<TypeRepr*>())
-    T->walk(Walker);
-  else if (auto *C = this->dyn_cast<StmtConditionElement *>())
-    C->walk(Walker);
-  else if (auto *I = this->dyn_cast<CaseLabelItem *>()) {
-    if (auto *P = I->getPattern())
-      P->walk(Walker);
-
-    if (auto *G = I->getGuardExpr())
-      G->walk(Walker);
-  } else
-    llvm_unreachable("unsupported AST node");
-}
-
 void ASTNode::dump(raw_ostream &OS, unsigned Indent) const {
   if (isNull())
     OS << "(null)";

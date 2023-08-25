@@ -1027,6 +1027,9 @@ public:
   }
 
   bool isSyntacticallyExhaustive() const;
+
+  bool walk(ASTWalker &walker);
+  bool walk(ASTWalker &&walker) { return walk(walker); }
 };
 
 /// FallthroughStmt - The keyword "fallthrough".

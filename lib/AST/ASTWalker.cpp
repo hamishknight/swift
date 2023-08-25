@@ -1592,6 +1592,23 @@ public:
 
   /// Returns true on failure.
   [[nodiscard]]
+  bool doIt(CaseLabelItem &C) {
+    auto *P = doIt(C.getPattern());
+    if (!P)
+      return true;
+
+    C.setPattern(P, C.isPatternResolved());
+
+    auto *guardExpr = doIt(C.getGuardExpr());
+    if (!guardExpr)
+      return true;
+
+    C.setGuardExpr(guardExpr);
+    return false;
+  }
+
+  /// Returns true on failure.
+  [[nodiscard]]
   bool doIt(TypeRepr *T) {
     return traverse(
         Walker.walkToTypeReprPre(T),
@@ -2231,6 +2248,10 @@ StmtConditionElement *StmtConditionElement::walk(ASTWalker &walker) {
   return this;
 }
 
+bool CaseLabelItem::walk(ASTWalker &walker) {
+  return Traversal(walker).doIt(*this);
+}
+
 bool Decl::walk(ASTWalker &walker) {
   return Traversal(walker).doIt(this);
 }
@@ -2241,4 +2262,23 @@ bool GenericParamList::walk(ASTWalker &walker) {
 
 ArgumentList *ArgumentList::walk(ASTWalker &walker) {
   return Traversal(walker).doIt(this);
+}
+
+ASTNode ASTNode::walk(ASTWalker &Walker) {
+  if (auto *E = this->dyn_cast<Expr *>()) {
+    return E->walk(Walker);
+  } else if (auto *S = this->dyn_cast<Stmt *>()) {
+    return S->walk(Walker);
+  } else if (auto *D = this->dyn_cast<Decl *>()) {
+    return D->walk(Walker) ? nullptr : D;
+  } else if (auto *P = this->dyn_cast<Pattern *>()) {
+    return P->walk(Walker);
+  } else if (auto *T = this->dyn_cast<TypeRepr *>()) {
+    return T->walk(Walker) ? nullptr : T;
+  } else if (auto *C = this->dyn_cast<StmtConditionElement *>()) {
+    return C->walk(Walker);
+  } else if (auto *I = this->dyn_cast<CaseLabelItem *>()) {
+    return I->walk(Walker) ? nullptr : I;
+  }
+  llvm_unreachable("unsupported AST node");
 }
