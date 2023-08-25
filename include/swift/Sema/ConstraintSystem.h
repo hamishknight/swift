@@ -5215,6 +5215,7 @@ public:
   /// \param replaceInvalidRefsWithErrors Indicates whether it's allowed
   /// to replace any discovered invalid member references with `ErrorExpr`.
   static bool preCheckExpression(Expr *&expr, DeclContext *dc,
+                                 ContextualTypePurpose ctp,
                                  bool replaceInvalidRefsWithErrors,
                                  bool leaveClosureBodiesUnchecked);
 

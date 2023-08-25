@@ -683,7 +683,7 @@ getTypeOfCompletionContextExpr(DeclContext *DC, CompletionTypeCheckKind kind,
                                Expr *&parsedExpr,
                                ConcreteDeclRef &referencedDecl) {
   if (constraints::ConstraintSystem::preCheckExpression(
-          parsedExpr, DC,
+          parsedExpr, DC, CTP_Unused,
           /*replaceInvalidRefsWithErrors=*/true,
           /*leaveClosureBodiesUnchecked=*/true))
     return llvm::None;

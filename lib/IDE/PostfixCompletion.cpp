@@ -330,7 +330,8 @@ getOperatorCompletionTypes(DeclContext *DC, Type LHSType, OperatorDecl *Op) {
     llvm_unreachable("unexpected operator kind");
   }
 
-  CS.preCheckExpression(OpCallExpr, DC, /*replaceInvalidRefsWithErrors=*/true,
+  CS.preCheckExpression(OpCallExpr, DC, CTP_Unused,
+                        /*replaceInvalidRefsWithErrors=*/true,
                         /*leaveClosureBodyUnchecked=*/false);
   OpCallExpr = CS.generateConstraints(OpCallExpr, DC);
 
