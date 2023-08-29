@@ -769,6 +769,18 @@ func builderWithBinding() -> Either<String, Int> {
   }
 }
 
+
+@Builder
+func builderWithInvalidBinding() -> Either<String, Int> {
+  let str = (switch Bool.random() { default: "a" })
+  // expected-error@-1 {{'switch' may only be used as expression in return, throw, or as the source of an assignment}}
+  if .random() {
+    str
+  } else {
+    1
+  }
+}
+
 func builderInClosure() {
   func build(@Builder _ fn: () -> Either<String, Int>) {}
   build {

@@ -653,6 +653,17 @@ func builderWithBinding() -> Either<String, Int> {
   }
 }
 
+@Builder
+func builderWithInvalidBinding() -> Either<String, Int> {
+  let str = (if .random() { "a" } else { "b" })
+  // expected-error@-1 {{'if' may only be used as expression in return, throw, or as the source of an assignment}}
+  if .random() {
+    str
+  } else {
+    1
+  }
+}
+
 func builderInClosure() {
   func build(@Builder _ fn: () -> Either<String, Int>) {}
   build {
