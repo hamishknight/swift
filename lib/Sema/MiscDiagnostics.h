@@ -28,6 +28,7 @@ namespace swift {
   class ApplyExpr;
   class CallExpr;
   class ClosureExpr;
+  enum ContextualTypePurpose : uint8_t;
   class DeclContext;
   class Decl;
   class Expr;
@@ -37,10 +38,16 @@ namespace swift {
   class ValueDecl;
   class ForEachStmt;
 
+void diagnoseOutOfPlaceExprs(
+    ASTContext &ctx, ASTNode root,
+    llvm::Optional<ContextualTypePurpose> contextualPurpose);
+
 /// Emit diagnostics for syntactic restrictions on a given expression.
 void performSyntacticExprDiagnostics(
     const Expr *E, const DeclContext *DC,
-    bool isExprStmt, bool disableExprAvailabilityChecking = false);
+    llvm::Optional<ContextualTypePurpose> contextualPurpose,
+    bool isExprStmt, bool disableExprAvailabilityChecking = false,
+    bool disableOutOfPlaceExprChecking = false);
 
 /// Emit diagnostics for a given statement.
 void performStmtDiagnostics(const Stmt *S, DeclContext *DC);
@@ -49,7 +56,11 @@ void performAbstractFuncDeclDiagnostics(AbstractFunctionDecl *AFD);
 
 /// Perform diagnostics on the top level code declaration.
 void performTopLevelDeclDiagnostics(TopLevelCodeDecl *TLCD);
-  
+
+/// Perform additional syntactic diagnostics for a decl, for cases that haven't
+/// been walked as a part of function body or statement diagnostics.
+void performAdditionalDeclSyntacticDiagnostics(Decl *D);
+
 /// Emit a fix-it to set the access of \p VD to \p desiredAccess.
 ///
 /// This actually updates \p VD as well.
