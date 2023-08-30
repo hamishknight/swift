@@ -352,16 +352,15 @@ SourceLoc ReturnStmt::getEndLoc() const {
 }
 
 YieldStmt *YieldStmt::create(const ASTContext &ctx, SourceLoc yieldLoc,
-                             SourceLoc lpLoc, ArrayRef<Expr *> yields,
-                             SourceLoc rpLoc, llvm::Optional<bool> implicit) {
-  void *buffer = ctx.Allocate(totalSizeToAlloc<Expr*>(yields.size()),
-                              alignof(YieldStmt));
-  return ::new(buffer) YieldStmt(yieldLoc, lpLoc, yields, rpLoc, implicit);
+                             ArgumentList *args,
+                             llvm::Optional<bool> implicit) {
+  assert(!args->hasAnyArgumentLabels() && "labels not supported");
+  return new (ctx) YieldStmt(yieldLoc, args, implicit);
 }
 
-SourceLoc YieldStmt::getEndLoc() const {
-  return RPLoc.isInvalid() ? getYields()[0]->getEndLoc() : RPLoc;
-}
+SourceLoc YieldStmt::getLParenLoc() const { return Args->getLParenLoc(); }
+SourceLoc YieldStmt::getRParenLoc() const { return Args->getRParenLoc(); }
+SourceLoc YieldStmt::getEndLoc() const { return Args->getEndLoc(); }
 
 SourceLoc ThrowStmt::getEndLoc() const { return SubExpr->getEndLoc(); }
 

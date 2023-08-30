@@ -836,8 +836,9 @@ ParserResult<Stmt> Parser::parseStmtYield(SourceLoc tryLoc) {
 
   if (Tok.is(tok::code_complete)) {
     auto cce = new (Context) CodeCompletionExpr(Tok.getLoc());
-    auto result = makeParserResult(
-      YieldStmt::create(Context, yieldLoc, SourceLoc(), cce, SourceLoc()));
+    auto *argList = ArgumentList::forImplicitUnlabeled(Context, cce);
+    auto result =
+        makeParserResult(YieldStmt::create(Context, yieldLoc, argList));
     if (CodeCompletionCallbacks) {
       CodeCompletionCallbacks->completeYieldStmt(cce, /*index=*/llvm::None);
     }
@@ -891,8 +892,14 @@ ParserResult<Stmt> Parser::parseStmtYield(SourceLoc tryLoc) {
     }
   }
 
-  return makeParserResult(
-           status, YieldStmt::create(Context, yieldLoc, lpLoc, yields, rpLoc));
+  SmallVector<Argument, 4> yieldArgs;
+  for (auto *yield: yields)
+    yieldArgs.push_back(Argument::unlabeled(yield));
+
+  auto *argList = ArgumentList::createParsed(Context, lpLoc, yieldArgs, rpLoc,
+                                             /*trailingClosure*/ None);
+  return makeParserResult(status,
+                          YieldStmt::create(Context, yieldLoc, argList));
 }
 
 /// parseStmtThrow

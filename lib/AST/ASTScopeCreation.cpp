@@ -432,8 +432,8 @@ public:
 
   ASTScopeImpl *visitYieldStmt(YieldStmt *ys, ASTScopeImpl *p,
                                ScopeCreator &scopeCreator) {
-    for (Expr *e : ys->getYields())
-      visitExpr(e, p, scopeCreator);
+    for (auto arg : *ys->getArgs())
+      visitExpr(arg.getExpr(), p, scopeCreator);
     return p;
   }
 

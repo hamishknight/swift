@@ -5499,11 +5499,11 @@ void PrintAST::visitReturnStmt(ReturnStmt *stmt) {
 
 void PrintAST::visitYieldStmt(YieldStmt *stmt) {
   Printer.printKeyword("yield", Options, " ");
-  bool parens = (stmt->getYields().size() != 1
+  bool parens = (!stmt->getArgs()->isUnary()
                  || stmt->getLParenLoc().isValid());
   if (parens) Printer << "(";
   bool first = true;
-  for (auto yield : stmt->getYields()) {
+  for (auto arg : *stmt->getArgs()) {
     if (first) {
       first = false;
     } else {
@@ -5511,7 +5511,7 @@ void PrintAST::visitYieldStmt(YieldStmt *stmt) {
     }
 
     // FIXME: print expression.
-    (void) yield;
+    (void) arg;
   }
   if (parens) Printer << ")";
 }
