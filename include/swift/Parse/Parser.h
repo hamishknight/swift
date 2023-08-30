@@ -1873,6 +1873,10 @@ public:
     SourceLoc LabelLoc;
     Identifier Label;
     Expr *E;
+
+    Argument makeArgument() const {
+      return Argument(LabelLoc, Label, E);
+    }
   };
 
   /// Parse a tuple or paren expr.
@@ -1888,7 +1892,7 @@ public:
                                      SmallVectorImpl<Argument> &closures);
 
   /// Parse an expression list.
-  ParserStatus parseExprList(tok leftTok, tok rightTok, bool isArgumentList,
+  ParserStatus parseExprList(tok leftTok, tok rightTok, bool forCallArgs,
                              SourceLoc &leftLoc,
                              SmallVectorImpl<ExprListElt> &elts,
                              SourceLoc &rightLoc);

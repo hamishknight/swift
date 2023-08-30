@@ -351,16 +351,33 @@ SourceLoc ReturnStmt::getEndLoc() const {
   return ReturnLoc;
 }
 
-YieldStmt *YieldStmt::create(const ASTContext &ctx, SourceLoc yieldLoc,
-                             SourceLoc lpLoc, ArrayRef<Expr *> yields,
-                             SourceLoc rpLoc, llvm::Optional<bool> implicit) {
-  void *buffer = ctx.Allocate(totalSizeToAlloc<Expr*>(yields.size()),
-                              alignof(YieldStmt));
-  return ::new(buffer) YieldStmt(yieldLoc, lpLoc, yields, rpLoc, implicit);
+YieldStmt::YieldStmt(SourceLoc yieldLoc, ArgumentList *args, bool isImplicit)
+    : Stmt(StmtKind::Yield, getDefaultImplicitFlag(isImplicit, yieldLoc)),
+      YieldLoc(yieldLoc), Args(args) {
+        assert(!args->hasAnyArgumentLabels() && "labels not supported");
+      }
+
+YieldStmt *YieldStmt::createParsed(const ASTContext &ctx, SourceLoc yieldLoc,
+                                   ArgumentList *args) {
+  return new (ctx) YieldStmt(yieldLoc, args, /*isImplicit*/ false);
 }
 
-SourceLoc YieldStmt::getEndLoc() const {
-  return RPLoc.isInvalid() ? getYields()[0]->getEndLoc() : RPLoc;
+YieldStmt *YieldStmt::createImplicit(const ASTContext &ctx, SourceLoc yieldLoc,
+                                     ArgumentList *args) {
+  return new (ctx) YieldStmt(yieldLoc, args, /*isImplicit*/ true);
+}
+
+SourceLoc YieldStmt::getLParenLoc() const { return Args->getLParenLoc(); }
+SourceLoc YieldStmt::getRParenLoc() const { return Args->getRParenLoc(); }
+
+SourceRange YieldStmt::getSourceRange() const {
+  auto Range = Args->getSourceRange();
+  if (!Range)
+    return YieldLoc;
+  if (YieldLoc)
+    Range.widen(YieldLoc);
+
+  return Range;
 }
 
 SourceLoc ThrowStmt::getEndLoc() const { return SubExpr->getEndLoc(); }

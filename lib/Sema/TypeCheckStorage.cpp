@@ -1781,13 +1781,11 @@ synthesizeModifyCoroutineSetterBody(AccessorDecl *setter, ASTContext &ctx) {
                                                 setter->getStorage(), ctx);
 }
 
-static Expr *maybeWrapInOutExpr(Expr *expr, ASTContext &ctx) {
-  if (auto lvalueType = expr->getType()->getAs<LValueType>()) {
-    auto type = lvalueType->getObjectType();
-    return new (ctx) InOutExpr(SourceLoc(), expr, type, true);
-  }
+static Argument maybeWrapInOutArgument(Expr *expr, ASTContext &ctx) {
+  if (expr->getType()->is<LValueType>())
+    return Argument::implicitInOut(ctx, expr);
 
-  return expr;
+  return Argument::unlabeled(expr);
 }
 
 /// Given a VarDecl with a willSet: and/or didSet: specifier, synthesize the
@@ -1988,9 +1986,10 @@ synthesizeModifyCoroutineBodyWithSimpleDidSet(AccessorDecl *accessor,
                                     /*isUsedForGetAccess=*/true,
                                     /*isUsedForSetAccess=*/true,
                                     ctx);
-  ref = maybeWrapInOutExpr(ref, ctx);
+  auto refArg = maybeWrapInOutArgument(ref, ctx);
 
-  YieldStmt *yield = YieldStmt::create(ctx, loc, loc, ref, loc, true);
+  auto *argList = ArgumentList::createImplicit(ctx, {refArg});
+  YieldStmt *yield = YieldStmt::createImplicit(ctx, loc, argList);
   body.push_back(yield);
 
   auto Set = storage->getAccessor(AccessorKind::Set);
@@ -2087,10 +2086,11 @@ synthesizeCoroutineAccessorBody(AccessorDecl *accessor, ASTContext &ctx) {
                                     ctx);
   if (ref != nullptr) {
     // Wrap it with an `&` marker if this is a modify.
-    ref = maybeWrapInOutExpr(ref, ctx);
+    auto refArg = maybeWrapInOutArgument(ref, ctx);
 
     // Yield it.
-    YieldStmt *yield = YieldStmt::create(ctx, loc, loc, ref, loc, true);
+    auto *argList = ArgumentList::createImplicit(ctx, {refArg});
+    YieldStmt *yield = YieldStmt::createImplicit(ctx, loc, argList);
     body.push_back(yield);
   }
 

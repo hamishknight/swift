@@ -3130,7 +3130,7 @@ ParserResult<Expr> Parser::parseTupleOrParenExpr(tok leftTok, tok rightTok) {
   SmallVector<ExprListElt, 8> elts;
   SourceLoc leftLoc, rightLoc;
   auto status =
-      parseExprList(leftTok, rightTok, /*isArgumentList*/ false, leftLoc, elts,
+      parseExprList(leftTok, rightTok, /*forCallArgs*/ false, leftLoc, elts,
                     rightLoc);
 
   // A tuple with a single, unlabeled element is just parentheses.
@@ -3170,12 +3170,12 @@ Parser::parseArgumentList(tok leftTok, tok rightTok, bool isExprBasic,
 
   // FIXME: Introduce new SyntaxKind for ArgumentList (rdar://81786229)
   auto status =
-      parseExprList(leftTok, rightTok, /*isArgumentList*/ true, leftLoc, elts,
+      parseExprList(leftTok, rightTok, /*forCallArgs*/ true, leftLoc, elts,
                     rightLoc);
 
   SmallVector<Argument, 8> args;
   for (auto &elt : elts)
-    args.emplace_back(elt.LabelLoc, elt.Label, elt.E);
+    args.push_back(elt.makeArgument());
 
   auto numNonTrailing = args.size();
   llvm::Optional<unsigned> trailingClosureIndex;
@@ -3203,7 +3203,7 @@ Parser::parseArgumentList(tok leftTok, tok rightTok, bool isExprBasic,
 ///     (identifier ':')? '&'? expr
 ///
 ParserStatus Parser::parseExprList(tok leftTok, tok rightTok,
-                                   bool isArgumentList, SourceLoc &leftLoc,
+                                   bool forCallArgs, SourceLoc &leftLoc,
                                    SmallVectorImpl<ExprListElt> &elts,
                                    SourceLoc &rightLoc) {
   StructureMarkerRAII ParsingExprList(*this, Tok);
@@ -3247,7 +3247,7 @@ ParserStatus Parser::parseExprList(tok leftTok, tok rightTok,
       // context.
       SubExpr = new(Context) UnresolvedDeclRefExpr(OperName,
                                                    DeclRefKind::Ordinary, Loc);
-    } else if (isArgumentList && Tok.is(tok::code_complete)) {
+    } else if (forCallArgs && Tok.is(tok::code_complete)) {
       // Handle call arguments specially because it may need argument labels.
       auto CCExpr = new (Context) CodeCompletionExpr(Tok.getLoc());
       if (this->CodeCompletionCallbacks)

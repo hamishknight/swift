@@ -836,8 +836,9 @@ ParserResult<Stmt> Parser::parseStmtYield(SourceLoc tryLoc) {
 
   if (Tok.is(tok::code_complete)) {
     auto cce = new (Context) CodeCompletionExpr(Tok.getLoc());
-    auto result = makeParserResult(
-      YieldStmt::create(Context, yieldLoc, SourceLoc(), cce, SourceLoc()));
+    auto *argList = ArgumentList::forImplicitUnlabeled(Context, cce);
+    auto result =
+        makeParserResult(YieldStmt::createParsed(Context, yieldLoc, argList));
     if (CodeCompletionCallbacks) {
       CodeCompletionCallbacks->completeYieldStmt(cce, /*index=*/llvm::None);
     }
@@ -848,7 +849,7 @@ ParserResult<Stmt> Parser::parseStmtYield(SourceLoc tryLoc) {
 
   ParserStatus status;
   SourceLoc lpLoc, rpLoc;
-  SmallVector<Expr*, 4> yields;
+  SmallVector<Argument, 4> yields;
   if (Tok.is(tok::l_paren)) {
     // If there was a 'try' on the yield, and there are multiple
     // yielded values, suggest just removing the try instead of
@@ -859,15 +860,17 @@ ParserResult<Stmt> Parser::parseStmtYield(SourceLoc tryLoc) {
     }
 
     SmallVector<ExprListElt, 4> yieldElts;
-    status = parseExprList(tok::l_paren, tok::r_paren, /*isArgumentList*/ false,
+    status = parseExprList(tok::l_paren, tok::r_paren, /*forCallArgs*/ false,
                            lpLoc, yieldElts, rpLoc);
     for (auto &elt : yieldElts) {
       // We don't accept labels in a list of yields.
       if (elt.LabelLoc.isValid()) {
         diagnose(elt.LabelLoc, diag::unexpected_label_yield)
           .fixItRemoveChars(elt.LabelLoc, elt.E->getStartLoc());
+        elt.Label = Identifier();
+        elt.LabelLoc = SourceLoc();
       }
-      yields.push_back(elt.E);
+      yields.push_back(elt.makeArgument());
     }
   } else {
     SourceLoc beginLoc = Tok.getLoc();
@@ -882,18 +885,17 @@ ParserResult<Stmt> Parser::parseStmtYield(SourceLoc tryLoc) {
     auto expr = parseExpr(diag::expected_expr_yield);
     if (expr.hasCodeCompletion() && expr.isNonNull()) {
       status |= expr;
-      yields.push_back(expr.get());
     } else if (expr.isParseErrorOrHasCompletion()) {
       auto endLoc = (Tok.getLoc() == beginLoc ? beginLoc : PreviousLoc);
-      yields.push_back(
-        new (Context) ErrorExpr(SourceRange(beginLoc, endLoc)));
-    } else {
-      yields.push_back(expr.get());
+      expr = makeParserResult(new (Context) ErrorExpr(SourceRange(beginLoc, endLoc)));
     }
+    yields.push_back(Argument::unlabeled(expr.get()));
   }
 
-  return makeParserResult(
-           status, YieldStmt::create(Context, yieldLoc, lpLoc, yields, rpLoc));
+  auto *argList = ArgumentList::createParsed(Context, lpLoc, yields, rpLoc,
+                                             /*trailingClosure*/ llvm::None);
+  return makeParserResult(status,
+                          YieldStmt::createParsed(Context, yieldLoc, argList));
 }
 
 /// parseStmtThrow

@@ -1617,11 +1617,8 @@ public:
   }
 
   void visitYieldStmt(YieldStmt *S) {
-    printCommon(S, "yield_stmt");
-    for (auto yield : S->getYields()) {
-      OS << '\n';
-      printRec(yield);
-    }
+    printCommon(S, "yield_stmt") << '\n';
+    S->getArgs()->dump(OS, Indent + 2);
     PrintWithColorRAII(OS, ParenthesisColor) << ')';
   }
 

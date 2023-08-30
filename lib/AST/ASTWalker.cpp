@@ -1763,11 +1763,10 @@ Stmt *Traversal::visitReturnStmt(ReturnStmt *RS) {
 }
 
 Stmt *Traversal::visitYieldStmt(YieldStmt *YS) {
-  for (auto &yield : YS->getMutableYields()) {
-    if (Expr *E = doIt(yield))
-      yield = E;
-    else
-      return nullptr;
+  if (auto *args = doIt(YS->getArgs())) {
+    YS->setArgs(args);
+  } else {
+    return nullptr;
   }
   return YS;
 }
