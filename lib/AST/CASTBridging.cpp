@@ -494,7 +494,7 @@ DestructorDecl_create(BridgedASTContext cContext,
                       BridgedDeclContext cDeclContext,
                       BridgedSourceLoc cDeinitKeywordLoc) {
   ASTContext &context = convertASTContext(cContext);
-  auto *decl = new (context) DestructorDecl(convertSourceLoc(cDeinitKeywordLoc),
+  auto *decl = DestructorDecl::createParsed(context, convertSourceLoc(cDeinitKeywordLoc),
                                             convertDeclContext(cDeclContext));
 
   return {bridgeDeclContext(decl), static_cast<Decl *>(decl)};

@@ -5757,9 +5757,7 @@ GetDestructorRequest::evaluate(Evaluator &evaluator, ClassDecl *CD) const {
   auto dc = CD->getImplementationContext();
 
   auto &ctx = CD->getASTContext();
-  auto *DD = new (ctx) DestructorDecl(CD->getLoc(), dc->getAsGenericContext());
-
-  DD->setImplicit();
+  auto *DD = DestructorDecl::createImplicit(ctx, CD->getLoc(), dc->getAsGenericContext());
 
   // Synthesize an empty body for the destructor as needed.
   DD->setBodySynthesizer(synthesizeEmptyFunctionBody);
@@ -9963,6 +9961,20 @@ DestructorDecl::DestructorDecl(SourceLoc DestructorLoc, DeclContext *Parent)
                          /*GenericParams=*/nullptr),
     SelfDecl(nullptr) {
   setParameters(ParameterList::createEmpty(Parent->getASTContext()));
+}
+
+DestructorDecl *DestructorDecl::createParsed(ASTContext &ctx, SourceLoc destructorLoc, DeclContext *dc) {
+  return new (ctx) DestructorDecl(destructorLoc, dc);
+}
+
+DestructorDecl *DestructorDecl::createImplicit(ASTContext &ctx, SourceLoc destructorLoc, DeclContext *dc) {
+  auto *DD = new (ctx) DestructorDecl(destructorLoc, dc);
+  DD->setImplicit();
+  return DD;
+}
+
+DestructorDecl *DestructorDecl::createDeserialized(ASTContext &ctx, SourceLoc destructorLoc, DeclContext *dc) {
+  return new (ctx) DestructorDecl(destructorLoc, dc);
 }
 
 ObjCSelector DestructorDecl::getObjCSelector() const {

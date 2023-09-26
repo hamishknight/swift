@@ -12,7 +12,7 @@ extension ASTGenVisitor {
     )
 
     // FIXME: Translate the signature, capture list, 'in' location, etc.
-    return .expr(ClosureExpr_create(self.ctx, body, self.declContext))
+    return .expr(ClosureExpr_create(self.ctx, body, self.declContext.bridged))
   }
 
   public func generate(_ node: FunctionCallExprSyntax) -> ASTNode {
@@ -68,7 +68,7 @@ extension ASTGenVisitor {
 
     // Wrap in a SingleValueStmtExpr to embed as an expression.
     let sve = SingleValueStmtExpr_createWithWrappedBranches(
-      ctx, stmt, declContext, /*mustBeExpr*/ true)
+      ctx, stmt, declContext.bridged, /*mustBeExpr*/ true)
     return .expr(sve)
   }
 

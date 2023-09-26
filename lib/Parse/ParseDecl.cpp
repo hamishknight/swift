@@ -9776,7 +9776,7 @@ parseDeclDeinit(ParseDeclOptions Flags, DeclAttributes &Attributes) {
     }
   }
 
-  auto *DD = new (Context) DestructorDecl(DestructorLoc, CurDeclContext);
+  auto *DD = DestructorDecl::createParsed(Context, DestructorLoc, CurDeclContext);
   parseAbstractFunctionBody(DD);
 
   DD->getAttrs() = Attributes;

@@ -13,10 +13,17 @@
 #ifndef SWIFT_AST_ASTBRIDGING_H
 #define SWIFT_AST_ASTBRIDGING_H
 
-#include "swift/AST/DiagnosticEngine.h"
+#include "swift/AST/AnyFunctionRef.h"
 #include "swift/Basic/BasicBridging.h"
+#include "swift/AST/Builtins.h"
 #include "swift/Basic/Compiler.h"
+#include "swift/AST/DiagnosticConsumer.h"
+#include "swift/AST/DiagnosticEngine.h"
+#include "swift/AST/ForeignAsyncConvention.h"
+#include "swift/AST/ForeignErrorConvention.h"
+#include "swift/AST/SubstitutionMap.h"
 #include "swift/Basic/Nullability.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 

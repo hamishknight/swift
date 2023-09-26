@@ -2,6 +2,8 @@ import CASTBridging
 import CBasicBridging
 import SwiftSyntax
 
+import ASTGenBridging
+
 extension BridgedSourceLoc: ExpressibleByNilLiteral {
   public init(nilLiteral: ()) {
     self.init(raw: nil)
@@ -120,5 +122,26 @@ extension Optional<TokenSyntax> {
     }
 
     return self.bridgedIdentifierAndSourceLoc(in: astgen)
+  }
+}
+
+//struct ASTContext {
+//  typealias Bridged = UnsafeMutablePointer<swift.ASTContext>
+//  let bridged: Bridged
+//
+//  init(bridged: Bridged) {
+//    self.bridged = bridged
+//  }
+//}
+
+struct DeclContext {
+  typealias Bridged = UnsafeMutablePointer<swift.DeclContext>
+  private let _bridged: Bridged
+
+  init(bridged: Bridged) {
+    self._bridged = bridged
+  }
+  var bridged: BridgedDeclContext {
+    .init(raw: _bridged)
   }
 }

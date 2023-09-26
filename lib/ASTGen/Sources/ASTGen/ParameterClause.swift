@@ -79,7 +79,7 @@ extension ASTGenVisitor {
     return .decl(
       ParamDecl_create(
         astContext: self.ctx,
-        declContext: self.declContext,
+        declContext: self.declContext.bridged,
         specifierLoc: specifierLoc,
         firstName: firstName,
         firstNameLoc: node.optionalFirstName.bridgedSourceLoc(in: self),

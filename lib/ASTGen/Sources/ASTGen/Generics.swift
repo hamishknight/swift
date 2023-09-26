@@ -32,7 +32,7 @@ extension ASTGenVisitor {
     return .decl(
       GenericTypeParamDecl_create(
         astContext: self.ctx,
-        declContext: self.declContext,
+        declContext: self.declContext.bridged,
         eachKeywordLoc: node.eachKeyword.bridgedSourceLoc(in: self),
         name: name,
         nameLoc: nameLoc,

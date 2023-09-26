@@ -322,7 +322,7 @@ func buildTypeRepr(
   return ASTGenVisitor(
     diagnosticEngine: .init(raw: diagEnginePtr),
     sourceBuffer: sourceFile.pointee.buffer,
-    declContext: BridgedDeclContext(raw: dc),
+    declContext: .init(bridged: dc.assumingMemoryBound(to: swift.DeclContext.self)),
     astContext: BridgedASTContext(raw: ctx)
   ).generate(typeSyntax).rawValue
 }

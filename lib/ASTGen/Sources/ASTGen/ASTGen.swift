@@ -1,5 +1,6 @@
 import CASTBridging
 import CBasicBridging
+import ASTGenBridging
 
 // Needed to use BumpPtrAllocator
 @_spi(RawSyntax)
@@ -66,7 +67,7 @@ struct ASTGenVisitor {
 
   let base: UnsafeBufferPointer<UInt8>
 
-  @Boxed private(set) var declContext: BridgedDeclContext
+  @Boxed private(set) var declContext: DeclContext
 
   let ctx: BridgedASTContext
 
@@ -75,7 +76,7 @@ struct ASTGenVisitor {
   init(
     diagnosticEngine: BridgedDiagnosticEngine,
     sourceBuffer: UnsafeBufferPointer<UInt8>,
-    declContext: BridgedDeclContext,
+    declContext: DeclContext,
     astContext: BridgedASTContext
   ) {
     self.diagnosticEngine = diagnosticEngine
@@ -94,9 +95,9 @@ struct ASTGenVisitor {
       case .decl(let d):
         out.append(d)
       case .stmt(let s):
-        out.append(TopLevelCodeDecl_createStmt(astContext: self.ctx, declContext: self.declContext, startLoc: loc, statement: s, endLoc: loc))
+        out.append(TopLevelCodeDecl_createStmt(astContext: self.ctx, declContext: self.declContext.bridged, startLoc: loc, statement: s, endLoc: loc))
       case .expr(let e):
-        out.append(TopLevelCodeDecl_createExpr(astContext: self.ctx, declContext: self.declContext, startLoc: loc, expression: e, endLoc: loc))
+        out.append(TopLevelCodeDecl_createExpr(astContext: self.ctx, declContext: self.declContext.bridged, startLoc: loc, expression: e, endLoc: loc))
       default:
         fatalError("Top level nodes must be decls, stmts, or exprs.")
       }
@@ -110,6 +111,12 @@ extension ASTGenVisitor {
   /// Replaces the current declaration context with `declContext` for the duration of its execution, and calls `body`.
   @inline(__always)
   func withDeclContext(_ declContext: BridgedDeclContext, _ body: () -> Void) {
+    withDeclContext(DeclContext(bridged: declContext.raw.assumingMemoryBound(to: swift.DeclContext.self)), body)
+  }
+
+  /// Replaces the current declaration context with `declContext` for the duration of its execution, and calls `body`.
+  @inline(__always)
+  func withDeclContext(_ declContext: DeclContext, _ body: () -> Void) {
     let oldDeclContext = self.declContext
     self.declContext = declContext
     body()
@@ -467,7 +474,7 @@ public func buildTopLevelASTNodes(
     ASTGenVisitor(
       diagnosticEngine: .init(raw: diagEnginePtr),
       sourceBuffer: sourceFile.pointee.buffer,
-      declContext: BridgedDeclContext(raw: dc),
+      declContext: .init(bridged: dc.assumingMemoryBound(to: swift.DeclContext.self)),
       astContext: BridgedASTContext(raw: ctx)
     )
     .generate(sourceFile.pointee.syntax)

@@ -24,7 +24,6 @@
 #include "swift/AST/ClangNode.h"
 #include "swift/AST/ConcreteDeclRef.h"
 #include "swift/AST/DefaultArgumentKind.h"
-#include "swift/AST/DiagnosticConsumer.h"
 #include "swift/AST/DiagnosticEngine.h"
 #include "swift/AST/FreestandingMacroExpansion.h"
 #include "swift/AST/GenericParamKey.h"
@@ -807,8 +806,14 @@ private:
   /// computed.
   Decl *CachedObjCImplementationDecl;
 
+  // HACK: When building for Swift with C++ interop, we can't currently handle
+  // move-only types. We don't ever try and copy from Swift, so we can define
+  // these out in that case.
+#ifndef IMPORTING_INTO_SWIFT
   Decl(const Decl&) = delete;
   void operator=(const Decl&) = delete;
+#endif
+
   SourceLoc getLocFromSource() const;
 
   /// Returns the serialized locations of this declaration from the
@@ -7384,6 +7389,8 @@ public:
     return Bits.AbstractFunctionDecl.HasImplicitSelfDecl;
   }
 
+// FIXME: Importing these currently causes a request cycle (rdar://116426238)
+#ifndef IMPORTING_INTO_SWIFT
   ParamDecl **getImplicitSelfDeclStorage();
 
   /// Retrieve the implicit 'self' parameter for methods. Returns nullptr for
@@ -7393,6 +7400,7 @@ public:
         ->getImplicitSelfDecl(createIfNeeded);
   }
   ParamDecl *getImplicitSelfDecl(bool createIfNeeded=true);
+#endif
 
   /// Retrieve the declaration that this method overrides, if any.
   AbstractFunctionDecl *getOverriddenDecl() const {
@@ -7654,7 +7662,10 @@ public:
     return getCaptureInfo().getLocalCaptures(Result);
   }
 
+// FIXME: Importing this currently causes a request cycle (rdar://116426238)
+#ifndef IMPORTING_INTO_SWIFT
   ParamDecl **getImplicitSelfDeclStorage();
+#endif
 
   /// Get the supertype method this method overrides, if any.
   FuncDecl *getOverriddenDecl() const {
@@ -8263,8 +8274,12 @@ public:
 class DestructorDecl : public AbstractFunctionDecl {
   ParamDecl *SelfDecl;
 
-public:
   DestructorDecl(SourceLoc DestructorLoc, DeclContext *Parent);
+
+public:
+  static DestructorDecl *createParsed(ASTContext &ctx, SourceLoc destructorLoc, DeclContext *dc);
+  static DestructorDecl *createImplicit(ASTContext &ctx, SourceLoc destructorLoc, DeclContext *dc);
+  static DestructorDecl *createDeserialized(ASTContext &ctx, SourceLoc destructorLoc, DeclContext *dc);
 
   ParamDecl **getImplicitSelfDeclStorage() { return &SelfDecl; }
 
@@ -8947,6 +8962,8 @@ AbstractStorageDecl::overwriteSetterAccess(AccessLevel accessLevel) {
     mutableAddressor->overwriteAccess(accessLevel);
 }
 
+// FIXME: Importing these currently causes a request cycle (rdar://116426238)
+#ifndef IMPORTING_INTO_SWIFT
 /// Constructors and destructors always have a 'self' parameter,
 /// which is stored in an instance member. Functions only have a
 /// 'self' if they are declared inside of a nominal type or extension,
@@ -8974,6 +8991,7 @@ inline ParamDecl **FuncDecl::getImplicitSelfDeclStorage() {
   }
   return reinterpret_cast<ParamDecl **>(static_cast<AccessorDecl*>(this)+1);
 }
+#endif // #ifndef IMPORTING_INTO_SWIFT
 
 inline DeclIterator &DeclIterator::operator++() {
   Current = Current->NextDecl;

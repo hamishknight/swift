@@ -13,7 +13,7 @@ extension ASTGenVisitor {
     return .decl(
       TypeAliasDecl_create(
         astContext: self.ctx,
-        declContext: self.declContext,
+        declContext: self.declContext.bridged,
         typealiasKeywordLoc: node.typealiasKeyword.bridgedSourceLoc(in: self),
         name: name,
         nameLoc: nameLoc,
@@ -30,7 +30,7 @@ extension ASTGenVisitor {
 
     let decl = EnumDecl_create(
       astContext: self.ctx,
-      declContext: self.declContext,
+      declContext: self.declContext.bridged,
       enumKeywordLoc: node.enumKeyword.bridgedSourceLoc(in: self),
       name: name,
       nameLoc: nameLoc,
@@ -52,7 +52,7 @@ extension ASTGenVisitor {
 
     let decl = StructDecl_create(
       astContext: self.ctx,
-      declContext: self.declContext,
+      declContext: self.declContext.bridged,
       structKeywordLoc: node.structKeyword.bridgedSourceLoc(in: self),
       name: name,
       nameLoc: nameLoc,
@@ -74,7 +74,7 @@ extension ASTGenVisitor {
 
     let decl = ClassDecl_create(
       astContext: self.ctx,
-      declContext: self.declContext,
+      declContext: self.declContext.bridged,
       classKeywordLoc: node.classKeyword.bridgedSourceLoc(in: self),
       name: name,
       nameLoc: nameLoc,
@@ -97,7 +97,7 @@ extension ASTGenVisitor {
 
     let decl = ClassDecl_create(
       astContext: self.ctx,
-      declContext: self.declContext,
+      declContext: self.declContext.bridged,
       classKeywordLoc: node.actorKeyword.bridgedSourceLoc(in: self),
       name: name,
       nameLoc: nameLoc,
@@ -123,7 +123,7 @@ extension ASTGenVisitor {
 
     let decl = ProtocolDecl_create(
       astContext: self.ctx,
-      declContext: self.declContext,
+      declContext: self.declContext.bridged,
       protocolKeywordLoc: node.protocolKeyword.bridgedSourceLoc(in: self),
       name: name,
       nameLoc: nameLoc,
@@ -146,7 +146,7 @@ extension ASTGenVisitor {
     return .decl(
       AssociatedTypeDecl_create(
         astContext: self.ctx,
-        declContext: self.declContext,
+        declContext: self.declContext.bridged,
         associatedtypeKeywordLoc: node.associatedtypeKeyword.bridgedSourceLoc(in: self),
         name: name,
         nameLoc: nameLoc,
@@ -164,7 +164,7 @@ extension ASTGenVisitor {
   func generate(_ node: ExtensionDeclSyntax) -> ASTNode {
     let decl = ExtensionDecl_create(
       astContext: self.ctx,
-      declContext: self.declContext,
+      declContext: self.declContext.bridged,
       extensionKeywordLoc: node.extensionKeyword.bridgedSourceLoc(in: self),
       extendedType: self.generate(node.extendedType).rawValue,
       inheritedTypes: self.generate(node.inheritanceClause?.inheritedTypes),
@@ -189,7 +189,7 @@ extension ASTGenVisitor {
     return .decl(
       EnumElementDecl_create(
         astContext: self.ctx,
-        declContext: self.declContext,
+        declContext: self.declContext.bridged,
         name: name,
         nameLoc: nameLoc,
         parameterList: self.generate(node.parameterClause)?.rawValue,
@@ -202,7 +202,7 @@ extension ASTGenVisitor {
   func generate(_ node: EnumCaseDeclSyntax) -> ASTNode {
     .decl(
       EnumCaseDecl_create(
-        declContext: self.declContext,
+        declContext: self.declContext.bridged,
         caseKeywordLoc: node.caseKeyword.bridgedSourceLoc(in: self),
         elements: node.elements.lazy.map { self.generate($0).rawValue }.bridgedArray(in: self)
       )
@@ -223,7 +223,7 @@ extension ASTGenVisitor {
     return .decl(
       VarDecl_create(
         astContext: self.ctx,
-        declContext: self.declContext,
+        declContext: self.declContext.bridged,
         bindingKeywordLoc: node.bindingSpecifier.bridgedSourceLoc(in: self),
         nameExpr: pattern,
         initializer: initializer,
@@ -240,12 +240,12 @@ extension ASTGenVisitor {
   public func generate(_ node: FunctionDeclSyntax) -> ASTNode {
     // FIXME: Compute this location
     let staticLoc: BridgedSourceLoc = nil
-
+    
     let (name, nameLoc) = node.name.bridgedIdentifierAndSourceLoc(in: self)
-
+    
     let decl = FuncDecl_create(
       astContext: self.ctx,
-      declContext: self.declContext,
+      declContext: self.declContext.bridged,
       staticLoc: staticLoc,
       funcKeywordLoc: node.funcKeyword.bridgedSourceLoc(in: self),
       name: name,
@@ -258,20 +258,20 @@ extension ASTGenVisitor {
       returnType: self.generate(node.signature.returnClause?.type)?.rawValue,
       genericWhereClause: self.generate(node.genericWhereClause)?.rawValue
     )
-
+    
     if let body = node.body {
       self.withDeclContext(decl.asDeclContext) {
         AbstractFunctionDecl_setBody(self.generate(body).rawValue, ofDecl: decl.asDecl)
       }
     }
-
+    
     return .decl(decl.asDecl)
   }
 
   func generate(_ node: InitializerDeclSyntax) -> ASTNode {
     let decl = ConstructorDecl_create(
       astContext: self.ctx,
-      declContext: self.declContext,
+      declContext: self.declContext.bridged,
       initKeywordLoc: node.initKeyword.bridgedSourceLoc(in: self),
       failabilityMarkLoc: node.optionalMark.bridgedSourceLoc(in: self),
       isIUO: node.optionalMark?.tokenKind == .exclamationMark,
@@ -282,20 +282,22 @@ extension ASTGenVisitor {
       thrownType: self.generate(node.signature.effectSpecifiers?.thrownError?.type)?.rawValue,
       genericWhereClause: self.generate(node.genericWhereClause)?.rawValue
     )
-
+    
     if let body = node.body {
       self.withDeclContext(decl.asDeclContext) {
         AbstractFunctionDecl_setBody(self.generate(body).rawValue, ofDecl: decl.asDecl)
       }
     }
-
+    
     return .decl(decl.asDecl)
   }
+  
+  func foo(_ x: swift.DestructorDecl) {}
 
   func generate(_ node: DeinitializerDeclSyntax) -> ASTNode {
     let decl = DestructorDecl_create(
       astContext: self.ctx,
-      declContext: self.declContext,
+      declContext: self.declContext.bridged,
       deinitKeywordLoc: node.deinitKeyword.bridgedSourceLoc(in: self)
     )
 
@@ -338,7 +340,7 @@ extension ASTGenVisitor {
     return .decl(
       OperatorDecl_create(
         astContext: self.ctx,
-        declContext: self.declContext,
+        declContext: self.declContext.bridged,
         fixity: fixity,
         operatorKeywordLoc: node.operatorKeyword.bridgedSourceLoc(in: self),
         name: name,
@@ -440,7 +442,7 @@ extension ASTGenVisitor {
 
     return .decl(
       PrecedenceGroupDecl_create(
-        declContext: self.declContext,
+        declContext: self.declContext.bridged,
         precedencegroupKeywordLoc: node.precedencegroupKeyword.bridgedSourceLoc(in: self),
         name: name,
         nameLoc: nameLoc,
@@ -495,7 +497,7 @@ extension ASTGenVisitor {
     return .decl(
       ImportDecl_create(
         astContext: self.ctx,
-        declContext: self.declContext,
+        declContext: self.declContext.bridged,
         importKeywordLoc: node.importKeyword.bridgedSourceLoc(in: self),
         importKind: importKind,
         importKindLoc: node.importKindSpecifier.bridgedSourceLoc(in: self),
