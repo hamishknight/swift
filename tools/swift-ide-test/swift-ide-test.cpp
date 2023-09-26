@@ -4506,6 +4506,8 @@ int main(int argc, char *argv[]) {
     InitInvok.getLangOptions().AllowModuleWithCompilerErrors = true;
   }
 
+  InitInvok.getLangOptions().EnableExperimentalEagerClangModuleDiagnostics = true;
+
   if (!options::ModuleAliases.empty()) {
     PrintingDiagnosticConsumer PDC;
     SourceManager SM;
