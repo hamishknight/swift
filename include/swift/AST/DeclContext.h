@@ -24,6 +24,7 @@
 #include "swift/AST/LookupKinds.h"
 #include "swift/AST/ResilienceExpansion.h"
 #include "swift/AST/TypeAlignments.h"
+#include "swift/Basic/Compiler.h"
 #include "swift/Basic/Debug.h"
 #include "swift/Basic/Fingerprint.h"
 #include "swift/Basic/LLVM.h"
@@ -245,8 +246,8 @@ struct FragileFunctionKind {
 /// There's an exception, however; the parent of ModuleDecl is set nullptr, not
 /// set to PackageUnit; ModuleDecl has a pointer to PackageUnit as its field,
 /// and it is treated as the enclosing scope of ModuleDecl.
-class alignas(1 << DeclContextAlignInBits) DeclContext
-    : public ASTAllocated<DeclContext> {
+class alignas(1 << DeclContextAlignInBits) SWIFT_IMPORT_REFERENCE
+    DeclContext : public ASTAllocated<DeclContext> {
   enum class ASTHierarchy : unsigned {
     Decl,
     Expr,
