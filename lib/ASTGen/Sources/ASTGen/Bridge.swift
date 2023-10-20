@@ -14,6 +14,60 @@ extension BridgedIdentifier: ExpressibleByNilLiteral {
   }
 }
 
+extension BridgedStmt? {
+  var asNullable: BridgedNullableStmt {
+    guard let raw = self?.raw else {
+      return .init(raw: nil)
+    }
+    return .init(raw: raw)
+  }
+}
+
+extension BridgedExpr? {
+  var asNullable: BridgedNullableExpr {
+    guard let raw = self?.raw else {
+      return .init(raw: nil)
+    }
+    return .init(raw: raw)
+  }
+}
+
+extension BridgedTypeRepr? {
+  var asNullable: BridgedNullableTypeRepr {
+    guard let raw = self?.raw else {
+      return .init(raw: nil)
+    }
+    return .init(raw: raw)
+  }
+}
+
+extension BridgedGenericParamList? {
+  var asNullable: BridgedNullableGenericParamList {
+    guard let raw = self?.raw else {
+      return .init(raw: nil)
+    }
+    return .init(raw: raw)
+  }
+}
+
+extension BridgedTrailingWhereClause? {
+  var asNullable: BridgedNullableTrailingWhereClause {
+    guard let raw = self?.raw else {
+      return .init(raw: nil)
+    }
+    return .init(raw: raw)
+  }
+}
+
+extension BridgedParameterList? {
+  var asNullable: BridgedNullableParameterList {
+    guard let raw = self?.raw else {
+      return .init(raw: nil)
+    }
+    return .init(raw: raw)
+  }
+}
+
 extension BridgedSourceLoc {
   /// Form a source location at the given absolute position in `buffer`.
   init(

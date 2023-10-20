@@ -38,9 +38,14 @@ SWIFT_BEGIN_NULLABILITY_ANNOTATIONS
     void *_Nonnull raw;                                                        \
   } Bridged##Name;
 
+// For nullable nodes, define both a nullable and non-null variant.
 #define AST_BRIDGING_WRAPPER_NULLABLE(Name)                                    \
   typedef struct {                                                             \
     void *_Nullable raw;                                                       \
+  } BridgedNullable##Name;                                                     \
+                                                                               \
+  typedef struct {                                                             \
+    void *_Nonnull raw;                                                        \
   } Bridged##Name;
 
 #include "swift/AST/ASTBridgingWrappers.def"
@@ -339,7 +344,7 @@ TopLevelCodeDecl_createExpr(BridgedASTContext cContext,
 SWIFT_NAME("BridgedReturnStmt.createParsed(_:returnKeywordLoc:expr:)")
 BridgedReturnStmt ReturnStmt_createParsed(BridgedASTContext cContext,
                                           BridgedSourceLoc cLoc,
-                                          BridgedExpr expr);
+                                          BridgedNullableExpr expr);
 
 SWIFT_NAME("BridgedSequenceExpr.createParsed(_:exprs:)")
 BridgedSequenceExpr SequenceExpr_createParsed(BridgedASTContext cContext,
@@ -410,7 +415,7 @@ SWIFT_NAME("BridgedIfStmt.createParsed(_:ifKeywordLoc:condition:thenStmt:"
 BridgedIfStmt IfStmt_createParsed(BridgedASTContext cContext,
                                   BridgedSourceLoc cIfLoc, BridgedExpr cond,
                                   BridgedStmt then, BridgedSourceLoc cElseLoc,
-                                  BridgedStmt elseStmt);
+                                  BridgedNullableStmt elseStmt);
 
 SWIFT_NAME("BridgedBraceStmt.createParsed(_:lBraceLoc:elements:rBraceLoc:)")
 BridgedBraceStmt BraceStmt_createParsed(BridgedASTContext cContext,
@@ -424,8 +429,8 @@ BridgedParamDecl ParamDecl_createParsed(
     BridgedASTContext cContext, BridgedDeclContext cDeclContext,
     BridgedSourceLoc cSpecifierLoc, BridgedIdentifier cFirstName,
     BridgedSourceLoc cFirstNameLoc, BridgedIdentifier cSecondName,
-    BridgedSourceLoc cSecondNameLoc, BridgedTypeRepr type,
-    BridgedExpr defaultValue);
+    BridgedSourceLoc cSecondNameLoc, BridgedNullableTypeRepr type,
+    BridgedNullableExpr defaultValue);
 
 SWIFT_NAME("BridgedConstructorDecl.setParsedBody(self:_:)")
 void ConstructorDecl_setParsedBody(BridgedConstructorDecl decl,
@@ -446,11 +451,11 @@ BridgedFuncDecl FuncDecl_createParsed(
     BridgedASTContext cContext, BridgedDeclContext cDeclContext,
     BridgedSourceLoc cStaticLoc, BridgedSourceLoc cFuncKeywordLoc,
     BridgedIdentifier cName, BridgedSourceLoc cNameLoc,
-    BridgedGenericParamList genericParamList,
+    BridgedNullableGenericParamList genericParamList,
     BridgedParameterList parameterList, BridgedSourceLoc cAsyncLoc,
-    BridgedSourceLoc cThrowsLoc, BridgedTypeRepr thrownType,
-    BridgedTypeRepr returnType,
-    BridgedTrailingWhereClause opaqueGenericWhereClause);
+    BridgedSourceLoc cThrowsLoc, BridgedNullableTypeRepr thrownType,
+    BridgedNullableTypeRepr returnType,
+    BridgedNullableTrailingWhereClause opaqueGenericWhereClause);
 
 SWIFT_NAME(
     "BridgedConstructorDecl.createParsed(_:declContext:initKeywordLoc:"
@@ -459,10 +464,10 @@ SWIFT_NAME(
 BridgedConstructorDecl ConstructorDecl_createParsed(
     BridgedASTContext cContext, BridgedDeclContext cDeclContext,
     BridgedSourceLoc cInitKeywordLoc, BridgedSourceLoc cFailabilityMarkLoc,
-    _Bool isIUO, BridgedGenericParamList genericParams,
+    _Bool isIUO, BridgedNullableGenericParamList genericParams,
     BridgedParameterList parameterList, BridgedSourceLoc cAsyncLoc,
-    BridgedSourceLoc cThrowsLoc, BridgedTypeRepr thrownType,
-    BridgedTrailingWhereClause genericWhereClause);
+    BridgedSourceLoc cThrowsLoc, BridgedNullableTypeRepr thrownType,
+    BridgedNullableTrailingWhereClause genericWhereClause);
 
 SWIFT_NAME(
     "BridgedDestructorDecl.createParsed(_:declContext:deinitKeywordLoc:)")
@@ -493,9 +498,9 @@ SWIFT_NAME(
 BridgedTypeAliasDecl TypeAliasDecl_createParsed(
     BridgedASTContext cContext, BridgedDeclContext cDeclContext,
     BridgedSourceLoc cAliasKeywordLoc, BridgedIdentifier cName,
-    BridgedSourceLoc cNameLoc, BridgedGenericParamList genericParamList,
+    BridgedSourceLoc cNameLoc, BridgedNullableGenericParamList genericParamList,
     BridgedSourceLoc cEqualLoc, BridgedTypeRepr underlyingType,
-    BridgedTrailingWhereClause genericWhereClause);
+    BridgedNullableTrailingWhereClause genericWhereClause);
 
 SWIFT_NAME("BridgedNominalTypeDecl.setParsedMembers(self:_:)")
 void NominalTypeDecl_setParsedMembers(BridgedNominalTypeDecl decl,
@@ -511,9 +516,9 @@ SWIFT_NAME(
 BridgedNominalTypeDecl EnumDecl_createParsed(
     BridgedASTContext cContext, BridgedDeclContext cDeclContext,
     BridgedSourceLoc cEnumKeywordLoc, BridgedIdentifier cName,
-    BridgedSourceLoc cNameLoc, BridgedGenericParamList genericParamList,
+    BridgedSourceLoc cNameLoc, BridgedNullableGenericParamList genericParamList,
     BridgedArrayRef cInheritedTypes,
-    BridgedTrailingWhereClause genericWhereClause,
+    BridgedNullableTrailingWhereClause genericWhereClause,
     BridgedSourceRange cBraceRange);
 
 SWIFT_NAME(
@@ -527,8 +532,8 @@ SWIFT_NAME("BridgedEnumElementDecl.createParsed(_:declContext:name:nameLoc:"
 BridgedEnumElementDecl EnumElementDecl_createParsed(
     BridgedASTContext cContext, BridgedDeclContext cDeclContext,
     BridgedIdentifier cName, BridgedSourceLoc cNameLoc,
-    BridgedParameterList parameterList, BridgedSourceLoc cEqualsLoc,
-    BridgedExpr opaqueRawValue);
+    BridgedNullableParameterList parameterList, BridgedSourceLoc cEqualsLoc,
+    BridgedNullableExpr opaqueRawValue);
 
 SWIFT_NAME("BridgedStructDecl.createParsed(_:declContext:structKeywordLoc:name:"
            "nameLoc:genericParamList:inheritedTypes:genericWhereClause:"
@@ -536,9 +541,9 @@ SWIFT_NAME("BridgedStructDecl.createParsed(_:declContext:structKeywordLoc:name:"
 BridgedNominalTypeDecl StructDecl_createParsed(
     BridgedASTContext cContext, BridgedDeclContext cDeclContext,
     BridgedSourceLoc cStructKeywordLoc, BridgedIdentifier cName,
-    BridgedSourceLoc cNameLoc, BridgedGenericParamList genericParamList,
+    BridgedSourceLoc cNameLoc, BridgedNullableGenericParamList genericParamList,
     BridgedArrayRef cInheritedTypes,
-    BridgedTrailingWhereClause genericWhereClause,
+    BridgedNullableTrailingWhereClause genericWhereClause,
     BridgedSourceRange cBraceRange);
 
 SWIFT_NAME(
@@ -547,9 +552,9 @@ SWIFT_NAME(
 BridgedNominalTypeDecl ClassDecl_createParsed(
     BridgedASTContext cContext, BridgedDeclContext cDeclContext,
     BridgedSourceLoc cClassKeywordLoc, BridgedIdentifier cName,
-    BridgedSourceLoc cNameLoc, BridgedGenericParamList genericParamList,
+    BridgedSourceLoc cNameLoc, BridgedNullableGenericParamList genericParamList,
     BridgedArrayRef cInheritedTypes,
-    BridgedTrailingWhereClause genericWhereClause,
+    BridgedNullableTrailingWhereClause genericWhereClause,
     BridgedSourceRange cBraceRange, _Bool isActor);
 
 SWIFT_NAME(
@@ -561,7 +566,7 @@ BridgedNominalTypeDecl ProtocolDecl_createParsed(
     BridgedSourceLoc cProtocolKeywordLoc, BridgedIdentifier cName,
     BridgedSourceLoc cNameLoc, BridgedArrayRef cPrimaryAssociatedTypeNames,
     BridgedArrayRef cInheritedTypes,
-    BridgedTrailingWhereClause genericWhereClause,
+    BridgedNullableTrailingWhereClause genericWhereClause,
     BridgedSourceRange cBraceRange);
 
 SWIFT_NAME("BridgedAssociatedTypeDecl.createParsed(_:declContext:"
@@ -571,8 +576,8 @@ BridgedAssociatedTypeDecl AssociatedTypeDecl_createParsed(
     BridgedASTContext cContext, BridgedDeclContext cDeclContext,
     BridgedSourceLoc cAssociatedtypeKeywordLoc, BridgedIdentifier cName,
     BridgedSourceLoc cNameLoc, BridgedArrayRef cInheritedTypes,
-    BridgedTypeRepr opaqueDefaultType,
-    BridgedTrailingWhereClause genericWhereClause);
+    BridgedNullableTypeRepr opaqueDefaultType,
+    BridgedNullableTrailingWhereClause genericWhereClause);
 
 SWIFT_NAME(
     "BridgedExtensionDecl.createParsed(_:declContext:extensionKeywordLoc:"
@@ -581,7 +586,7 @@ BridgedExtensionDecl ExtensionDecl_createParsed(
     BridgedASTContext cContext, BridgedDeclContext cDeclContext,
     BridgedSourceLoc cExtensionKeywordLoc, BridgedTypeRepr opaqueExtendedType,
     BridgedArrayRef cInheritedTypes,
-    BridgedTrailingWhereClause genericWhereClause,
+    BridgedNullableTrailingWhereClause genericWhereClause,
     BridgedSourceRange cBraceRange);
 
 typedef enum ENUM_EXTENSIBILITY_ATTR(closed) {
@@ -648,7 +653,8 @@ SWIFT_NAME("BridgedGenericParamList.createParsed(_:leftAngleLoc:parameters:"
            "genericWhereClause:rightAngleLoc:)")
 BridgedGenericParamList GenericParamList_createParsed(
     BridgedASTContext cContext, BridgedSourceLoc cLeftAngleLoc,
-    BridgedArrayRef cParameters, BridgedTrailingWhereClause genericWhereClause,
+    BridgedArrayRef cParameters,
+    BridgedNullableTrailingWhereClause genericWhereClause,
     BridgedSourceLoc cRightAngleLoc);
 
 SWIFT_NAME(
@@ -657,7 +663,7 @@ SWIFT_NAME(
 BridgedGenericTypeParamDecl GenericTypeParamDecl_createParsed(
     BridgedASTContext cContext, BridgedDeclContext cDeclContext,
     BridgedSourceLoc cEachLoc, BridgedIdentifier cName,
-    BridgedSourceLoc cNameLoc, BridgedTypeRepr opaqueInheritedType,
+    BridgedSourceLoc cNameLoc, BridgedNullableTypeRepr opaqueInheritedType,
     size_t index);
 
 SWIFT_NAME(
@@ -720,13 +726,11 @@ BridgedTypeRepr DictionaryTypeRepr_createParsed(BridgedASTContext cContext,
 
 SWIFT_NAME("BridgedFunctionTypeRepr.createParsed(_:argsType:asyncLoc:throwsLoc:"
            "thrownType:arrowLoc:resultType:)")
-BridgedTypeRepr FunctionTypeRepr_createParsed(BridgedASTContext cContext,
-                                              BridgedTypeRepr argsTy,
-                                              BridgedSourceLoc cAsyncLoc,
-                                              BridgedSourceLoc cThrowsLoc,
-                                              BridgedTypeRepr thrownType,
-                                              BridgedSourceLoc cArrowLoc,
-                                              BridgedTypeRepr resultType);
+BridgedTypeRepr FunctionTypeRepr_createParsed(
+    BridgedASTContext cContext, BridgedTypeRepr argsTy,
+    BridgedSourceLoc cAsyncLoc, BridgedSourceLoc cThrowsLoc,
+    BridgedNullableTypeRepr thrownType, BridgedSourceLoc cArrowLoc,
+    BridgedTypeRepr resultType);
 
 SWIFT_NAME("BridgedGenericIdentTypeRepr.createParsed(_:name:nameLoc:"
            "genericArgs:leftAngleLoc:rightAngleLoc:)")
