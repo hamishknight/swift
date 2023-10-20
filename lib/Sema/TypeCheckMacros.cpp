@@ -22,7 +22,7 @@
 #include "swift/AST/ASTContext.h"
 #include "swift/AST/ASTMangler.h"
 #include "swift/AST/ASTNode.h"
-#include "swift/AST/CASTBridging.h"
+#include "swift/AST/ASTBridging.h"
 #include "swift/AST/DiagnosticsFrontend.h"
 #include "swift/AST/Expr.h"
 #include "swift/AST/FreestandingMacroExpansion.h"
@@ -49,7 +49,7 @@ using namespace swift;
 extern "C" void *swift_ASTGen_resolveMacroType(const void *macroType);
 extern "C" void swift_ASTGen_destroyMacro(void *macro);
 
-extern "C" void swift_ASTGen_freeBridgedString(BridgedString);
+extern "C" void swift_ASTGen_freeBridgedString(BridgedStringRef);
 
 extern "C" void *swift_ASTGen_resolveExecutableMacro(const char *moduleName,
                                                      const char *typeName,
@@ -58,7 +58,7 @@ extern "C" void swift_ASTGen_destroyExecutableMacro(void *macro);
 
 extern "C" ptrdiff_t swift_ASTGen_checkMacroDefinition(
     void *diagEngine, void *sourceFile, const void *macroSourceLocation,
-    BridgedString *expansionSourceOutPtr, ptrdiff_t **replacementsPtr,
+    BridgedStringRef *expansionSourceOutPtr, ptrdiff_t **replacementsPtr,
     ptrdiff_t *numReplacements);
 extern "C" void swift_ASTGen_freeExpansionReplacements(
     ptrdiff_t *replacementsPtr,
@@ -67,7 +67,7 @@ extern "C" void swift_ASTGen_freeExpansionReplacements(
 extern "C" ptrdiff_t swift_ASTGen_expandFreestandingMacro(
     void *diagEngine, const void *macro, uint8_t externalKind,
     const char *discriminator, uint8_t rawMacroRole, void *sourceFile,
-    const void *sourceLocation, BridgedString *evaluatedSourceOut);
+    const void *sourceLocation, BridgedStringRef *evaluatedSourceOut);
 
 extern "C" ptrdiff_t swift_ASTGen_expandAttachedMacro(
     void *diagEngine, const void *macro, uint8_t externalKind,
@@ -75,16 +75,16 @@ extern "C" ptrdiff_t swift_ASTGen_expandAttachedMacro(
     const char *conformances, uint8_t rawMacroRole, void *customAttrSourceFile,
     const void *customAttrSourceLocation, void *declarationSourceFile,
     const void *declarationSourceLocation, void *parentDeclSourceFile,
-    const void *parentDeclSourceLocation, BridgedString *evaluatedSourceOut);
+    const void *parentDeclSourceLocation, BridgedStringRef *evaluatedSourceOut);
 
 extern "C" bool swift_ASTGen_initializePlugin(void *handle, void *diagEngine);
 extern "C" void swift_ASTGen_deinitializePlugin(void *handle);
 extern "C" bool swift_ASTGen_pluginServerLoadLibraryPlugin(
     void *handle, const char *libraryPath, const char *moduleName,
-    BridgedString *errorOut);
+    BridgedStringRef *errorOut);
 
-static inline StringRef toStringRef(BridgedString bridged) {
-  return {reinterpret_cast<const char *>(bridged.data), size_t(bridged.length)};
+static inline StringRef toStringRef(BridgedStringRef bridged) {
+  return bridged.get();
 }
 
 #if SWIFT_BUILD_SWIFT_SYNTAX
@@ -185,7 +185,7 @@ MacroDefinition MacroDefinitionRequest::evaluate(
   ASTContext &ctx = macro->getASTContext();
   auto sourceFile = macro->getParentSourceFile();
 
-  BridgedString externalMacroName{nullptr, 0};
+  BridgedStringRef externalMacroName{nullptr, 0};
   ptrdiff_t *replacements = nullptr;
   ptrdiff_t numReplacements = 0;
   auto checkResult = swift_ASTGen_checkMacroDefinition(
@@ -321,7 +321,7 @@ initializeExecutablePlugin(ASTContext &ctx,
     std::string resolvedLibraryPathStr(resolvedLibraryPath);
     std::string moduleNameStr(moduleName.str());
 
-    BridgedString errorOut{nullptr, 0};
+    BridgedStringRef errorOut{nullptr, 0};
     bool loaded = swift_ASTGen_pluginServerLoadLibraryPlugin(
         executablePlugin, resolvedLibraryPathStr.c_str(), moduleNameStr.c_str(),
         &errorOut);
@@ -331,10 +331,10 @@ initializeExecutablePlugin(ASTContext &ctx,
           llvm::inconvertibleErrorCode(),
           "failed to load library plugin '%s' in plugin server '%s'; %s",
           resolvedLibraryPathStr.c_str(),
-          executablePlugin->getExecutablePath().data(), errorOut.data);
+          executablePlugin->getExecutablePath().data(), errorOut.get().data());
     }
 
-    assert(errorOut.data == nullptr);
+    assert(errorOut.get().data() == nullptr);
 
     // Set a callback to load the library again on reconnections.
     auto *callback = new std::function<void(void)>(
@@ -1117,7 +1117,7 @@ evaluateFreestandingMacro(FreestandingMacroExpansion *expansion,
     if (!astGenSourceFile)
       return nullptr;
 
-    BridgedString evaluatedSourceOut{nullptr, 0};
+    BridgedStringRef evaluatedSourceOut{nullptr, 0};
     assert(!externalDef.isError());
     swift_ASTGen_expandFreestandingMacro(
         &ctx.Diags, externalDef.opaqueHandle,
@@ -1125,7 +1125,7 @@ evaluateFreestandingMacro(FreestandingMacroExpansion *expansion,
         getRawMacroRole(macroRole), astGenSourceFile,
         expansion->getSourceRange().Start.getOpaquePointerValue(),
         &evaluatedSourceOut);
-    if (!evaluatedSourceOut.data)
+    if (!evaluatedSourceOut.get().data())
       return nullptr;
     evaluatedSource = llvm::MemoryBuffer::getMemBufferCopy(
         toStringRef(evaluatedSourceOut),
@@ -1396,7 +1396,7 @@ static SourceFile *evaluateAttachedMacro(MacroDecl *macro, Decl *attachedTo,
     if (auto var = dyn_cast<VarDecl>(attachedTo))
       searchDecl = var->getParentPatternBinding();
 
-    BridgedString evaluatedSourceOut{nullptr, 0};
+    BridgedStringRef evaluatedSourceOut{nullptr, 0};
     assert(!externalDef.isError());
     swift_ASTGen_expandAttachedMacro(
         &ctx.Diags, externalDef.opaqueHandle,
@@ -1405,7 +1405,7 @@ static SourceFile *evaluateAttachedMacro(MacroDecl *macro, Decl *attachedTo,
         astGenAttrSourceFile, attr->AtLoc.getOpaquePointerValue(),
         astGenDeclSourceFile, searchDecl->getStartLoc().getOpaquePointerValue(),
         astGenParentDeclSourceFile, parentDeclLoc, &evaluatedSourceOut);
-    if (!evaluatedSourceOut.data)
+    if (!evaluatedSourceOut.get().data())
       return nullptr;
     evaluatedSource = llvm::MemoryBuffer::getMemBufferCopy(
         toStringRef(evaluatedSourceOut),

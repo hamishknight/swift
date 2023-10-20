@@ -31,8 +31,16 @@
 #include <cassert>
 #include "llvm/CAS/CASReference.h"
 
+#include "swift/Basic/SourceLoc.h"
 #include "llvm/ADT/StringRef.h"
 #include <string>
+#endif
+
+// FIXME: We ought to be importing '<swift/briging>' instead.
+#if __has_attribute(swift_name)
+#define SWIFT_NAME(NAME) __attribute__((swift_name(NAME)))
+#else
+#define SWIFT_NAME(NAME)
 #endif
 
 #ifdef PURE_BRIDGING_MODE
@@ -47,60 +55,108 @@ SWIFT_BEGIN_NULLABILITY_ANNOTATIONS
 typedef intptr_t SwiftInt;
 typedef uintptr_t SwiftUInt;
 
+typedef enum ENUM_EXTENSIBILITY_ATTR(open) BridgedFeature {
+#define LANGUAGE_FEATURE(FeatureName, SENumber, Description, Option) \
+FeatureName,
+#include "swift/Basic/Features.def"
+} BridgedFeature;
+
 struct BridgedOStream {
   void * _Nonnull streamAddr;
 };
 
 class BridgedStringRef {
-  const char * _Nonnull data;
-  size_t length;
+  const char * _Nullable Data;
+  size_t Length;
 
 public:
 #ifdef USED_IN_CPP_SOURCE
-  BridgedStringRef(llvm::StringRef sref) : data(sref.data()), length(sref.size()) {}
+  BridgedStringRef(llvm::StringRef sref) : Data(sref.data()), Length(sref.size()) {}
 
-  llvm::StringRef get() const { return llvm::StringRef(data, length); }
+  llvm::StringRef get() const { return llvm::StringRef(Data, Length); }
 #endif
 
+  SWIFT_NAME("init(data:count:)")
   BridgedStringRef(const char * _Nullable data, size_t length)
-    : data(data), length(length) {}
+    : Data(data), Length(length) {}
 
-  SWIFT_IMPORT_UNSAFE const uint8_t * _Nonnull uintData() const {
-    return (const uint8_t * _Nonnull)data;
-  }
-  SwiftInt size() const { return (SwiftInt)length; }
   void write(BridgedOStream os) const;
 };
 
+SWIFT_NAME("getter:BridgedStringRef.data(self:)")
+inline const uint8_t * _Nullable 
+BridgedStringRef_data(BridgedStringRef str);
+
+SWIFT_NAME("getter:BridgedStringRef.count(self:)")
+inline SwiftInt BridgedStringRef_count(BridgedStringRef str);
+
+SWIFT_NAME("getter:BridgedStringRef.isEmpty(self:)")
+inline bool BridgedStringRef_empty(BridgedStringRef str);
+
 class BridgedOwnedString {
-  char * _Nonnull data;
-  size_t length;
+  char * _Nonnull Data;
+  size_t Length;
 
 public:
 #ifdef USED_IN_CPP_SOURCE
   BridgedOwnedString(const std::string &stringToCopy);
+
+  llvm::StringRef getRef() const { return llvm::StringRef(Data, Length); }
 #endif
 
-  SWIFT_IMPORT_UNSAFE const uint8_t * _Nonnull uintData() const {
-    return (const uint8_t * _Nonnull)(data ? data : "");
-  }
-  SwiftInt size() const { return (SwiftInt)length; }
   void destroy() const;
 };
 
-class BridgedSourceLoc {
-  const void * _Nullable opaquePointer;
-public:
-  BridgedSourceLoc() : opaquePointer(nullptr) {}
-  BridgedSourceLoc(const void * _Nullable loc) : opaquePointer(loc) {}
+SWIFT_NAME("getter:BridgedOwnedString.data(self:)")
+inline const uint8_t * _Nullable 
+BridgedOwnedString_data(BridgedOwnedString str);
 
-  bool isValid() const { return opaquePointer != nullptr; }
+SWIFT_NAME("getter:BridgedOwnedString.count(self:)")
+inline SwiftInt BridgedOwnedString_count(BridgedOwnedString str);
+
+SWIFT_NAME("getter:BridgedOwnedString.isEmpty(self:)")
+inline bool BridgedOwnedString_empty(BridgedOwnedString str);
+
+class BridgedSourceLoc {
+  const void * _Nullable raw;
+
+public:
+  BridgedSourceLoc() : raw(nullptr) {}
+  BridgedSourceLoc(const void * _Nullable loc) : raw(loc) {}
+
+#ifdef USED_IN_CPP_SOURCE
+  BridgedSourceLoc(swift::SourceLoc loc)
+    : raw(loc.getOpaquePointerValue()) {}
+
+  swift::SourceLoc get() const {
+    return swift::SourceLoc(llvm::SMLoc::getFromPointer(static_cast<const char *>(raw)));
+  }
+  operator swift::SourceLoc() const {
+    return get();
+  }
+#endif
+
+  bool isValid() const { return raw != nullptr; }
   SWIFT_IMPORT_UNSAFE const uint8_t * _Nullable uint8Pointer() const {
-    return (const uint8_t * _Nullable)opaquePointer;
+    return (const uint8_t * _Nullable)raw;
   }
-  const char * _Nullable getLoc() const {
-    return (const char * _Nullable)opaquePointer;
+  const void * _Nullable getOpaquePointerValue() const {
+    return raw;
   }
+
+  SWIFT_NAME("advanced(by:)")
+  BRIDGED_INLINE
+  BridgedSourceLoc advancedBy(size_t n) const;
+};
+
+struct BridgedSourceRange {
+  BridgedSourceLoc startLoc;
+  BridgedSourceLoc endLoc;
+};
+
+struct BridgedCharSourceRange {
+  void *_Nonnull start;
+  size_t byteLength;
 };
 
 struct BridgedArrayRef {
@@ -108,6 +164,93 @@ struct BridgedArrayRef {
   size_t numElements;
 };
 
+struct BridgedIdentifier {
+  const void *_Nullable raw;
+};
+
+struct BridgedIdentifierAndSourceLoc {
+  BridgedIdentifier name;
+  BridgedSourceLoc nameLoc;
+};
+
+//===----------------------------------------------------------------------===//
+// Plugins
+//===----------------------------------------------------------------------===//
+
+typedef struct BridgedData {
+  const char *_Nullable baseAddress;
+  size_t size;
+} BridgedData;
+
+void BridgedData_free(BridgedData data);
+
+SWIFT_BEGIN_ASSUME_NONNULL
+
+/// Create a new root 'null' JSON value. Clients must call \c JSON_value_delete
+/// after using it.
+void *JSON_newValue();
+
+/// Parse \p data as a JSON data and return the top-level value. Clients must
+/// call \c JSON_value_delete after using it.
+void *JSON_deserializedValue(BridgedData data);
+
+/// Serialize a value and populate \p result with the result data. Clients
+/// must call \c BridgedData_free after using the \p result.
+void JSON_value_serialize(void *valuePtr, BridgedData *result);
+
+/// Destroy and release the memory for \p valuePtr that is a result from
+/// \c JSON_newValue() or \c JSON_deserializedValue() .
+void JSON_value_delete(void *valuePtr);
+
+bool JSON_value_getAsNull(void *valuePtr);
+bool JSON_value_getAsBoolean(void *valuePtr, bool *result);
+bool JSON_value_getAsString(void *valuePtr, BridgedData *result);
+bool JSON_value_getAsDouble(void *valuePtr, double *result);
+bool JSON_value_getAsInteger(void *valuePtr, int64_t *result);
+bool JSON_value_getAsObject(void *valuePtr, void *_Nullable *_Nonnull result);
+bool JSON_value_getAsArray(void *valuePtr, void *_Nullable *_Nonnull result);
+
+size_t JSON_object_getSize(void *objectPtr);
+BridgedData JSON_object_getKey(void *objectPtr, size_t i);
+bool JSON_object_hasKey(void *objectPtr, const char *key);
+void *JSON_object_getValue(void *objectPtr, const char *key);
+
+size_t JSON_array_getSize(void *arrayPtr);
+void *JSON_array_getValue(void *arrayPtr, size_t index);
+
+void JSON_value_emplaceNull(void *valuePtr);
+void JSON_value_emplaceBoolean(void *valuePtr, bool value);
+void JSON_value_emplaceString(void *valuePtr, const char *value);
+void JSON_value_emplaceDouble(void *valuePtr, double value);
+void JSON_value_emplaceInteger(void *valuePtr, int64_t value);
+void *JSON_value_emplaceNewObject(void *valuePtr);
+void *JSON_value_emplaceNewArray(void *valuePtr);
+
+void JSON_object_setNull(void *objectPtr, const char *key);
+void JSON_object_setBoolean(void *objectPtr, const char *key, bool value);
+void JSON_object_setString(void *objectPtr, const char *key, const char *value);
+void JSON_object_setDouble(void *objectPtr, const char *key, double value);
+void JSON_object_setInteger(void *objectPtr, const char *key, int64_t value);
+void *JSON_object_setNewObject(void *objectPtr, const char *key);
+void *JSON_object_setNewArray(void *objectPtr, const char *key);
+void *JSON_object_setNewValue(void *objectPtr, const char *key);
+
+void JSON_array_pushNull(void *arrayPtr);
+void JSON_array_pushBoolean(void *arrayPtr, bool value);
+void JSON_array_pushString(void *arrayPtr, const char *value);
+void JSON_array_pushDouble(void *arrayPtr, double value);
+void JSON_array_pushInteger(void *arrayPtr, int64_t value);
+void *JSON_array_pushNewObject(void *arrayPtr);
+void *JSON_array_pushNewArray(void *arrayPtr);
+void *JSON_array_pushNewValue(void *arrayPtr);
+
+SWIFT_END_ASSUME_NONNULL
+
 SWIFT_END_NULLABILITY_ANNOTATIONS
+
+#ifndef PURE_BRIDGING_MODE
+// In _not_ PURE_BRIDGING_MODE, bridging functions are inlined and therefore included in the header file.
+#include "BasicBridgingImpl.h"
+#endif
 
 #endif

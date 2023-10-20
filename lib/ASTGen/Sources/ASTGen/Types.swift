@@ -1,3 +1,4 @@
+import ASTBridging
 import CASTBridging
 import SwiftDiagnostics
 @_spi(ExperimentalLanguageFeatures) import SwiftSyntax
@@ -370,10 +371,12 @@ func buildTypeRepr(
   endTypeLocPtr.pointee = sourceFile.pointee.buffer.baseAddress!.advanced(by: typeSyntax.endPosition.utf8Offset)
 
   // Convert the type syntax node.
-  return ASTGenVisitor(
+  let node = ASTGenVisitor(
     diagnosticEngine: .init(raw: diagEnginePtr),
     sourceBuffer: sourceFile.pointee.buffer,
     declContext: BridgedDeclContext(raw: dc),
     astContext: BridgedASTContext(raw: ctx)
-  ).generate(typeSyntax).raw
+  ).generate(typeSyntax)
+
+  return .init(node.ptr)
 }

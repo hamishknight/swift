@@ -15,7 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "swift/Frontend/PrintingDiagnosticConsumer.h"
-#include "swift/AST/CASTBridging.h"
+#include "swift/AST/ASTBridging.h"
 #include "swift/AST/DiagnosticEngine.h"
 #include "swift/AST/DiagnosticsCommon.h"
 #include "swift/Basic/LLVM.h"
@@ -55,8 +55,8 @@ extern "C" void swift_ASTGen_addQueuedDiagnostic(
 extern "C" void
 swift_ASTGen_renderQueuedDiagnostics(void *queued, ssize_t contextSize,
                                      ssize_t colorize,
-                                     BridgedString *renderedString);
-extern "C" void swift_ASTGen_freeBridgedString(BridgedString);
+                                     BridgedStringRef *renderedString);
+extern "C" void swift_ASTGen_freeBridgedString(BridgedStringRef);
 
 // FIXME: Hack because we cannot easily get to the already-parsed source
 // file from here. Fix this egregious oversight!
@@ -498,11 +498,12 @@ void PrintingDiagnosticConsumer::handleDiagnostic(SourceManager &SM,
 void PrintingDiagnosticConsumer::flush(bool includeTrailingBreak) {
 #if SWIFT_BUILD_SWIFT_SYNTAX
   if (queuedDiagnostics) {
-    BridgedString renderedString{nullptr, 0};
+    BridgedStringRef renderedString{nullptr, 0};
     swift_ASTGen_renderQueuedDiagnostics(queuedDiagnostics, /*contextSize=*/2,
                                          ForceColors ? 1 : 0, &renderedString);
-    if (renderedString.data) {
-      Stream.write((const char *)renderedString.data, renderedString.length);
+    auto str = renderedString.get();
+    if (!str.empty()) {
+      Stream.write(str.data(), str.size());
       swift_ASTGen_freeBridgedString(renderedString);
     }
     swift_ASTGen_destroyQueuedDiagnostics(queuedDiagnostics);

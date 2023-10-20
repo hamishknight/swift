@@ -1,4 +1,4 @@
-import CASTBridging
+import ASTBridging
 import SwiftDiagnostics
 import SwiftSyntax
 
@@ -364,7 +364,7 @@ public func addQueuedDiagnostic(
     to: QueuedDiagnostics.self
   )
 
-  guard let rawPosition = position.raw else {
+  guard let rawPosition = position.getOpaquePointerValue() else {
     return
   }
 
@@ -397,9 +397,8 @@ public func addQueuedDiagnostic(
   )
   for index in 0..<numHighlightRanges {
     // Make sure both the start and the end land within this source file.
-    guard let start = highlightRanges[index * 2].raw,
-      let end = highlightRanges[index * 2 + 1].raw
-    else {
+    guard let start = highlightRanges[index * 2].getOpaquePointerValue(),
+          let end = highlightRanges[index * 2 + 1].getOpaquePointerValue() else {
       continue
     }
 
@@ -457,7 +456,7 @@ public func renderQueuedDiagnostics(
   queuedDiagnosticsPtr: UnsafeMutableRawPointer,
   contextSize: Int,
   colorize: Int,
-  renderedStringOutPtr: UnsafeMutablePointer<BridgedString>
+  renderedStringOutPtr: UnsafeMutablePointer<BridgedStringRef>
 ) {
   let queuedDiagnostics = queuedDiagnosticsPtr.assumingMemoryBound(to: QueuedDiagnostics.self)
   let formatter = DiagnosticsFormatter(contextSize: contextSize, colorize: colorize != 0)

@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import CASTBridging
+import ASTBridging
 import SwiftCompilerPluginMessageHandling
 import SwiftDiagnostics
 import SwiftOperators
@@ -221,12 +221,12 @@ func checkMacroDefinition(
   diagEnginePtr: UnsafeMutableRawPointer,
   sourceFilePtr: UnsafeRawPointer,
   macroLocationPtr: UnsafePointer<UInt8>,
-  externalMacroOutPtr: UnsafeMutablePointer<BridgedString>,
+  externalMacroOutPtr: UnsafeMutablePointer<BridgedStringRef>,
   replacementsPtr: UnsafeMutablePointer<UnsafeMutablePointer<Int>?>,
   numReplacementsPtr: UnsafeMutablePointer<Int>
 ) -> Int {
   // Assert "out" parameters are initialized.
-  assert(externalMacroOutPtr.pointee.isEmptyInitialized)
+  assert(externalMacroOutPtr.pointee.isEmpty)
   assert(replacementsPtr.pointee == nil && numReplacementsPtr.pointee == 0)
 
   let sourceFilePtr = sourceFilePtr.bindMemory(to: ExportedSourceFile.self, capacity: 1)
@@ -397,12 +397,12 @@ public func freeExpansionReplacements(
 // Make an expansion result for '@_cdecl' function caller.
 func makeExpansionOutputResult(
   expandedSource: String?,
-  outputPointer: UnsafeMutablePointer<BridgedString>
+  outputPointer: UnsafeMutablePointer<BridgedStringRef>
 ) -> Int {
-  guard var expandedSource = expandedSource else {
+  guard let expandedSource = expandedSource else {
     // NOTE: You cannot use 'init()' here as that will produce garbage
     // (rdar://116825963).
-    outputPointer.pointee = BridgedString(data: nil, length: 0)
+    outputPointer.pointee = BridgedStringRef(data: nil, count: 0)
     return -1
   }
   outputPointer.pointee = allocateBridgedString(expandedSource)
@@ -419,10 +419,10 @@ func expandFreestandingMacro(
   rawMacroRole: UInt8,
   sourceFilePtr: UnsafeRawPointer,
   sourceLocationPtr: UnsafePointer<UInt8>?,
-  expandedSourceOutPtr: UnsafeMutablePointer<BridgedString>
+  expandedSourceOutPtr: UnsafeMutablePointer<BridgedStringRef>
 ) -> Int {
   // We didn't expand anything so far.
-  assert(expandedSourceOutPtr.pointee.isEmptyInitialized)
+  assert(expandedSourceOutPtr.pointee.isEmpty)
 
   guard let sourceLocationPtr = sourceLocationPtr else {
     print("NULL source location")
@@ -694,10 +694,10 @@ func expandAttachedMacro(
   attachedTo declarationSourceLocPointer: UnsafePointer<UInt8>?,
   parentDeclSourceFilePtr: UnsafeRawPointer?,
   parentDeclSourceLocPointer: UnsafePointer<UInt8>?,
-  expandedSourceOutPtr: UnsafeMutablePointer<BridgedString>
+  expandedSourceOutPtr: UnsafeMutablePointer<BridgedStringRef>
 ) -> Int {
   // We didn't expand anything so far.
-  assert(expandedSourceOutPtr.pointee.isEmptyInitialized)
+  assert(expandedSourceOutPtr.pointee.isEmpty)
 
   // Dig out the custom attribute for the attached macro declarations.
   guard

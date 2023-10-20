@@ -10,8 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import CASTBridging
-import CBasicBridging
+import ASTBridging
 import SwiftCompilerPluginMessageHandling
 import SwiftSyntax
 import swiftLLVMJSON
@@ -58,7 +57,7 @@ func swift_ASTGen_pluginServerLoadLibraryPlugin(
   opaqueHandle: UnsafeMutableRawPointer,
   libraryPath: UnsafePointer<CChar>,
   moduleName: UnsafePointer<CChar>,
-  errorOut: UnsafeMutablePointer<BridgedString>?
+  errorOut: UnsafeMutablePointer<BridgedStringRef>?
 ) -> Bool {
   let plugin = CompilerPlugin(opaqueHandle: opaqueHandle)
 
@@ -350,7 +349,7 @@ class PluginDiagnosticsEngine {
     guard let bufferBaseAddress = exportedSourceFile.pointee.buffer.baseAddress else {
       return nil
     }
-    return BridgedSourceLoc(raw: bufferBaseAddress).advanced(by: offset)
+    return BridgedSourceLoc(bufferBaseAddress).advanced(by: offset)
   }
 
   /// C++ source location from a position value from a plugin.
@@ -367,7 +366,7 @@ class PluginDiagnosticsEngine {
     let start = bridgedSourceLoc(at: range.startOffset, in: range.fileName)
     let end = bridgedSourceLoc(at: range.endOffset, in: range.fileName)
 
-    if start.raw == nil || end.raw == nil {
+    if !start.isValid() || !end.isValid() {
       return nil
     }
     return (start: start, end: end)

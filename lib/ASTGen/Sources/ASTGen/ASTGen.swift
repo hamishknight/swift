@@ -1,5 +1,4 @@
-import CASTBridging
-import CBasicBridging
+import ASTBridging
 // Needed to use BumpPtrAllocator
 @_spi(BumpPtrAllocator) import SwiftSyntax
 
@@ -48,11 +47,11 @@ enum ASTNode {
   var bridged: BridgedASTNode {
     switch self {
     case .expr(let e):
-      return BridgedASTNode(ptr: e.raw, kind: .expr)
+      return BridgedASTNode(ptr: UnsafeMutableRawPointer(e.ptr), kind: .expr)
     case .stmt(let s):
-      return BridgedASTNode(ptr: s.raw, kind: .stmt)
+      return BridgedASTNode(ptr: UnsafeMutableRawPointer(s.ptr), kind: .stmt)
     case .decl(let d):
-      return BridgedASTNode(ptr: d.raw, kind: .decl)
+      return BridgedASTNode(ptr: UnsafeMutableRawPointer(d.ptr), kind: .decl)
     default:
       fatalError("Must be expr, stmt, or decl.")
     }
@@ -103,7 +102,7 @@ struct ASTGenVisitor {
       let swiftASTNodes = generate(element)
       switch swiftASTNodes {
       case .decl(let d):
-        out.append(d.raw)
+        out.append(UnsafeMutableRawPointer(d.ptr))
       case .stmt(let s):
         let topLevelDecl = BridgedTopLevelCodeDecl.createParsed(
           self.ctx,
@@ -112,7 +111,7 @@ struct ASTGenVisitor {
           stmt: s,
           endLoc: loc
         )
-        out.append(topLevelDecl.raw)
+        out.append(UnsafeMutableRawPointer(topLevelDecl.ptr))
       case .expr(let e):
         let topLevelDecl = BridgedTopLevelCodeDecl.createParsed(
           self.ctx,
@@ -121,7 +120,7 @@ struct ASTGenVisitor {
           expr: e,
           endLoc: loc
         )
-        out.append(topLevelDecl.raw)
+        out.append(UnsafeMutableRawPointer(topLevelDecl.ptr))
       default:
         fatalError("Top level nodes must be decls, stmts, or exprs.")
       }

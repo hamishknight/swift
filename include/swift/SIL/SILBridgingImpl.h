@@ -218,24 +218,6 @@ BridgedType BridgedType::getTupleElementType(SwiftInt idx) const {
 }
 
 //===----------------------------------------------------------------------===//
-//                                BridgedNominalTypeDecl
-//===----------------------------------------------------------------------===//
-
-BridgedStringRef BridgedNominalTypeDecl::getName() const {
-  return decl->getName().str();
-}
-
-bool BridgedNominalTypeDecl::isGlobalActor() const { return decl->isGlobalActor(); }
-
-//===----------------------------------------------------------------------===//
-//                                BridgedVarDecl
-//===----------------------------------------------------------------------===//
-
-BridgedStringRef BridgedVarDecl::getUserFacingName() const {
-  return decl->getBaseName().userFacingName();
-}
-
-//===----------------------------------------------------------------------===//
 //                                BridgedValue
 //===----------------------------------------------------------------------===//
 
