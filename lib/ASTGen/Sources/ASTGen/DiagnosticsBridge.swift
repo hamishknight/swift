@@ -1,7 +1,14 @@
+import ASTBridging
 import BasicBridging
 import CASTBridging
 import SwiftDiagnostics
 import SwiftSyntax
+
+extension BridgedDiagnosticEngine {
+  init(raw: UnsafeMutableRawPointer) {
+    self.init(OpaquePointer(raw))
+  }
+}
 
 fileprivate func emitDiagnosticParts(
   diagnosticEngine: BridgedDiagnosticEngine,

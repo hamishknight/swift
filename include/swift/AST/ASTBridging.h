@@ -27,6 +27,7 @@ SWIFT_BEGIN_NULLABILITY_ANNOTATIONS
 
 namespace swift {
   class DiagnosticArgument;
+  class DiagnosticEngine;
 }
 
 //===----------------------------------------------------------------------===//
@@ -40,13 +41,23 @@ typedef enum ENUM_EXTENSIBILITY_ATTR(open) BridgedDiagID : uint32_t {
 #include "swift/AST/DiagnosticsAll.def"
 } BridgedDiagID;
 
-// The name must not collide with BridgedDiagnosticEngine in CASTBridging.h.
-struct BridgedDiagEngine {
-  void * _Nonnull object;
+class BridgedDiagnosticEngine {
+  swift::DiagnosticEngine *_Nonnull Raw;
+
+public:
+  BridgedDiagnosticEngine(swift::DiagnosticEngine *_Nonnull raw) : Raw(raw) {}
+
+  swift::DiagnosticEngine *_Nonnull get() const { return Raw; }
 };
 
-struct BridgedOptionalDiagnosticEngine {
-  void *_Nullable object;
+class BridgedNullableDiagnosticEngine {
+  swift::DiagnosticEngine *_Nullable Raw;
+
+public:
+  BridgedNullableDiagnosticEngine(swift::DiagnosticEngine *_Nullable raw)
+      : Raw(raw) {}
+
+  swift::DiagnosticEngine *_Nullable get() const { return Raw; }
 };
 
 class BridgedDiagnosticArgument {
@@ -83,12 +94,13 @@ public:
 };
 
 // FIXME: Can we bridge InFlightDiagnostic?
-void DiagnosticEngine_diagnose(BridgedDiagEngine, BridgedSourceLoc loc,
+void DiagnosticEngine_diagnose(BridgedDiagnosticEngine, BridgedSourceLoc loc,
                                BridgedDiagID diagID, BridgedArrayRef arguments,
-                               BridgedSourceLoc highlightStart, uint32_t hightlightLength,
+                               BridgedSourceLoc highlightStart,
+                               uint32_t hightlightLength,
                                BridgedArrayRef fixIts);
 
-bool DiagnosticEngine_hadAnyError(BridgedDiagEngine);
+bool DiagnosticEngine_hadAnyError(BridgedDiagnosticEngine);
 
 SWIFT_END_NULLABILITY_ANNOTATIONS
 
