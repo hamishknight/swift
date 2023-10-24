@@ -184,7 +184,7 @@ protocol EscapeVisitorWithResult : EscapeVisitor {
   var result: Result { get }
 }
 
-private struct DefaultVisitor : EscapeVisitor {}
+struct DefaultVisitor : EscapeVisitor {}
 
 struct EscapeUtilityTypes {
 
