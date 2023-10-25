@@ -68,3 +68,14 @@ void DiagnosticEngine_diagnose(
 bool DiagnosticEngine_hadAnyError(BridgedDiagnosticEngine bridgedEngine) {
   return bridgedEngine.get()->hadAnyError();
 }
+
+//===----------------------------------------------------------------------===//
+// BridgedNominalTypeDecl
+//===----------------------------------------------------------------------===//
+
+bool BridgedNominalTypeDecl_isStructWithUnreferenceableStorage(BridgedNominalTypeDecl decl) {
+  if (auto *structDecl = dyn_cast<swift::StructDecl>(decl.get())) {
+    return structDecl->hasUnreferenceableStorage();
+  }
+  return false;
+}

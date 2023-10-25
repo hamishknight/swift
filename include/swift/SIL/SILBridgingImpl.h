@@ -218,24 +218,6 @@ BridgedType BridgedType::getTupleElementType(SwiftInt idx) const {
 }
 
 //===----------------------------------------------------------------------===//
-//                                BridgedNominalTypeDecl
-//===----------------------------------------------------------------------===//
-
-BridgedStringRef BridgedNominalTypeDecl::getName() const {
-  return decl->getName().str();
-}
-
-bool BridgedNominalTypeDecl::isGlobalActor() const { return decl->isGlobalActor(); }
-
-//===----------------------------------------------------------------------===//
-//                                BridgedVarDecl
-//===----------------------------------------------------------------------===//
-
-BridgedStringRef BridgedVarDecl::getUserFacingName() const {
-  return decl->getBaseName().userFacingName();
-}
-
-//===----------------------------------------------------------------------===//
 //                                BridgedValue
 //===----------------------------------------------------------------------===//
 
@@ -1027,23 +1009,23 @@ SwiftInt BridgedInstruction::FullApplySite_numIndirectResultArguments() const {
 //                     VarDeclInst and DebugVariableInst
 //===----------------------------------------------------------------------===//
 
-OptionalBridgedVarDecl BridgedInstruction::DebugValue_getDecl() const {
+BridgedNullableVarDecl BridgedInstruction::DebugValue_getDecl() const {
   return {getAs<swift::DebugValueInst>()->getDecl()};
 }
 
-OptionalBridgedVarDecl BridgedInstruction::AllocStack_getDecl() const {
+BridgedNullableVarDecl BridgedInstruction::AllocStack_getDecl() const {
   return {getAs<swift::AllocStackInst>()->getDecl()};
 }
 
-OptionalBridgedVarDecl BridgedInstruction::AllocBox_getDecl() const {
+BridgedNullableVarDecl BridgedInstruction::AllocBox_getDecl() const {
   return {getAs<swift::AllocBoxInst>()->getDecl()};
 }
 
-OptionalBridgedVarDecl BridgedInstruction::GlobalAddr_getDecl() const {
+BridgedNullableVarDecl BridgedInstruction::GlobalAddr_getDecl() const {
   return {getAs<swift::DebugValueInst>()->getDecl()};
 }
 
-OptionalBridgedVarDecl BridgedInstruction::RefElementAddr_getDecl() const {
+BridgedNullableVarDecl BridgedInstruction::RefElementAddr_getDecl() const {
   return {getAs<swift::DebugValueInst>()->getDecl()};
 }
 
