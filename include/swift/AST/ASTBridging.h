@@ -28,8 +28,6 @@ SWIFT_BEGIN_NULLABILITY_ANNOTATIONS
 namespace swift {
   class DiagnosticArgument;
   class DiagnosticEngine;
-  class NominalTypeDecl;
-  class VarDecl;
 }
 
 //===----------------------------------------------------------------------===//
@@ -172,22 +170,49 @@ bool ASTContext_langOptsHasFeature(BridgedASTContext cContext,
 // AST nodes
 //===----------------------------------------------------------------------===//
 
-// Define the bridging wrappers for each AST node.
-#define AST_BRIDGING_WRAPPER_NONNULL(Name)                                     \
-  typedef struct {                                                             \
-    void *_Nonnull raw;                                                        \
-  } Bridged##Name;
+// Forward declare the underlying AST node type for each wrapper.
+namespace swift {
+#define AST_BRIDGING_WRAPPER(Name) class Name;
+#include "swift/AST/ASTBridgingWrappers.def"
+}
 
-// For nullable nodes, define both a nullable and non-null variant.
-#define AST_BRIDGING_WRAPPER_NULLABLE(Name)                                    \
-  typedef struct {                                                             \
-    void *_Nullable raw;                                                       \
-  } BridgedNullable##Name;                                                     \
+// Define a bridging wrapper that wraps an underlying C++ pointer type. When
+// importing into Swift, we expose an initializer and accessor that works with
+// `void *`, which is imported as UnsafeMutableRawPointer. Note we can't rely on
+// Swift importing the underlying C++ pointer an OpaquePointer since that is
+// liable to change with PURE_BRIDGING_MODE, since it changes what we include,
+// and Swift could import the underlying pointee type.
+#define AST_BRIDGING_WRAPPER_IMPL(Node, Name, Nullability)                     \
+  class Bridged##Name {                                                        \
+    swift::Node * Nullability Ptr;                                             \
                                                                                \
-  typedef struct {                                                             \
-    void *_Nonnull raw;                                                        \
-  } Bridged##Name;
+  public:                                                                      \
+    SWIFT_UNAVAILABLE("Use init(raw:) instead")                                \
+    Bridged##Name(swift::Node * Nullability ptr) : Ptr(ptr) {}                 \
+                                                                               \
+    SWIFT_UNAVAILABLE("Use '.raw' instead")                                    \
+    swift::Node * Nullability get() const { return Ptr; }                      \
+  };                                                                           \
+                                                                               \
+  SWIFT_NAME("getter:Bridged" #Name ".raw(self:)")                             \
+  inline void * Nullability Bridged##Name##_getRaw(Bridged##Name bridged) {    \
+    return bridged.get();                                                      \
+  }                                                                            \
+                                                                               \
+  SWIFT_NAME("Bridged" #Name ".init(raw:)")                                    \
+  inline Bridged##Name Bridged##Name##_fromRaw(void * Nullability ptr) {       \
+    return static_cast<swift::Node *>(ptr);                                    \
+  }
 
+// Define the bridging wrappers for each AST node.
+#define AST_BRIDGING_WRAPPER(Name) \
+  AST_BRIDGING_WRAPPER_IMPL(Name, Name, _Nonnull)
+#include "swift/AST/ASTBridgingWrappers.def"
+
+// For nullable nodes, also define a nullable variant.
+#define AST_BRIDGING_WRAPPER_NULLABLE(Name) \
+  AST_BRIDGING_WRAPPER_IMPL(Name, Nullable##Name, _Nullable)
+#define AST_BRIDGING_WRAPPER_NONNULL(Name)
 #include "swift/AST/ASTBridgingWrappers.def"
 
 // Declare `.asDecl` on each BridgedXXXDecl type, which upcasts a wrapper for
@@ -235,17 +260,6 @@ bool ASTContext_langOptsHasFeature(BridgedASTContext cContext,
 // NominalTypeDecl
 //===----------------------------------------------------------------------===//
 
-class BridgedNominalTypeDecl {
-  swift::NominalTypeDecl * _Nonnull Ptr;
-
-public:
-#ifdef USED_IN_CPP_SOURCE
-  BridgedNominalTypeDecl(swift::NominalTypeDecl * _Nonnull ptr) : Ptr(ptr) {}
-
-  swift::NominalTypeDecl * _Nonnull get() const { return Ptr; }
-#endif
-};
-
 SWIFT_NAME("BridgedNominalTypeDecl.getName(self:)")
 BRIDGED_INLINE
 BridgedStringRef BridgedNominalTypeDecl_getName(BridgedNominalTypeDecl decl);
@@ -265,31 +279,9 @@ void NominalTypeDecl_setParsedMembers(BridgedNominalTypeDecl decl,
 // VarDecl
 //===----------------------------------------------------------------------===//
 
-class BridgedVarDecl {
-  swift::VarDecl * _Nonnull Ptr;
-
-public:
-#ifdef USED_IN_CPP_SOURCE
-  BridgedVarDecl(swift::VarDecl * _Nonnull ptr) : Ptr(ptr) {}
-
-  swift::VarDecl * _Nonnull get() const { return Ptr; }
-#endif
-};
-
 SWIFT_NAME("BridgedVarDecl.getUserFacingName(self:)")
 BRIDGED_INLINE
 BridgedStringRef BridgedVarDecl_getUserFacingName(BridgedVarDecl decl);
-
-class BridgedNullableVarDecl {
-  swift::VarDecl * _Nullable Ptr;
-
-public:
-#ifdef USED_IN_CPP_SOURCE
-  BridgedNullableVarDecl(swift::VarDecl * _Nullable ptr) : Ptr(ptr) {}
-
-  swift::VarDecl * _Nullable get() const { return Ptr; }
-#endif
-};
 
 //===----------------------------------------------------------------------===//
 // Misc
