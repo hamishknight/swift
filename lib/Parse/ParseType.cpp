@@ -634,6 +634,11 @@ ParserResult<TypeRepr> Parser::parseType(
     }
 
     return astGenResult;
+  } else {
+    llvm::errs() << "With parser at loc: ";
+    Tok.getLoc().print(llvm::errs(), Context.SourceMgr);
+    llvm::errs() << "\n";
+    llvm_unreachable("Expected type");
   }
   #endif
 

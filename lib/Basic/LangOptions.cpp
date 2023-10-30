@@ -35,6 +35,7 @@ LangOptions::LangOptions() {
 #ifndef NDEBUG
   Features.insert(Feature::ParserRoundTrip);
   Features.insert(Feature::ParserValidation);
+  Features.insert(Feature::ASTGenTypes);
 #endif
 }
 
