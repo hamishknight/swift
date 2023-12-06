@@ -75,45 +75,20 @@ namespace {
       //   - nested autoclosures, because the inner autoclosure will be
       //     parented to the outer context, not the outer autoclosure
       //   - non-local initializers
-      if (auto CE = dyn_cast<AutoClosureExpr>(E)) {
-        CE->setParent(ParentDC);
+      if (auto *ACE = dyn_cast<AbstractClosureExpr>(E)) {
+        ACE->setParent(ParentDC);
 
-        // Recurse into the autoclosure body using the same sequence,
-        // but parenting to the autoclosure instead of the outer closure.
-        auto oldParentDC = ParentDC;
-        ParentDC = CE;
-        CE->getBody()->walk(*this);
-        ParentDC = oldParentDC;
+        // If the closure was type-checked separately, we can avoid walking the
+        // body as we would have already re-parented there.
+        bool WalkBody = true;
+        if (auto *CE = dyn_cast<ClosureExpr>(ACE))
+          WalkBody = !CE->isSeparatelyTypeChecked();
 
-        TypeChecker::computeCaptures(CE);
-        return Action::SkipChildren(E);
-      } 
-
-      if (auto CapE = dyn_cast<CaptureListExpr>(E)) {
-        // Capture lists need to be reparented to enclosing autoclosures
-        // and/or initializers of property wrapper backing properties
-        // (because they subsume initializers associated with wrapped
-        // properties).
-        if (isa<AutoClosureExpr>(ParentDC) ||
-            isPropertyWrapperBackingPropertyInitContext(ParentDC)) {
-          for (auto &Cap : CapE->getCaptureList()) {
-            Cap.PBD->setDeclContext(ParentDC);
-            Cap.getVar()->setDeclContext(ParentDC);
-          }
+        if (WalkBody) {
+          // Recurse into the body, parenting to the closure.
+          ACE->getBody()->walk(ContextualizeClosuresAndMacros(ACE));
         }
-      }
-
-      // Explicit closures start their own sequence.
-      if (auto CE = dyn_cast<ClosureExpr>(E)) {
-        CE->setParent(ParentDC);
-
-        // If the closure was type checked within its enclosing context,
-        // we need to walk into it with a new sequence.
-        // Otherwise, it'll have been separately type-checked.
-        if (!CE->isSeparatelyTypeChecked())
-          CE->getBody()->walk(ContextualizeClosuresAndMacros(CE));
-
-        TypeChecker::computeCaptures(CE);
+        TypeChecker::computeCaptures(ACE);
         return Action::SkipChildren(E);
       }
 
@@ -132,24 +107,11 @@ namespace {
 
     /// We don't want to recurse into most local declarations.
     PreWalkAction walkToDeclPre(Decl *D) override {
-      // But we do want to walk into the initializers of local
-      // variables.
-      return Action::VisitChildrenIf(isa<PatternBindingDecl>(D));
-    }
+      D->setDeclContext(ParentDC);
 
-  private:
-    static bool isPropertyWrapperBackingPropertyInitContext(DeclContext *DC) {
-      auto *init = dyn_cast<PatternBindingInitializer>(DC);
-      if (!init)
-        return false;
-
-      if (auto *PB = init->getBinding()) {
-        auto *var = PB->getSingleVar();
-        return var && var->getOriginalWrappedProperty(
-                          PropertyWrapperSynthesizedPropertyKind::Backing);
-      }
-
-      return false;
+      // Skip walking the children of any Decls that are also DeclContexts,
+      // they will already have the right parent.
+      return Action::SkipChildrenIf(isa<DeclContext>(D));
     }
   };
 

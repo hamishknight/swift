@@ -1567,34 +1567,16 @@ namespace {
         CE->setParent(NewDC);
         return Action::SkipChildren(E);
       }
-      
-      if (auto CLE = dyn_cast<CaptureListExpr>(E)) {
-        // Make sure to recontextualize any decls in the capture list as well.
-        for (auto &CLE : CLE->getCaptureList()) {
-          CLE.getVar()->setDeclContext(NewDC);
-          CLE.PBD->setDeclContext(NewDC);
-        }
-      }
-      
-      // Unlike a closure, a TapExpr is not a DeclContext, so we need to
-      // recontextualize its variable and then anything else in its body.
-      // FIXME: Might be better to change walkToDeclPre() and walkToStmtPre()
-      // below, but I don't know what other effects that might have.
-      if (auto TE = dyn_cast<TapExpr>(E)) {
-        TE->getVar()->setDeclContext(NewDC);
-        for (auto node : TE->getBody()->getElements())
-          node.walk(RecontextualizeClosures(NewDC));
-      }
 
       return Action::Continue(E);
     }
 
-    /// We don't want to recurse into declarations or statements.
-    PreWalkAction walkToDeclPre(Decl *) override {
-      return Action::SkipChildren();
-    }
-    PreWalkResult<Stmt *> walkToStmtPre(Stmt *S) override {
-      return Action::SkipChildren(S);
+    PreWalkAction walkToDeclPre(Decl *D) override {
+      D->setDeclContext(NewDC);
+
+      // Skip walking the children of any Decls that are also DeclContexts,
+      // they will already have the right parent.
+      return Action::SkipChildrenIf(isa<DeclContext>(D));
     }
   };
 } // end anonymous namespace
