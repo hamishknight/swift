@@ -1,7 +1,7 @@
 // RUN: %target-swift-frontend -Xllvm -sil-full-demangle -profile-generate -profile-coverage-mapping -emit-sorted-sil -emit-sil -module-name coverage_switch %s | %FileCheck %s
 // RUN: %target-swift-frontend -profile-generate -profile-coverage-mapping -emit-ir %s
 
-// CHECK-LABEL: sil hidden @$s15coverage_switch2f1yys5Int32VF : $@convention(thin) (Int32) -> ()
+// CHECK-LABEL: sil hidden [profilable] @$s15coverage_switch2f1yys5Int32VF : $@convention(thin) (Int32) -> ()
 // CHECK:       increment_profiler_counter 0
 
 // CHECK:       integer_literal $Builtin.Int32, 1

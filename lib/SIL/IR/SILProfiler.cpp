@@ -83,18 +83,14 @@ static NodeToProfile getNodeToProfile(SILDeclRef Constant) {
   llvm_unreachable("Unhandled case in switch!");
 }
 
-/// Check whether we should profile a given SILDeclRef.
-static bool shouldProfile(SILDeclRef Constant) {
-  auto Root = getNodeToProfile(Constant);
-  auto *DC = Constant.getInnermostDeclContext();
+bool SILDeclRef::isProfilable() const {
+  auto Root = getNodeToProfile(*this);
+  auto *DC = getInnermostDeclContext();
 
   if (auto N = Root.getAsNode()) {
     // Do not profile AST nodes with invalid source locations.
-    if (N.getStartLoc().isInvalid() || N.getEndLoc().isInvalid()) {
-      LLVM_DEBUG(llvm::dbgs()
-                 << "Skipping ASTNode: invalid start/end locations\n");
+    if (N.getStartLoc().isInvalid() || N.getEndLoc().isInvalid())
       return false;
-    }
 
     // Do not profile generated code. This includes macro expansions, which we
     // otherwise consider to be "written by the user", because they wrote the
@@ -107,26 +103,20 @@ static bool shouldProfile(SILDeclRef Constant) {
     auto *M = DC->getParentModule();
     if (auto *SF = M->getSourceFileContainingLocation(N.getStartLoc())) {
       auto &SM = M->getASTContext().SourceMgr;
-      if (SM.hasGeneratedSourceInfo(*SF->getBufferID())) {
-        LLVM_DEBUG(llvm::dbgs() << "Skipping ASTNode: generated code\n");
+      if (SM.hasGeneratedSourceInfo(*SF->getBufferID()))
         return false;
-      }
     }
   }
 
   // Do not profile AST nodes in unavailable contexts.
   if (auto *D = DC->getInnermostDeclarationDeclContext()) {
-    if (D->getSemanticUnavailableAttr()) {
-      LLVM_DEBUG(llvm::dbgs() << "Skipping ASTNode: unavailable context\n");
+    if (D->getSemanticUnavailableAttr())
       return false;
-    }
   }
 
   // Do not profile code that hasn't been written by the user.
-  if (!Constant.hasUserWrittenCode()) {
-    LLVM_DEBUG(llvm::dbgs() << "Skipping ASTNode: no user-written code\n");
+  if (!hasUserWrittenCode())
     return false;
-  }
 
   return true;
 }
@@ -137,7 +127,7 @@ SILProfiler *SILProfiler::create(SILModule &M, SILDeclRef Ref) {
   if (!Opts.GenerateProfile && Opts.UseProfile.empty())
     return nullptr;
 
-  if (!shouldProfile(Ref))
+  if (!Ref.isProfilable())
     return nullptr;
 
   auto *Buf = M.allocate<SILProfiler>(1);

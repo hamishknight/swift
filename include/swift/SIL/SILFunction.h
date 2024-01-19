@@ -434,6 +434,10 @@ private:
 
   unsigned HasResultDependsOnSelf : 1;
 
+  /// Whether the function should have profiling instrumentation emitted.
+  /// Note this does not need to be serialized.
+  unsigned IsProfilable : 1;
+
   /// True, if this function or a caller (transitively) has a performance
   /// constraint.
   /// If true, optimizations must not introduce new runtime calls or metadata
@@ -917,6 +921,13 @@ public:
 
   bool needsStackProtection() const { return stackProtection; }
   void setNeedStackProtection(bool needSP) { stackProtection = needSP; }
+
+  bool isProfilable() const {
+    return IsProfilable;
+  }
+  void setIsProfilable(bool isProfilable = true) {
+    IsProfilable = isProfilable;
+  }
 
   /// Get the DeclContext of this function.
   DeclContext *getDeclContext() const { return DeclCtxt; }

@@ -4,7 +4,7 @@
 func foo() {}
 
 public class Foo {
-  // CHECK-LABEL: sil @$s15coverage_deinit3FooCfd
+  // CHECK-LABEL: sil [profilable] @$s15coverage_deinit3FooCfd
   // CHECK:       increment_profiler_counter 0
   // CHECK:       function_ref @$sSb6randomSbyFZ
   // CHECK:       cond_br

@@ -1,6 +1,6 @@
 // RUN: %target-swift-frontend -parse-as-library -emit-silgen -profile-generate %s | %FileCheck %s
 
-// CHECK: sil hidden [ossa] @[[F_OPERATORS:.*operators.*]] :
+// CHECK: sil hidden [ossa] [profilable] @[[F_OPERATORS:.*operators.*]] :
 // CHECK: increment_profiler_counter 0, "{{.*}}instrprof_operators.swift:[[F_OPERATORS]]", num_counters 2, hash
 func operators(a : Bool, b : Bool) {
   let c = a && b

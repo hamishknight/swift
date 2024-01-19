@@ -353,6 +353,10 @@ SILFunction *SILFunctionBuilder::getOrCreateFunction(
   if (constant.isGlobal())
     F->setSpecialPurpose(SILFunction::Purpose::GlobalInit);
 
+  // If profiling is enabled, we need to mark which functions are profilable.
+  if (mod.Options.GenerateProfile)
+    F->setIsProfilable(constant.isProfilable());
+
   if (constant.hasDecl()) {
     auto decl = constant.getDecl();
 

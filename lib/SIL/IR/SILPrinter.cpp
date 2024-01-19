@@ -3443,6 +3443,9 @@ void SILFunction::print(SILPrintContext &PrintCtx) const {
     OS << "[_resultDependsOnSelf] ";
   }
 
+  if (isProfilable())
+    OS << "[profilable] ";
+
   llvm::DenseMap<CanType, Identifier> sugaredTypeNames;
   printSILFunctionNameAndType(OS, this, sugaredTypeNames, &PrintCtx);
 

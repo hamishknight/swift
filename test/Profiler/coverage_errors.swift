@@ -40,7 +40,7 @@ enum SomeErr : Error {
 //     return 0
 //   }
 // }
-// CHECK-LABEL: sil hidden @$s15coverage_errors5test1SiyF : $@convention(thin) () -> Int
+// CHECK-LABEL: sil hidden [profilable] @$s15coverage_errors5test1SiyF : $@convention(thin) () -> Int
 // CHECK:       bb0:
 // CHECK:       increment_profiler_counter 0
 // CHECK:       [[FN:%[0-9]+]] = function_ref @$s15coverage_errors10throwingFnSiyKF
@@ -56,7 +56,7 @@ enum SomeErr : Error {
 //   let x = try throwingFn()
 //   return x
 // }
-// CHECK-LABEL: sil hidden @$s15coverage_errors5test2SiyKF : $@convention(thin) () -> (Int, @error any Error)
+// CHECK-LABEL: sil hidden [profilable] @$s15coverage_errors5test2SiyKF : $@convention(thin) () -> (Int, @error any Error)
 // CHECK:       bb0:
 // CHECK:       increment_profiler_counter 0
 // CHECK:       [[FN:%[0-9]+]] = function_ref @$s15coverage_errors10throwingFnSiyKF
@@ -69,7 +69,7 @@ enum SomeErr : Error {
 //   let x = try throwingProp
 //   return x
 // }
-// CHECK-LABEL: sil hidden @$s15coverage_errors5test3SiyKF : $@convention(thin) () -> (Int, @error any Error)
+// CHECK-LABEL: sil hidden [profilable] @$s15coverage_errors5test3SiyKF : $@convention(thin) () -> (Int, @error any Error)
 // CHECK:       bb0:
 // CHECK:       increment_profiler_counter 0
 // CHECK:       [[FN:%[0-9]+]] = function_ref @$s15coverage_errors12throwingPropSivg
@@ -82,7 +82,7 @@ enum SomeErr : Error {
 //   let x = try S[]
 //   return x
 // }
-// CHECK-LABEL: sil hidden @$s15coverage_errors5test4SiyKF : $@convention(thin) () -> (Int, @error any Error)
+// CHECK-LABEL: sil hidden [profilable] @$s15coverage_errors5test4SiyKF : $@convention(thin) () -> (Int, @error any Error)
 // CHECK:       bb0:
 // CHECK:       increment_profiler_counter 0
 // CHECK:       [[FN:%[0-9]+]] = function_ref @$s15coverage_errors1SVSiycigZ
@@ -97,7 +97,7 @@ enum SomeErr : Error {
 //   let y = try x[]
 //   return y
 // }
-// CHECK-LABEL: sil hidden @$s15coverage_errors6test17ySiAA1SVKF : $@convention(thin) (S) -> (Int, @error any Error)
+// CHECK-LABEL: sil hidden [profilable] @$s15coverage_errors6test17ySiAA1SVKF : $@convention(thin) (S) -> (Int, @error any Error)
 // CHECK:       bb0(%0 : $S):
 // CHECK:       increment_profiler_counter 0
 // CHECK:       [[FN:%[0-9]+]] = function_ref @$s15coverage_errors1SVSiycig
@@ -112,7 +112,7 @@ enum SomeErr : Error {
 //   let y = try x.throwingMethod()
 //   return y
 // }
-// CHECK-LABEL: sil hidden @$s15coverage_errors6test18ySiAA1SVKF : $@convention(thin) (S) -> (Int, @error any Error)
+// CHECK-LABEL: sil hidden [profilable] @$s15coverage_errors6test18ySiAA1SVKF : $@convention(thin) (S) -> (Int, @error any Error)
 // CHECK:       bb0(%0 : $S):
 // CHECK:       increment_profiler_counter 0
 // CHECK:       [[FN:%[0-9]+]] = function_ref @$s15coverage_errors1SV14throwingMethodSiyKF
@@ -125,7 +125,7 @@ enum SomeErr : Error {
 //   let x = try throwingS.throwingMethod()
 //   return x
 // }
-// CHECK-LABEL: sil hidden @$s15coverage_errors6test19SiyKF : $@convention(thin) () -> (Int, @error any Error)
+// CHECK-LABEL: sil hidden [profilable] @$s15coverage_errors6test19SiyKF : $@convention(thin) () -> (Int, @error any Error)
 // CHECK:       bb0:
 // CHECK:       increment_profiler_counter 0
 // CHECK:       [[GETTER:%[0-9]+]] = function_ref @$s15coverage_errors9throwingSAA1SVvg
@@ -144,7 +144,7 @@ enum SomeErr : Error {
 //   try { throw SomeErr.Err1 }()
 //   return 1
 // }
-// CHECK-LABEL: sil hidden @$s15coverage_errors6test21SiyKF : $@convention(thin) () -> (Int, @error any Error)
+// CHECK-LABEL: sil hidden [profilable] @$s15coverage_errors6test21SiyKF : $@convention(thin) () -> (Int, @error any Error)
 // CHECK:       bb0:
 // CHECK:       increment_profiler_counter 0
 // CHECK:       [[FN:%[0-9]+]] = function_ref @$s15coverage_errors6test21SiyKFyyKXEfU_
@@ -159,7 +159,7 @@ enum SomeErr : Error {
 //     : throwingFn()
 //   return x
 // }
-// CHECK-LABEL: sil hidden @$s15coverage_errors6test28SiyKF : $@convention(thin) () -> (Int, @error any Error)
+// CHECK-LABEL: sil hidden [profilable] @$s15coverage_errors6test28SiyKF : $@convention(thin) () -> (Int, @error any Error)
 // CHECK:       bb0:
 // CHECK:       increment_profiler_counter 0
 // CHECK:       function_ref @$sSb6randomSbyFZ
@@ -184,7 +184,7 @@ enum SomeErr : Error {
 //   let x = try? throwingS.throwingMethod()
 //   return x
 // }
-// CHECK-LABEL: sil hidden @$s15coverage_errors6test43SiSgyF : $@convention(thin) () -> Optional<Int>
+// CHECK-LABEL: sil hidden [profilable] @$s15coverage_errors6test43SiSgyF : $@convention(thin) () -> Optional<Int>
 // CHECK:       bb0:
 // CHECK:       increment_profiler_counter 0
 // CHECK:       [[GETTER:%[0-9]+]] = function_ref @$s15coverage_errors9throwingSAA1SVvg : $@convention(thin) () -> (S, @error any Error)

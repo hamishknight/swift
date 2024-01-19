@@ -3,7 +3,7 @@
 
 // Skip the sil prologue, which reproduces the swift source of this file
 // and confounds FileCheck.
-// CHECK-LABEL: sil @main
+// CHECK-LABEL: sil [profilable] @main
 
 func singleDefaultArgument(i: Int = {
   // CHECK: sil_coverage_map {{.*}}closure #1 () -> Swift.Int in default argument 0

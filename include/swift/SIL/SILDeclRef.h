@@ -529,6 +529,9 @@ struct SILDeclRef {
   /// table entry.
   bool requiresNewWitnessTableEntry() const;
 
+  /// Whether profiling instrumentation can be emitted for this function.
+  bool isProfilable() const;
+
   /// Return a SILDeclRef to the declaration overridden by this one, or
   /// a null SILDeclRef if there is no override.
   SILDeclRef getOverridden() const;

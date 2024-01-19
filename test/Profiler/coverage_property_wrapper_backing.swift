@@ -18,14 +18,14 @@ struct PassThroughWrapper<T> {
 // rdar://99931619 – Make sure we emit the profiler increment for the backing
 // initializer.
 
-// CHECK-LABEL: sil hidden @$s33coverage_property_wrapper_backing1SV1iSivpfP : $@convention(thin) (Int) -> Wrapper<Int>
+// CHECK-LABEL: sil hidden [profilable] @$s33coverage_property_wrapper_backing1SV1iSivpfP : $@convention(thin) (Int) -> Wrapper<Int>
 // CHECK:       increment_profiler_counter 0
 // CHECK:       function_ref @$sSb6randomSbyFZ
 // CHECK:       cond_br {{%[0-9]+}}, [[BB:bb[0-9]]]
 // CHECK:       [[BB]]:
 // CHECK-NEXT:  increment_profiler_counter 1
 
-// CHECK-LABEL: sil hidden @$s33coverage_property_wrapper_backing1UV1xSivpfP : $@convention(thin) (Int) -> Wrapper<Int>
+// CHECK-LABEL: sil hidden [profilable] @$s33coverage_property_wrapper_backing1UV1xSivpfP : $@convention(thin) (Int) -> Wrapper<Int>
 // CHECK:       function_ref @$sSb6randomSbyFZ : $@convention(method) (@thin Bool.Type) -> Bool
 // CHECK:       cond_br {{%[0-9]+}}, [[BB_TRUE:bb[0-9]+]], [[BB_FALSE:bb[0-9]+]]
 //
@@ -36,7 +36,7 @@ struct PassThroughWrapper<T> {
 // CHECK:       increment_profiler_counter 1
 // CHECK:       integer_literal {{.*}}, 1
 
-// CHECK-LABEL: sil hidden [transparent] @$s33coverage_property_wrapper_backing1UV2_{{.*}}7WrapperVySiGvpfi : $@convention(thin) () -> Int
+// CHECK-LABEL: sil hidden [transparent] [profilable] @$s33coverage_property_wrapper_backing1UV2_{{.*}}7WrapperVySiGvpfi : $@convention(thin) () -> Int
 // CHECK:       increment_profiler_counter 0
 // CHECK:       function_ref @$sSb6randomSbyFZ : $@convention(method) (@thin Bool.Type) -> Bool
 // CHECK:       cond_br {{%[0-9]+}}, [[BB_TRUE:bb[0-9]+]], [[BB_FALSE:bb[0-9]+]]

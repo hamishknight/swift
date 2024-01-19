@@ -6,7 +6,7 @@
 // coverage map as well.
 func unused() -> Int { 5 }
 
-// SIL: sil hidden @$s17coverage_deadcode6unusedSiyF : $@convention(thin) () -> Int
+// SIL: sil hidden [profilable] @$s17coverage_deadcode6unusedSiyF : $@convention(thin) () -> Int
 // SIL: sil_coverage_map {{.*}} "$s17coverage_deadcode6unusedSiyF"
 
 // IR: @__covrec

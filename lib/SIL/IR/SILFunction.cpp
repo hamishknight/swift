@@ -217,6 +217,7 @@ void SILFunction::init(
   this->HasOwnership = true,
   this->WasDeserializedCanonical = false;
   this->IsWithoutActuallyEscapingThunk = false;
+  this->IsProfilable = false;
   this->OptMode = unsigned(OptimizationMode::NotSet);
   this->perfConstraints = PerformanceConstraints::None;
   this->EffectsKindAttr = unsigned(E);
@@ -291,6 +292,7 @@ void SILFunction::createSnapshot(int id) {
   newSnapshot->IsAlwaysWeakImported = IsAlwaysWeakImported;
   newSnapshot->HasOwnership = HasOwnership;
   newSnapshot->IsWithoutActuallyEscapingThunk = IsWithoutActuallyEscapingThunk;
+  newSnapshot->IsProfilable = IsProfilable;
   newSnapshot->OptMode = OptMode;
   newSnapshot->copyEffects(this);
 

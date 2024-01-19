@@ -26,11 +26,11 @@
 // RUN: %target-swift-frontend -profile-generate -profile-coverage-mapping -num-threads 1 -O -emit-sil %S/Inputs/coverage_num_threads3.swift %S/Inputs/coverage_num_threads4.swift | %FileCheck %s -check-prefix=MULTIPLE-OBJECTS-INLINE-SIL
 // RUN: %target-swift-frontend -profile-generate -profile-coverage-mapping -num-threads 1 -O -emit-ir %S/Inputs/coverage_num_threads3.swift %S/Inputs/coverage_num_threads4.swift | %FileCheck %s -check-prefix=MULTIPLE-OBJECTS-INLINE --implicit-check-not="llvm_coverage_mapping =" --implicit-check-not="@__covrec_{{[a-zA-Z0-9]+}} ="
 
-// MULTIPLE-OBJECTS-INLINE-SIL-LABEL: sil @$s21coverage_num_threads35func1yyF
+// MULTIPLE-OBJECTS-INLINE-SIL-LABEL: sil [profilable] @$s21coverage_num_threads35func1yyF
 // MULTIPLE-OBJECTS-INLINE-SIL:       increment_profiler_counter 0, "$s21coverage_num_threads35func1yyF"
 // MULTIPLE-OBJECTS-INLINE-SIL:       increment_profiler_counter 0, "$s21coverage_num_threads35func2yyF"
 
-// MULTIPLE-OBJECTS-INLINE-SIL-LABEL: sil @$s21coverage_num_threads35func2yyF
+// MULTIPLE-OBJECTS-INLINE-SIL-LABEL: sil [profilable] @$s21coverage_num_threads35func2yyF
 // MULTIPLE-OBJECTS-INLINE-SIL:       increment_profiler_counter 0, "$s21coverage_num_threads35func2yyF"
 
 // MULTIPLE-OBJECTS-INLINE: @__covrec_{{[a-zA-Z0-9]+}} =

@@ -17,7 +17,7 @@ distributed actor MyDistActor {
     self.actorSystem = system
   }
 
-  // CHECK-LABEL: sil hidden @$s13coverage_dist11MyDistActorCfd : $@convention(method) (@guaranteed MyDistActor) -> @owned Builtin.NativeObject
+  // CHECK-LABEL: sil hidden [profilable] @$s13coverage_dist11MyDistActorCfd : $@convention(method) (@guaranteed MyDistActor) -> @owned Builtin.NativeObject
   // CHECK:       cond_br {{%[0-9]+}}, {{bb[0-9]+}}, [[DEINITBODYBB:bb[0-9]+]]
 
   // CHECK:       [[DEINITBODYBB]]:

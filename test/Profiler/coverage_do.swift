@@ -1,7 +1,7 @@
 // RUN: %target-swift-frontend -Xllvm -sil-full-demangle -suppress-warnings -profile-generate -profile-coverage-mapping -emit-sorted-sil -emit-sil -module-name coverage_do %s | %FileCheck %s
 // RUN: %target-swift-frontend -profile-generate -profile-coverage-mapping -emit-ir %s
 
-// CHECK-LABEL: sil hidden @$s11coverage_do3fooyyF : $@convention(thin) () -> ()
+// CHECK-LABEL: sil hidden [profilable] @$s11coverage_do3fooyyF : $@convention(thin) () -> ()
 
 // CHECK:       increment_profiler_counter 0
 // CHECK:       function_ref @$sSb6randomSbyFZ
