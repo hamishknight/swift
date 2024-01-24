@@ -7198,7 +7198,6 @@ public:
   }
 
   Expr *getSingleExpressionBody() const;
-  void setSingleExpressionBody(Expr *NewBody);
 
   /// Returns the string for the base name, or "_" if this is unnamed.
   StringRef getNameStr() const {
