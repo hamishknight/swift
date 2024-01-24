@@ -5965,6 +5965,14 @@ void PrintAST::visitPropertyWrapperValuePlaceholderExpr(swift::PropertyWrapperVa
 void PrintAST::visitDifferentiableFunctionExtractOriginalExpr(swift::DifferentiableFunctionExtractOriginalExpr *expr) {
 }
 
+void PrintAST::visitDiscardExpr(DiscardExpr *E) {
+  visit(E->getSubExpr());
+}
+
+void PrintAST::visitUnreachableExpr(UnreachableExpr *E) {
+  visit(E->getSubExpr());
+}
+
 void PrintAST::visitMacroExpansionExpr(MacroExpansionExpr *expr) {
 }
 

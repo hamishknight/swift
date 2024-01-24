@@ -7491,6 +7491,16 @@ Expr *ExprRewriter::coerceToType(Expr *expr, Type toType,
     break;
   }
 
+  // Uninhabited types can be coerced to any other type via an UnreachableExpr.
+  if (fromType->isUninhabited())
+    return UnreachableExpr::create(ctx, expr, toType);
+
+  // Anything can be discarded to Void.
+  if (toType->isVoid()) {
+    TypeChecker::checkIgnoredExpr(expr);
+    return DiscardExpr::create(ctx, expr, toType);
+  }
+
   // "Catch all" coercions.
   auto desugaredToType = toType->getDesugaredType();
   switch (desugaredToType->getKind()) {

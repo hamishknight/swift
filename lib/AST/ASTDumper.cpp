@@ -2652,6 +2652,16 @@ public:
     printRec(E->getSubExpr());
     printFoot();
   }
+  void visitDiscardExpr(DiscardExpr *E, StringRef label) {
+    printCommon(E, "discard", label);
+    printRec(E->getSubExpr());
+    printFoot();
+  }
+  void visitUnreachableExpr(UnreachableExpr *E, StringRef label) {
+    printCommon(E, "unreachable", label);
+    printRec(E->getSubExpr());
+    printFoot();
+  }
   void visitDifferentiableFunctionExpr(DifferentiableFunctionExpr *E, StringRef label) {
     printCommon(E, "differentiable_function", label);
     printRec(E->getSubExpr());

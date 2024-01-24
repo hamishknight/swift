@@ -1784,6 +1784,21 @@ public:
       verifyCheckedBase(E);
     }
 
+    void verifyChecked(UnreachableExpr *E) {
+      if (!E->getSubExpr()->getType()->isStructurallyUninhabited()) {
+        Out << "UnreachableExpr must have an uninhabited sub-expression: ";
+        E->getSubExpr()->dump(Out);
+        abort();
+      }
+    }
+
+    void verifyChecked(DiscardExpr *E) {
+      if (!E->getType()->isVoid()) {
+        Out << "DiscardExpr must be typed as Void";
+        abort();
+      }
+    }
+
     void verifyChecked(TupleElementExpr *E) {
       PrettyStackTraceExpr debugStack(Ctx, "verifying TupleElementExpr", E);
 
