@@ -47,16 +47,16 @@ class ProtocolConformance;
 /// specified error messages when the conversion fails.
 ///
 enum ContextualTypePurpose : uint8_t {
-  CTP_Unused,           ///< No contextual type is specified.
-  CTP_Initialization,   ///< Pattern binding initialization.
-  CTP_ReturnStmt,       ///< Value specified to a 'return' statement.
-  CTP_ReturnSingleExpr, ///< Value implicitly returned from a function.
-  CTP_YieldByValue,     ///< By-value yield operand.
-  CTP_YieldByReference, ///< By-reference yield operand.
-  CTP_ThrowStmt,        ///< Value specified to a 'throw' statement.
-  CTP_DiscardStmt,      ///< Value specified to a 'discard' statement.
-  CTP_EnumCaseRawValue, ///< Raw value specified for "case X = 42" in enum.
-  CTP_DefaultParameter, ///< Default value in parameter 'foo(a : Int = 42)'.
+  CTP_Unused,            ///< No contextual type is specified.
+  CTP_Initialization,    ///< Pattern binding initialization.
+  CTP_ReturnStmt,        ///< Value specified to a 'return' statement.
+  CTP_ImpliedReturnStmt, ///< Value implicitly returned from a function.
+  CTP_YieldByValue,      ///< By-value yield operand.
+  CTP_YieldByReference,  ///< By-reference yield operand.
+  CTP_ThrowStmt,         ///< Value specified to a 'throw' statement.
+  CTP_DiscardStmt,       ///< Value specified to a 'discard' statement.
+  CTP_EnumCaseRawValue,  ///< Raw value specified for "case X = 42" in enum.
+  CTP_DefaultParameter,  ///< Default value in parameter 'foo(a : Int = 42)'.
 
   /// Default value in @autoclosure parameter
   /// 'foo(a : @autoclosure () -> Int = 42)'.
