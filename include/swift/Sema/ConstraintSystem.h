@@ -2082,6 +2082,15 @@ struct DeclReferenceType {
   Type thrownErrorTypeOnAccess;
 };
 
+enum class ImpliedResultKind {
+  /// A regular implied result, this applies to e.g implied 'then' statements
+  /// outside of closures.
+  Regular,
+
+  /// An implied result for a closure.
+  ForClosure
+};
+
 /// Describes a system of constraints on type variables, the
 /// solution of which assigns concrete types to each of the type variables.
 /// Constraint systems are typically generated given an (untyped) expression.
@@ -2190,6 +2199,11 @@ private:
   /// Maps discovered closures to their types inferred
   /// from declared parameters/result and body.
   llvm::MapVector<const ClosureExpr *, FunctionType *> ClosureTypes;
+
+  /// Maps expressions for implied results (e.g implicit 'then' statements,
+  /// implicit 'return' statements in single expression body closures) to their
+  /// result kind.
+  llvm::MapVector<const Expr *, ImpliedResultKind> ImpliedResults;
 
   /// This is a *global* list of all result builder bodies that have
   /// been determined to be incorrect by failing constraint generation.
@@ -2864,6 +2878,9 @@ public:
     /// The length of \c ClosureTypes.
     unsigned numInferredClosureTypes;
 
+    /// The length of \c ImpliedResults.
+    unsigned numImpliedResults;
+
     /// The length of \c contextualTypes.
     unsigned numContextualTypes;
 
@@ -3070,6 +3087,24 @@ public:
   /// \c isArgumentIgnoredForCodeCompletion returns \c true.
   bool hasArgumentsIgnoredForCodeCompletion() const {
     return !IgnoredArguments.empty();
+  }
+
+  /// Record an implied result for a ReturnStmt or ThenStmt.
+  void recordImpliedResult(const Expr *E, ImpliedResultKind kind) {
+    assert(E);
+    auto inserted = ImpliedResults.insert({E, kind}).second;
+    assert(inserted && "Duplicate implied result?");
+    (void)inserted;
+  }
+
+  /// Whether the given expression is the implied result for either a ReturnStmt
+  /// or ThenStmt, and if so, the kind of implied result.
+  llvm::Optional<ImpliedResultKind> isImpliedResult(const Expr *E) const {
+    auto result = ImpliedResults.find(E);
+    if (result == ImpliedResults.end())
+      return llvm::None;
+
+    return result->second;
   }
 
   void setClosureType(const ClosureExpr *closure, FunctionType *type) {

@@ -667,6 +667,7 @@ ConstraintSystem::SolverScope::SolverScope(ConstraintSystem &cs)
   numAppliedPropertyWrappers = cs.appliedPropertyWrappers.size();
   numResolvedOverloads = cs.ResolvedOverloads.size();
   numInferredClosureTypes = cs.ClosureTypes.size();
+  numImpliedResults = cs.ImpliedResults.size();
   numContextualTypes = cs.contextualTypes.size();
   numTargets = cs.targets.size();
   numCaseLabelItems = cs.caseLabelItems.size();
@@ -788,6 +789,9 @@ ConstraintSystem::SolverScope::~SolverScope() {
 
   // Remove any inferred closure types (e.g. used in result builder body).
   truncate(cs.ClosureTypes, numInferredClosureTypes);
+
+  // Remove any implied results.
+  truncate(cs.ImpliedResults, numImpliedResults);
 
   // Remove any contextual types.
   truncate(cs.contextualTypes, numContextualTypes);

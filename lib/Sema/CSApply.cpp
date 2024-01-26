@@ -9581,6 +9581,7 @@ ExprWalker::rewriteTarget(SyntacticElementTarget target) {
       if (solution.simplifyType(convertType)->isVoid()) {
         auto contextPurpose = cs.getContextualTypePurpose(target.getAsExpr());
         if (contextPurpose == CTP_ImpliedReturnStmt ||
+            contextPurpose == CTP_ClosureResult ||
             contextPurpose == CTP_SingleValueStmtBranch) {
           return false;
         }
@@ -9601,12 +9602,8 @@ ExprWalker::rewriteTarget(SyntacticElementTarget target) {
         auto *closure = dyn_cast<ClosureExpr>(target.getDeclContext());
         if (closure && closure->hasSingleExpressionBody() &&
             contextualTypePurpose == CTP_ClosureResult) {
-          auto *returnStmt =
-              castToStmt<ReturnStmt>(closure->getBody()->getLastElement());
-
-          locator = cs.getConstraintLocator(
-              closure, LocatorPathElt::ClosureBody(
-                           /*hasImpliedReturn*/ returnStmt->isImplied()));
+          locator =
+              cs.getConstraintLocator(closure, LocatorPathElt::ClosureBody());
         } else {
           locator = cs.getConstraintLocator(
               expr, LocatorPathElt::ContextualType(contextualTypePurpose));

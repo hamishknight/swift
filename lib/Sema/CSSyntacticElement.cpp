@@ -1242,6 +1242,22 @@ private:
   }
 
   void visitReturnStmt(ReturnStmt *returnStmt) {
+    // Record an implied result if we have one.
+    if (returnStmt->isImplied()) {
+      auto kind = context.getAsClosureExpr() ? ImpliedResultKind::ForClosure
+                                             : ImpliedResultKind::Regular;
+      auto *result = returnStmt->getResult();
+      cs.recordImpliedResult(result, kind);
+
+      // Also record for an SingleValueStmtExpr if we have one such that the
+      // kind can be propagated into its branches.
+      if (auto *SVE =
+              SingleValueStmtExpr::tryDigOutSingleValueStmtExpr(result)) {
+        if (SVE != result)
+          cs.recordImpliedResult(SVE, kind);
+      }
+    }
+
     // Single-expression closures are effectively a `return` statement,
     // so let's give them a special locator as to indicate that.
     // Return statements might not have a result if we have a closure whose
@@ -1257,13 +1273,13 @@ private:
         return;
       }
 
+      auto *loc =
+          cs.getConstraintLocator(context.getAsAbstractClosureExpr().get(),
+                                  LocatorPathElt::ClosureBody());
+
       auto contextualResultInfo = getContextualResultInfo();
       cs.addConstraint(ConstraintKind::Conversion, cs.getType(expr),
-                       contextualResultInfo.getType(),
-                       cs.getConstraintLocator(
-                           context.getAsAbstractClosureExpr().get(),
-                           LocatorPathElt::ClosureBody(
-                               /*hasImpliedReturn=*/returnStmt->isImplied())));
+                       contextualResultInfo.getType(), loc);
       return;
     }
 
@@ -1477,18 +1493,30 @@ bool ConstraintSystem::generateConstraints(SingleValueStmtExpr *E) {
   Type resultTy = createTypeVariable(loc, /*options*/ 0);
   setType(E, resultTy);
 
+  // Propagate the implied result kind from the if/switch expression itself
+  // into the branches.
+  auto impliedResultKind =
+      isImpliedResult(E).value_or(ImpliedResultKind::Regular);
+
   // Assign contextual types for each of the result exprs.
-  SmallVector<Expr *, 4> scratch;
-  auto branches = E->getResultExprs(scratch);
+  SmallVector<ThenStmt *, 4> scratch;
+  auto branches = E->getThenStmts(scratch);
   for (auto idx : indices(branches)) {
-    auto *branch = branches[idx];
+    auto *thenStmt = branches[idx];
+    auto *result = thenStmt->getResult();
+
+    // If we have an implicit 'then' statement, record it as an implied result.
+    // TODO: Should we track 'implied' as a separate bit on ThenStmt? Currently
+    // it's the same as being implicit, but may not always be.
+    if (thenStmt->isImplicit())
+      recordImpliedResult(result, impliedResultKind);
 
     auto ctpElt = LocatorPathElt::ContextualType(CTP_SingleValueStmtBranch);
     auto *loc = getConstraintLocator(
         E, {LocatorPathElt::SingleValueStmtResult(idx), ctpElt});
 
     ContextualTypeInfo info(resultTy, CTP_SingleValueStmtBranch, loc);
-    setContextualInfo(branch, info);
+    setContextualInfo(result, info);
   }
 
   TypeJoinExpr *join = nullptr;
@@ -1504,9 +1532,9 @@ bool ConstraintSystem::generateConstraints(SingleValueStmtExpr *E) {
         ctx, resultTy, E, AllocationArena::ConstraintSolver);
   }
 
-  // If this is the single expression body of a closure, we need to account
-  // for the fact that the result type may be bound to Void. This is necessary
-  // to correctly handle the following case:
+  // If this is an implied return of a closure, we need to account for the fact
+  // that the result type may be bound to Void. This is necessary to correctly
+  // handle the following case:
   //
   // func foo<T>(_ fn: () -> T) {}
   // foo {
@@ -1530,27 +1558,25 @@ bool ConstraintSystem::generateConstraints(SingleValueStmtExpr *E) {
   // need to do this with 'return if'. We also don't need to do it for function
   // decls, as we proactively avoid transforming the if/switch into an
   // expression if the result is known to be Void.
-  if (auto *CE = dyn_cast<ClosureExpr>(E->getDeclContext())) {
-    if (CE->hasSingleExpressionBody() && !hasExplicitResult(CE) &&
-        CE->getSingleExpressionBody()->getSemanticsProvidingExpr() == E) {
-      assert(!getAppliedResultBuilderTransform(CE) &&
-             "Should have applied the builder with statement semantics");
+  if (impliedResultKind == ImpliedResultKind::ForClosure) {
+    auto *CE = cast<ClosureExpr>(E->getDeclContext());
+    assert(!getAppliedResultBuilderTransform(CE) &&
+           "Should have applied the builder with statement semantics");
 
-      // We may not have a closure type if we're solving a sub-expression
-      // independently for e.g code completion.
-      // TODO: This won't be necessary once we stop doing the fallback
-      // type-check.
-      if (auto *closureTy = getClosureTypeIfAvailable(CE)) {
-        auto closureResultTy = closureTy->getResult();
-        auto *bindToClosure = Constraint::create(
-            *this, ConstraintKind::Bind, resultTy, closureResultTy, loc);
-        bindToClosure->setFavored();
+    // We may not have a closure type if we're solving a sub-expression
+    // independently for e.g code completion.
+    // TODO: This won't be necessary once we stop doing the fallback
+    // type-check.
+    if (auto *closureTy = getClosureTypeIfAvailable(CE)) {
+      auto closureResultTy = closureTy->getResult();
+      auto *bindToClosure = Constraint::create(*this, ConstraintKind::Bind,
+                                               resultTy, closureResultTy, loc);
+      bindToClosure->setFavored();
 
-        auto *bindToVoid = Constraint::create(*this, ConstraintKind::Bind,
-                                              resultTy, ctx.getVoidType(), loc);
+      auto *bindToVoid = Constraint::create(*this, ConstraintKind::Bind,
+                                            resultTy, ctx.getVoidType(), loc);
 
-        addDisjunctionConstraint({bindToClosure, bindToVoid}, loc);
-      }
+      addDisjunctionConstraint({bindToClosure, bindToVoid}, loc);
     }
   }
 
