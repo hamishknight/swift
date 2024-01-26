@@ -61,6 +61,31 @@ func test4() throws -> E {
   return x
 }
 
+func test5() -> E {
+  ();
+  .#^DOT4?check=DOT^#
+}
+
+func test6() -> E {
+  let fn: () -> E = {
+    ();
+    .#^DOT5?check=DOT^#
+  }
+  return fn()
+}
+
+func test7() throws -> E {
+  print("hello")
+  switch Bool.random() {
+  case true:
+    NO.TYPECHECK
+    throw NO.TYPECHECK
+  case false:
+    ();
+    .#^DOT7?check=DOT^#
+  }
+}
+
 // SDOT:     Begin completions, 2 items
 // SDOT-DAG: Keyword[self]/CurrNominal:          self[#S#]; name=self
 // SDOT-DAG: Decl[InstanceVar]/CurrNominal:      e[#E#]; name=e
