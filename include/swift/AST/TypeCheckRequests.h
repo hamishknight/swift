@@ -4275,8 +4275,12 @@ public:
     return InvalidJumps;
   }
 
-  explicit operator bool() const {
+  bool isValid() const {
     return TheKind == Kind::Valid;
+  }
+
+  explicit operator bool() const {
+    return isValid();
   }
 };
 
