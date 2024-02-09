@@ -19,6 +19,7 @@
 
 #include "swift/AST/Attr.h"
 #include "swift/AST/SemanticAttrs.h"
+#include "swift/AST/SourceFile.h"
 #include "swift/SIL/MemAccessUtils.h"
 #include "swift/SIL/OwnershipUtils.h"
 #include "swift/SIL/ParseTestSpecification.h"
@@ -26,9 +27,9 @@
 #include "swift/SIL/SILGlobalVariable.h"
 #include "swift/SIL/SILNode.h"
 #include "swift/SIL/Test.h"
-#include <string>
 #include <cstring>
 #include <stdio.h>
+#include <string>
 
 using namespace swift;
 
@@ -391,6 +392,43 @@ BridgedOwnedString BridgedDefaultWitnessTable::getDebugDescription() const {
 static_assert(sizeof(BridgedSubstitutionMap) >= sizeof(swift::SubstitutionMap),
               "BridgedSubstitutionMap has wrong size");
 
+//===----------------------------------------------------------------------===//
+//                               SILCoverageMap
+//===----------------------------------------------------------------------===//
+
+BridgedSILCoverageMap::BridgedSILCoverageMap(
+    BridgedFunction cFn, BridgedArrayRef cRegions,
+    BridgedCounterExpressionBuilder CounterBuilder) {
+  auto *Fn = cFn.getFunction();
+  auto &M = Fn->getModule();
+
+  // FIXME: We may not have a DeclContext.
+  auto *DC = Fn->getDeclContext();
+  if (!DC) {
+    Map = nullptr;
+    return;
+  }
+
+  auto *SF = DC->getOutermostParentSourceFile();
+
+  // FIXME: This should be getting the filename from the source location (it
+  // will be wrong for parsed '.sil').
+  auto Filename = SF->getFilename();
+
+  auto FuncName = Fn->getName();
+
+  // FIXME: Linkage
+  auto PGOFuncName = llvm::getPGOFuncName(
+      FuncName, llvm::GlobalValue::ExternalLinkage, Filename);
+
+  SmallVector<SILCoverageMap::MappedRegion, 4> Regions;
+  for (auto Region : cRegions.unbridged<BridgedMappedRegion>()) {
+    Regions.push_back(Region.unbridged());
+  }
+  Map = SILCoverageMap::create(M, SF, Filename, FuncName, PGOFuncName,
+                               /*FIXME: Hash*/ 0, Regions,
+                               CounterBuilder.unbridged()->getExpressions());
+}
 
 //===----------------------------------------------------------------------===//
 //                               SILDebugLocation

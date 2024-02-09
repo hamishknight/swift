@@ -563,6 +563,10 @@ bool BridgedFunction::hasOwnership() const { return getFunction()->hasOwnership(
 
 bool BridgedFunction::hasLoweredAddresses() const { return getFunction()->getModule().useLoweredAddresses(); }
 
+bool BridgedFunction::isProfilable() const {
+  return getFunction()->isProfilable();
+}
+
 BridgedASTType BridgedFunction::getLoweredFunctionTypeInContext() const {
   auto expansion = getFunction()->getTypeExpansionContext();
   return
@@ -885,6 +889,13 @@ void BridgedInstruction::ForwardingInst_setForwardingOwnership(BridgedValue::Own
 
 bool BridgedInstruction::ForwardingInst_preservesOwnership() const {
   return getAsForwardingInstruction()->preservesOwnership();
+}
+
+BridgedLineColRange
+BridgedInstruction::ProfilerSourceRangeInst_getRange() const {
+  auto *Inst = getAs<swift::ProfilerSourceRangeInst>();
+  return {Inst->getStartLine(), Inst->getStartCol(), Inst->getEndLine(),
+          Inst->getEndCol()};
 }
 
 BridgedStringRef BridgedInstruction::CondFailInst_getMessage() const {
@@ -1737,6 +1748,25 @@ BridgedInstruction BridgedBuilder::createEndCOWMutation(BridgedValue instance, b
 
 BridgedInstruction BridgedBuilder::createMarkDependence(BridgedValue value, BridgedValue base, BridgedInstruction::MarkDependenceKind kind) const {
   return {unbridged().createMarkDependence(regularLoc(), value.getSILValue(), base.getSILValue(), swift::MarkDependenceKind(kind))};
+}
+
+BridgedCounterExpressionBuilder BridgedCounterExpressionBuilder::makeNew() {
+  return BridgedCounterExpressionBuilder(
+      new llvm::coverage::CounterExpressionBuilder());
+}
+
+void BridgedCounterExpressionBuilder::destroy() const { delete Builder; }
+
+BridgedCounterExpr
+BridgedCounterExpressionBuilder::add(BridgedCounterExpr LHS,
+                                     BridgedCounterExpr RHS) const {
+  return Builder->add(LHS.unbridged(), RHS.unbridged());
+}
+
+BridgedCounterExpr
+BridgedCounterExpressionBuilder::subtract(BridgedCounterExpr LHS,
+                                          BridgedCounterExpr RHS) const {
+  return Builder->subtract(LHS.unbridged(), RHS.unbridged());
 }
 
 SWIFT_END_NULLABILITY_ANNOTATIONS

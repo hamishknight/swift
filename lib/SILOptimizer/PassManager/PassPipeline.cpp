@@ -90,6 +90,11 @@ static void addCFGPrinterPipeline(SILPassPipelinePlan &P, StringRef Name) {
   P.addCFGPrinter();
 }
 
+static void addProfilerInstrumentation(SILPassPipelinePlan &P, StringRef Name) {
+  P.startPipeline(Name);
+  P.addProfilerInstrumentation();
+}
+
 static void addModulePrinterPipeline(SILPassPipelinePlan &plan,
                                      StringRef name) {
   plan.startPipeline(name);
@@ -298,6 +303,9 @@ SILPassPipelinePlan::getSILGenPassPipeline(const SILOptions &Options) {
   P.startPipeline("SILGen Passes");
 
   P.addSILGenCleanup();
+  if (Options.GenerateProfile) {
+    ::addProfilerInstrumentation(P, "Add Profiler Instrumentation");
+  }
   if (EnableLifetimeDependenceDiagnostics || EnableLifetimeDependenceInsertion) {
     P.addLifetimeDependenceInsertion();
   }

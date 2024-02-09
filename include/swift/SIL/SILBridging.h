@@ -54,6 +54,7 @@ class SILGlobalVariable;
 class SILInstruction;
 class SILArgument;
 class MultipleValueInstructionResult;
+class SILCoverageMap;
 class SILVTableEntry;
 class SILVTable;
 class SILWitnessTable;
@@ -65,6 +66,12 @@ class SwiftPassInvocation;
 class GenericSpecializationInformation;
 class LifetimeDependenceInfo;
 }
+
+namespace llvm {
+namespace coverage {
+class CounterExpressionBuilder;
+}
+} // namespace llvm
 
 bool swiftModulesInitialized();
 void registerBridgedClass(BridgedStringRef className, SwiftMetatype metatype);
@@ -531,6 +538,7 @@ struct BridgedFunction {
   SWIFT_IMPORT_UNSAFE BridgedOwnedString getDebugDescription() const;
   BRIDGED_INLINE bool hasOwnership() const;
   BRIDGED_INLINE bool hasLoweredAddresses() const;
+  BRIDGED_INLINE bool isProfilable() const;
   SWIFT_IMPORT_UNSAFE BRIDGED_INLINE BridgedASTType getLoweredFunctionTypeInContext() const;
   SWIFT_IMPORT_UNSAFE BRIDGED_INLINE OptionalBridgedBasicBlock getFirstBlock() const;
   SWIFT_IMPORT_UNSAFE BRIDGED_INLINE OptionalBridgedBasicBlock getLastBlock() const;
@@ -717,6 +725,13 @@ struct BridgedLocation {
   static BRIDGED_INLINE BridgedLocation getArtificialUnreachableLocation();
 };
 
+struct BridgedLineColRange {
+  SwiftInt StartLine;
+  SwiftInt StartCol;
+  SwiftInt EndLine;
+  SwiftInt EndCol;
+};
+
 struct BridgedGenericSpecializationInformation {
   const swift::GenericSpecializationInformation * _Nullable data = nullptr;
 };
@@ -826,6 +841,8 @@ struct BridgedInstruction {
     BridgedFunction functions[maxFunctions];
     SwiftInt numFunctions;
   };
+
+  BRIDGED_INLINE BridgedLineColRange ProfilerSourceRangeInst_getRange() const;
 
   SWIFT_IMPORT_UNSAFE BRIDGED_INLINE BridgedStringRef CondFailInst_getMessage() const;
   BRIDGED_INLINE SwiftInt LoadInst_getLoadOwnership() const ;
@@ -1284,6 +1301,125 @@ void registerFunctionTestThunk(SwiftNativeFunctionTestThunk);
 
 void registerFunctionTest(BridgedStringRef,
                           void *_Nonnull nativeSwiftInvocation);
+
+class BridgedCounterExpr {
+  enum CounterKind { Zero, CounterValueReference, Expression };
+  CounterKind Kind = Zero;
+  unsigned ID = 0;
+
+  BridgedCounterExpr() = default;
+  BridgedCounterExpr(CounterKind Kind, unsigned ID) : Kind(Kind), ID(ID) {}
+
+public:
+#ifdef USED_IN_CPP_SOURCE
+  BridgedCounterExpr(llvm::coverage::Counter Counter) {
+    switch (Counter.getKind()) {
+    case llvm::coverage::Counter::Zero:
+      break;
+    case llvm::coverage::Counter::CounterValueReference:
+      Kind = CounterValueReference;
+      ID = Counter.getCounterID();
+      break;
+    case llvm::coverage::Counter::Expression:
+      Kind = Expression;
+      ID = Counter.getExpressionID();
+      break;
+    }
+  }
+
+  llvm::coverage::Counter unbridged() const {
+    switch (Kind) {
+    case Zero:
+      return llvm::coverage::Counter::getZero();
+    case CounterValueReference:
+      return llvm::coverage::Counter::getCounter(ID);
+    case Expression:
+      return llvm::coverage::Counter::getExpression(ID);
+    }
+  }
+#endif
+
+  static BridgedCounterExpr concrete(SwiftInt Idx) {
+    return BridgedCounterExpr(CounterValueReference, Idx);
+  }
+
+  static BridgedCounterExpr zero() { return BridgedCounterExpr(); }
+};
+
+class BridgedCounterExpressionBuilder {
+  llvm::coverage::CounterExpressionBuilder *_Nonnull Builder;
+
+  BridgedCounterExpressionBuilder(
+      llvm::coverage::CounterExpressionBuilder *_Nonnull Builder)
+      : Builder(Builder) {}
+
+public:
+  SWIFT_UNAVAILABLE("")
+  llvm::coverage::CounterExpressionBuilder *_Nonnull unbridged() const {
+    return Builder;
+  }
+
+  BRIDGED_INLINE static BridgedCounterExpressionBuilder makeNew();
+  BRIDGED_INLINE void destroy() const;
+
+  BRIDGED_INLINE BridgedCounterExpr add(BridgedCounterExpr LHS,
+                                        BridgedCounterExpr RHS) const;
+
+  BRIDGED_INLINE BridgedCounterExpr subtract(BridgedCounterExpr LHS,
+                                             BridgedCounterExpr RHS) const;
+};
+
+class BridgedMappedRegion {
+  enum class Kind { Code, Skipped };
+
+  Kind RegionKind;
+  BridgedLineColRange Range;
+  BridgedCounterExpr Counter;
+
+  BridgedMappedRegion(Kind RegionKind, BridgedLineColRange Range,
+                      BridgedCounterExpr Counter)
+      : RegionKind(RegionKind), Range(Range), Counter(Counter) {}
+
+public:
+  static BridgedMappedRegion code(BridgedLineColRange Range,
+                                  BridgedCounterExpr Counter) {
+    return BridgedMappedRegion(Kind::Code, Range, Counter);
+  }
+
+  static BridgedMappedRegion skipped(BridgedLineColRange Range) {
+    return BridgedMappedRegion(Kind::Skipped, Range,
+                               BridgedCounterExpr::zero());
+  }
+
+#ifdef USED_IN_CPP_SOURCE
+  using MappedRegion = swift::SILCoverageMap::MappedRegion;
+
+  MappedRegion unbridged() const {
+    auto StartLine = Range.StartLine;
+    auto StartCol = Range.StartCol;
+    auto EndLine = Range.EndLine;
+    auto EndCol = Range.EndCol;
+    switch (RegionKind) {
+    case Kind::Code:
+      return MappedRegion::code(StartLine, StartCol, EndLine, EndCol,
+                                Counter.unbridged());
+    case Kind::Skipped:
+      return MappedRegion::skipped(StartLine, StartCol, EndLine, EndCol);
+    }
+  }
+#endif
+};
+
+class BridgedSILCoverageMap {
+  swift::SILCoverageMap *_Nonnull Map;
+
+public:
+  BridgedSILCoverageMap(BridgedFunction fn, BridgedArrayRef Regions,
+                        BridgedCounterExpressionBuilder CounterBuilder);
+
+  SWIFT_UNAVAILABLE("")
+  swift::SILCoverageMap *_Nonnull unbridged() const { return Map; }
+};
 
 SWIFT_END_NULLABILITY_ANNOTATIONS
 

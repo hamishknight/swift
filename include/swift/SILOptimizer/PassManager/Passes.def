@@ -397,6 +397,8 @@ SWIFT_MODULE_PASS(FunctionUsesDumper, "dump-function-uses",
      "Dump the results of FunctionUses")
 SWIFT_MODULE_PASS(MandatoryPerformanceOptimizations, "mandatory-performance-optimizations",
      "Performs optimizations for performance-annotated functions")
+SWIFT_MODULE_PASS(ProfilerInstrumentation, "profiler-instrumentation",
+                  "Insert instrumentation for profiling")
 SWIFT_MODULE_PASS(ReadOnlyGlobalVariablesPass, "read-only-global-variables",
      "Converts read-only var-globals to let-globals")
 SWIFT_MODULE_PASS(StackProtection, "stack-protection",

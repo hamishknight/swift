@@ -8,6 +8,7 @@
 
 swift_compiler_sources(Optimizer
   MandatoryPerformanceOptimizations.swift
+  ProfilerInstrumentation.swift
   ReadOnlyGlobalVariables.swift
   StackProtection.swift
 )

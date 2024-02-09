@@ -256,6 +256,30 @@ extension UnaryInstruction {
 final public class UnimplementedInstruction : Instruction {
 }
 
+public struct LineColRange {
+  public var startLine: Int
+  public var startCol: Int
+  public var endLine: Int
+  public var endCol: Int
+
+  public init(startLine: Int, startCol: Int, endLine: Int, endCol: Int) {
+    self.startLine = startLine
+    self.startCol = startCol
+    self.endLine = endLine
+    self.endCol = endCol
+  }
+}
+
+final public class ProfilerSourceRangeInst : Instruction {
+  public var range: LineColRange {
+    let bridgedRange = bridged.ProfilerSourceRangeInst_getRange()
+    return .init(
+      startLine: bridgedRange.StartLine, startCol: bridgedRange.StartCol,
+      endLine: bridgedRange.EndLine, endCol: bridgedRange.EndCol
+    )
+  }
+}
+
 /// Only one of the operands may have an address type.
 public protocol StoringInstruction : Instruction {
   var operands: OperandArray { get }

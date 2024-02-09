@@ -34,6 +34,8 @@ final public class Function : CustomStringConvertible, HasShortDescription, Hash
   public var hasOwnership: Bool { bridged.hasOwnership() }
 
   public var hasLoweredAddresses: Bool { bridged.hasLoweredAddresses() }
+  
+  public var isProfilable: Bool { bridged.isProfilable() }
 
   /// The lowered function type in the expansion context of self.
   ///
