@@ -2664,6 +2664,12 @@ public:
           << "hash " << IPCI->getPGOFuncHash();
   }
 
+  void visitProfilerSourceRangeInst(ProfilerSourceRangeInst *Inst) {
+    *this << QuotedString(Inst->getFileName()) << ", "
+          << Inst->getStartLine() << ":" << Inst->getStartCol() << ", "
+          << Inst->getEndLine() << ":" << Inst->getEndCol();
+  }
+
   void visitIndexAddrInst(IndexAddrInst *IAI) {
     *this << (IAI->needsStackProtection() ? "[stack_protection] " : "")
           << getIDAndType(IAI->getBase()) << ", "

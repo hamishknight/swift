@@ -1368,6 +1368,9 @@ public:
   void visitCondFailInst(CondFailInst *i);
 
   void visitIncrementProfilerCounterInst(IncrementProfilerCounterInst *I);
+  void visitProfilerSourceRangeInst(ProfilerSourceRangeInst *I) {
+    // This is only needed for the SILOptimizer; drop it.
+  }
 
   void visitConvertFunctionInst(ConvertFunctionInst *i);
   void visitConvertEscapeToNoEscapeInst(ConvertEscapeToNoEscapeInst *i);

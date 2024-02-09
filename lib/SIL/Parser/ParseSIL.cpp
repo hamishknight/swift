@@ -2858,6 +2858,35 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     break;
   }
 
+  case SILInstructionKind::ProfilerSourceRangeInst: {
+    // Parse the file name.
+    if (P.Tok.getKind() != tok::string_literal) {
+      P.diagnose(P.Tok, diag::sil_coverage_expected_quote);
+      return true;
+    }
+
+    auto FileName = P.Tok.getText().drop_front().drop_back();
+    P.consumeToken(tok::string_literal);
+
+    if (P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ","))
+      return true;
+
+    unsigned StartLine, StartCol, EndLine, EndCol;
+    if (parseInteger(StartLine, diag::sil_coverage_expected_loc) ||
+        P.parseToken(tok::colon, diag::sil_coverage_expected_loc) ||
+        parseInteger(StartCol, diag::sil_coverage_expected_loc) ||
+        P.parseToken(tok::arrow, diag::sil_coverage_expected_arrow) ||
+        parseInteger(EndLine, diag::sil_coverage_expected_loc) ||
+        P.parseToken(tok::colon, diag::sil_coverage_expected_loc) ||
+        parseInteger(EndCol, diag::sil_coverage_expected_loc)) {
+      return true;
+    }
+
+    ResultVal = B.createProfilerSourceRange(InstLoc, FileName, StartLine,
+                                            StartCol, EndLine, EndCol);
+    break;
+  }
+
   case SILInstructionKind::ProjectBoxInst: {
     if (parseTypedValueRef(Val, B) ||
         P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ","))

@@ -2436,6 +2436,15 @@ public:
         PGOFuncHash, getModule()));
   }
 
+  ProfilerSourceRangeInst *
+  createProfilerSourceRange(SILLocation Loc, StringRef SourceFileName,
+                            unsigned StartLine, unsigned StartCol,
+                            unsigned EndLine, unsigned EndCol) {
+    return insert(ProfilerSourceRangeInst::create(
+        getSILDebugLocation(Loc), SourceFileName, StartLine, StartCol, EndLine,
+        EndCol, getModule()));
+  }
+
   //===--------------------------------------------------------------------===//
   // Array indexing instructions
   //===--------------------------------------------------------------------===//

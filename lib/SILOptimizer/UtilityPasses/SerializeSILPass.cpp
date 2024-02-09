@@ -353,6 +353,7 @@ static bool hasOpaqueArchetype(TypeExpansionContext context,
   case SILInstructionKind::BeginCOWMutationInst:
   case SILInstructionKind::EndCOWMutationInst:
   case SILInstructionKind::IncrementProfilerCounterInst:
+  case SILInstructionKind::ProfilerSourceRangeInst:
   case SILInstructionKind::GetAsyncContinuationInst:
   case SILInstructionKind::GetAsyncContinuationAddrInst:
   case SILInstructionKind::AwaitAsyncContinuationInst:

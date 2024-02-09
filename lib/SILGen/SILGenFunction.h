@@ -589,6 +589,8 @@ public:
   /// function is valid.
   bool allowsVoidReturn() const { return ReturnDest.getBlock()->args_empty(); }
 
+  void emitProfilerSourceRange(ASTNode Node);
+
   /// Emit code to increment a counter for profiling.
   void emitProfilerIncrement(ASTNode Node);
 

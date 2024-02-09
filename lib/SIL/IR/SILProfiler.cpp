@@ -131,9 +131,7 @@ SILProfiler *SILProfiler::create(SILModule &M, SILDeclRef Ref) {
     return nullptr;
 
   auto *Buf = M.allocate<SILProfiler>(1);
-  auto *SP = ::new (Buf) SILProfiler(M, Ref, Opts.EmitProfileCoverageMapping);
-  SP->assignRegionCounters();
-  return SP;
+  return ::new (Buf) SILProfiler(M, Ref, Opts.EmitProfileCoverageMapping);
 }
 
 static SILLocation getLocation(ASTNode Node) {

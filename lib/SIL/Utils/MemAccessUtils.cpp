@@ -2850,6 +2850,7 @@ void swift::visitAccessedAddress(SILInstruction *I,
   case SILInstructionKind::YieldInst:
   case SILInstructionKind::UnwindInst:
   case SILInstructionKind::IncrementProfilerCounterInst:
+  case SILInstructionKind::ProfilerSourceRangeInst:
   case SILInstructionKind::UncheckedOwnershipConversionInst:
   case SILInstructionKind::UncheckedRefCastAddrInst:
   case SILInstructionKind::UnconditionalCheckedCastAddrInst:

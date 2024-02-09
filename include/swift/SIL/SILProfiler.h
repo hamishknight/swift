@@ -63,6 +63,9 @@ public:
     return ProfileCounterRef(node, Kind::ErrorBranch);
   }
 
+  Kind getKind() const { return RefKind; }
+  ASTNode getNode() const { return Node; }
+
   /// Retrieve the corresponding location of the counter.
   SILLocation getLocation() const;
 

@@ -1639,28 +1639,47 @@ std::unique_ptr<Initialization> SILGenFunction::getSingleValueStmtInit(Expr *E) 
   return std::make_unique<KnownAddressInitialization>(resultAddr);
 }
 
+void SILGenFunction::emitProfilerSourceRange(ASTNode Node) {
+  // Ignore functions which aren't set up for instrumentation.
+  if (!F.getProfiler())
+    return;
+
+  auto Loc = [&]() -> SILLocation {
+    if (auto *E = Node.dyn_cast<Expr *>()) {
+      return E;
+    } else if (auto *S = Node.dyn_cast<Stmt *>()) {
+      return S;
+    } else if (auto *D = Node.dyn_cast<Decl *>()) {
+      return D;
+    }
+    llvm_unreachable("Unhandled ASTNode");
+  }();
+  auto *SF = FunctionDC->getParentSourceFile();
+  auto &SM = SF->getASTContext().SourceMgr;
+  auto Start = SM.getLineAndColumnInBuffer(Node.getStartLoc());
+  auto End = SM.getLineAndColumnInBuffer(Node.getEndLoc());
+  B.createProfilerSourceRange(Loc, SF->getFilename(),
+                              Start.first, Start.second,
+                              End.first, End.second);
+}
+
 void SILGenFunction::emitProfilerIncrement(ASTNode Node) {
   emitProfilerIncrement(ProfileCounterRef::node(Node));
 }
 
 void SILGenFunction::emitProfilerIncrement(ProfileCounterRef Ref) {
   // Ignore functions which aren't set up for instrumentation.
-  SILProfiler *SP = F.getProfiler();
-  if (!SP)
+  if (!F.getProfiler())
     return;
-  if (!SP->hasRegionCounters() || !getModule().getOptions().UseProfile.empty())
-    return;
-
-  auto CounterIdx = SP->getCounterIndexFor(Ref);
 
   // If we're at an unreachable point, the increment can be elided as the
   // counter cannot be incremented.
   if (!B.hasValidInsertionPoint())
     return;
 
-  B.createIncrementProfilerCounter(
-      Ref.getLocation(), CounterIdx, SP->getPGOFuncName(),
-      SP->getNumRegionCounters(), SP->getPGOFuncHash());
+  // Emit source location information.
+  if (Ref.getKind() == ProfileCounterRef::Kind::Node)
+    emitProfilerSourceRange(Ref.getNode());
 }
 
 ProfileCounter SILGenFunction::loadProfilerCount(ASTNode Node) const {

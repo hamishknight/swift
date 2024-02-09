@@ -4132,6 +4132,44 @@ public:
   MutableArrayRef<Operand> getAllOperands() { return {}; }
 };
 
+class ProfilerSourceRangeInst final
+    : public InstructionBase<SILInstructionKind::ProfilerSourceRangeInst,
+                             NonValueInstruction>,
+      private llvm::TrailingObjects<ProfilerSourceRangeInst, char> {
+  friend TrailingObjects;
+  friend SILBuilder;
+
+  unsigned SourceFileNameLength;
+  unsigned StartLine;
+  unsigned StartCol;
+  unsigned EndLine;
+  unsigned EndCol;
+
+  ProfilerSourceRangeInst(SILDebugLocation Loc, unsigned SourceFileNameLength,
+                          unsigned StartLine, unsigned StartCol,
+                          unsigned EndLine, unsigned EndCol)
+      : InstructionBase(Loc), SourceFileNameLength(SourceFileNameLength),
+        StartLine(StartLine), StartCol(StartCol), EndLine(EndLine),
+        EndCol(EndCol) {}
+
+  static ProfilerSourceRangeInst *
+  create(SILDebugLocation Loc, StringRef SourceFileName, unsigned StartLine,
+         unsigned StartCol, unsigned EndLine, unsigned EndCol, SILModule &M);
+
+public:
+  StringRef getFileName() {
+    return StringRef(getTrailingObjects<char>(), SourceFileNameLength);
+  }
+
+  unsigned getStartLine() const { return StartLine; }
+  unsigned getStartCol() const { return StartCol; }
+  unsigned getEndLine() const { return EndLine; }
+  unsigned getEndCol() const { return EndCol; }
+
+  ArrayRef<Operand> getAllOperands() const { return {}; }
+  MutableArrayRef<Operand> getAllOperands() { return {}; }
+};
+
 /// Initializes a SIL global variable. Only valid once, before any
 /// usages of the global via GlobalAddrInst.
 class AllocGlobalInst

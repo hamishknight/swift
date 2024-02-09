@@ -546,6 +546,21 @@ IncrementProfilerCounterInst *IncrementProfilerCounterInst::create(
   return Inst;
 }
 
+ProfilerSourceRangeInst *ProfilerSourceRangeInst::create(
+    SILDebugLocation Loc, StringRef SourceFileName, unsigned StartLine,
+    unsigned StartCol, unsigned EndLine, unsigned EndCol, SILModule &M) {
+  auto SourceFileNameLength = SourceFileName.size();
+  auto Size = totalSizeToAlloc<char>(SourceFileNameLength);
+  auto Buffer = M.allocateInst(Size, alignof(ProfilerSourceRangeInst));
+
+  auto *Inst = ::new (Buffer) ProfilerSourceRangeInst(
+      Loc, SourceFileNameLength, StartLine, StartCol, EndLine, EndCol);
+
+  std::uninitialized_copy(SourceFileName.begin(), SourceFileName.end(),
+                          Inst->getTrailingObjects<char>());
+  return Inst;
+}
+
 SpecifyTestInst *SpecifyTestInst::create(SILDebugLocation Loc,
                                          StringRef ArgumentsSpecification,
                                          SILModule &M) {

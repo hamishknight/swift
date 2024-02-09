@@ -6644,8 +6644,10 @@ public:
         continue;
       // FIXME: Profile counters for loop bodies may be emitted before the
       // instructions for the loop variable, but in a deeper scope.
-      if (isa<IncrementProfilerCounterInst>(SI))
+      if (isa<IncrementProfilerCounterInst>(SI) ||
+          isa<ProfilerSourceRangeInst>(SI)) {
         continue;
+      }
       if (!SI.getLoc().hasValidLineNumber())
         continue;
       if (SI.getLoc().getKind() == SILLocation::CleanupKind)

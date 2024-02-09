@@ -361,9 +361,10 @@ bool swift::isInstrumentation(SILInstruction *Instruction) {
   if (isSanitizerInstrumentation(Instruction))
     return true;
 
-  if (isa<IncrementProfilerCounterInst>(Instruction))
+  if (isa<IncrementProfilerCounterInst>(Instruction) ||
+      isa<ProfilerSourceRangeInst>(Instruction)) {
     return true;
-
+  }
   return false;
 }
 
@@ -561,6 +562,7 @@ RuntimeEffect swift::getRuntimeEffect(SILInstruction *inst, SILType &impactType)
   case SILInstructionKind::LinearFunctionExtractInst:
   case SILInstructionKind::DifferentiabilityWitnessFunctionInst:
   case SILInstructionKind::IncrementProfilerCounterInst:
+  case SILInstructionKind::ProfilerSourceRangeInst:
   case SILInstructionKind::EndCOWMutationInst:
   case SILInstructionKind::HasSymbolInst:
   case SILInstructionKind::DynamicPackIndexInst:

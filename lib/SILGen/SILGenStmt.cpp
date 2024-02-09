@@ -983,6 +983,7 @@ void StmtEmitter::visitIfStmt(IfStmt *S) {
   // If there is 'else' logic, then emit it.
   if (S->getElseStmt()) {
     SGF.B.emitBlock(falseDest.getBlock());
+    SGF.emitProfilerSourceRange(S->getElseStmt());
     visit(S->getElseStmt());
     if (SGF.B.hasValidInsertionPoint()) {
       RegularLocation L(S->getElseStmt());

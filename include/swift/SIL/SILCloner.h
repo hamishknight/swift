@@ -3124,6 +3124,17 @@ void SILCloner<ImplClass>::visitIncrementProfilerCounterInst(
 }
 
 template <typename ImplClass>
+void SILCloner<ImplClass>::visitProfilerSourceRangeInst(
+    ProfilerSourceRangeInst *Inst) {
+  getBuilder().setCurrentDebugScope(getOpScope(Inst->getDebugScope()));
+  recordClonedInstruction(Inst, getBuilder().createProfilerSourceRange(
+                                    getOpLocation(Inst->getLoc()),
+                                    Inst->getFileName(), Inst->getStartLine(),
+                                    Inst->getStartCol(), Inst->getEndLine(),
+                                    Inst->getEndCol()));
+}
+
+template <typename ImplClass>
 void SILCloner<ImplClass>::visitSpecifyTestInst(SpecifyTestInst *Inst) {
   getBuilder().setCurrentDebugScope(getOpScope(Inst->getDebugScope()));
   recordClonedInstruction(Inst, getBuilder().createSpecifyTestInst(
