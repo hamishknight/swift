@@ -1714,6 +1714,12 @@ BridgedInstruction BridgedBuilder::createStore(BridgedValue src, BridgedValue ds
                                   (swift::StoreOwnershipQualifier)ownership)};
 }
 
+BridgedInstruction BridgedBuilder::createIncrementProfilerCounter(SwiftInt index, SwiftInt numCounters, BridgedStringRef pgoFuncName) const {
+  return unbridged().createIncrementProfilerCounter(
+      regularLoc(), index, pgoFuncName.unbridged(),
+      numCounters, /*FIXME hash*/ 0);
+}
+
 BridgedInstruction BridgedBuilder::createInitExistentialRef(BridgedValue instance,
                                             BridgedType type,
                                             BridgedInstruction useConformancesOf) const {

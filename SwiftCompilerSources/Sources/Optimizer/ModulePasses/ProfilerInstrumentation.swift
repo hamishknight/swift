@@ -18,7 +18,9 @@ let profilerInstrumentation = ModulePass(name: "profiler-instrumentation") {
 
   for fn in moduleContext.functions where fn.isProfilable {
     let regions = fn.mapRegions()
-    fn.insertCounterIncrements(regions)
+    moduleContext.transform(function: fn) { context in
+      fn.insertCounterIncrements(regions, context: context)
+    }
     fn.createCoverageMap(regions)
   }
 }
@@ -84,13 +86,12 @@ fileprivate struct CounterMapper {
     for successor: BasicBlock, predecessor: BasicBlock
   ) -> Counter {
     assert(predecessor.successors.contains(successor))
+    let predCounter = counter(for: predecessor)
 
     // The block is the only successor, we adopt the predecessor's counter.
     if predecessor.successors.count == 1 {
-      return counter(for: successor)
+      return predCounter
     }
-
-    let predCounter = counter(for: predecessor)
 
     // We have multiple successors. We assign concrete counters for all but
     // the last, which can be defined as a subtraction of all the others.
@@ -152,9 +153,26 @@ fileprivate extension Function {
     return regions
   }
 
-  func insertCounterIncrements(_ regions: [BasicBlock: Region]) {
+  func insertCounterIncrements(
+    _ regions: [BasicBlock: Region], context: some MutatingContext
+  ) {
+    // FIXME: We should have a proper type to track this instead of passing
+    // the dictionary about.
+    var counterIndices = Set<Int>()
     for (block, region) in regions {
-//      block.instructions.first!.
+      guard case .concrete(let idx) = region.counter else { continue }
+      counterIndices.insert(idx)
+    }
+    for (block, region) in regions {
+      guard case .concrete(let idx) = region.counter else { continue }
+
+      // FIXME: This isn't the PGO name.
+      let fnName = block.parentFunction.name
+
+      let builder = Builder(atBeginOf: block, context)
+      builder.createIncrementProfilerCounter(
+        idx, numCounters: counterIndices.count, pgoFuncName: fnName.string
+      )
     }
   }
 

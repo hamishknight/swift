@@ -270,6 +270,10 @@ public struct LineColRange {
   }
 }
 
+final public class IncrementProfilerCounterInst : Instruction {
+  
+}
+
 final public class ProfilerSourceRangeInst : Instruction {
   public var range: LineColRange {
     let bridgedRange = bridged.ProfilerSourceRangeInst_getRange()

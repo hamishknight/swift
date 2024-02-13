@@ -38,6 +38,7 @@ public func registerSILClasses() {
   register(FunctionArgument.self)
   register(Argument.self)
 
+  register(IncrementProfilerCounterInst.self)
   register(ProfilerSourceRangeInst.self)
   register(StoreInst.self)
   register(StoreWeakInst.self)

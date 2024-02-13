@@ -1232,6 +1232,7 @@ struct BridgedBuilder{
   SWIFT_IMPORT_UNSAFE BRIDGED_INLINE BridgedInstruction createDestructureTuple(BridgedValue str) const;
   SWIFT_IMPORT_UNSAFE BRIDGED_INLINE BridgedInstruction createStore(BridgedValue src, BridgedValue dst,
                                           SwiftInt ownership) const;
+  SWIFT_IMPORT_UNSAFE BRIDGED_INLINE BridgedInstruction createIncrementProfilerCounter(SwiftInt index, SwiftInt numCounters, BridgedStringRef pgoFuncName) const;
   SWIFT_IMPORT_UNSAFE BRIDGED_INLINE BridgedInstruction createInitExistentialRef(BridgedValue instance,
                                           BridgedType type,
                                           BridgedInstruction useConformancesOf) const;

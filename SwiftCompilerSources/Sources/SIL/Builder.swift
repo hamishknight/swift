@@ -385,6 +385,16 @@ public struct Builder {
     return notifyNew(store.getAs(StoreInst.self))
   }
 
+  @discardableResult
+  public func createIncrementProfilerCounter(
+    _ index: Int, numCounters: Int, pgoFuncName: String
+  ) -> IncrementProfilerCounterInst {
+    let inst = pgoFuncName._withBridgedStringRef { pgoFuncName in
+      bridged.createIncrementProfilerCounter(index, numCounters, pgoFuncName)
+    }
+    return notifyNew(inst.getAs(IncrementProfilerCounterInst.self))
+  }
+
   public func createInitExistentialRef(instance: Value,
                                        existentialType: Type,
                                        useConformancesOf: InitExistentialRefInst) -> InitExistentialRefInst {
