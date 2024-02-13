@@ -480,8 +480,9 @@ SILGenFunction::getOrCreateScope(const ast_scope::ASTScopeImpl *ASTScope,
       getOrCreateScope(ParentScope, FnScope, InlinedAt);
   SourceLoc SLoc = ASTScope->getSourceRangeOfThisASTNode().Start;
   RegularLocation Loc(SLoc);
-  auto *SILScope = new (SGM.M)
-      SILDebugScope(Loc, FnScope->getParentFunction(), Parent, InlinedAt);
+  auto *SILScope = new (SGM.M) SILDebugScope(
+      Loc, FnScope->getParentFunction(), Parent, InlinedAt,
+      /*EndLoc*/ RegularLocation(ASTScope->getSourceRangeOfThisASTNode().End));
   return cache(SILScope);
 }
 

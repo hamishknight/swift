@@ -40,6 +40,10 @@ class SILDebugScope : public SILAllocated<SILDebugScope> {
 public:
   /// The AST node this lexical scope represents.
   SILLocation Loc;
+
+  /// The end location for the lexical scope.
+  SILLocation EndLoc;
+
   /// Always points to the parent lexical scope.
   /// For top-level scopes, this is the SILFunction.
   PointerUnion<const SILDebugScope *, SILFunction *> Parent;
@@ -51,7 +55,8 @@ public:
 
   SILDebugScope(SILLocation Loc, SILFunction *SILFn,
                 const SILDebugScope *ParentScope = nullptr,
-                const SILDebugScope *InlinedCallSite = nullptr);
+                const SILDebugScope *InlinedCallSite = nullptr,
+                SILLocation EndLoc = SILLocation::invalid());
 
   /// Create a scope for an artificial function.
   SILDebugScope(SILLocation Loc);

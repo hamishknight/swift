@@ -1053,7 +1053,8 @@ public:
   }
 
   void printDebugLocRef(SILLocation Loc, const SourceManager &SM,
-                        bool PrintComma = true) {
+                        bool PrintComma = true,
+                        SILLocation EndLoc = SILLocation::invalid()) {
     auto DL = Loc.decodeForDebugging(SM);
     if (!DL.filename.empty()) {
       if (PrintComma)
@@ -1063,6 +1064,10 @@ public:
         *this << "* ";
       *this << QuotedString(DL.filename) << ':' << DL.line << ':'
             << (unsigned)DL.column;
+      if (EndLoc) {
+        auto EndDL = EndLoc.decodeForDebugging(SM);
+        *this << " -> " << EndDL.line << ':' << (unsigned)EndDL.column;
+      }
     }
   }
 
@@ -1075,7 +1080,7 @@ public:
       printDebugScope(DS->InlinedCallSite, SM);
       unsigned ID = Ctx.assignScopeID(DS);
       *this << "sil_scope " << ID << " { ";
-      printDebugLocRef(DS->Loc, SM, false);
+      printDebugLocRef(DS->Loc, SM, false, DS->EndLoc);
       *this << " parent ";
       if (auto *F = DS->Parent.dyn_cast<SILFunction *>())
         *this << "@" << F->getName() << " : $" << F->getLoweredFunctionType();

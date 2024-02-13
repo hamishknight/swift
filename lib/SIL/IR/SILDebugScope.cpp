@@ -24,8 +24,9 @@ using namespace swift;
 
 SILDebugScope::SILDebugScope(SILLocation Loc, SILFunction *SILFn,
                              const SILDebugScope *ParentScope,
-                             const SILDebugScope *InlinedCallSite)
-    : Loc(Loc), InlinedCallSite(InlinedCallSite) {
+                             const SILDebugScope *InlinedCallSite,
+                             SILLocation EndLoc)
+    : Loc(Loc), EndLoc(EndLoc), InlinedCallSite(InlinedCallSite) {
   if (ParentScope)
     Parent = ParentScope;
   else {
@@ -35,7 +36,7 @@ SILDebugScope::SILDebugScope(SILLocation Loc, SILFunction *SILFn,
 }
 
 SILDebugScope::SILDebugScope(SILLocation Loc)
-    : Loc(Loc), InlinedCallSite(nullptr) {}
+    : Loc(Loc), EndLoc(SILLocation::invalid()), InlinedCallSite(nullptr) {}
 
 SILFunction *SILDebugScope::getInlinedFunction() const {
   if (Parent.isNull())

@@ -8465,9 +8465,26 @@ bool SILParserState::parseSILScope(Parser &P) {
 
   StringRef Key = P.Tok.getText();
   SILLocation Loc = SILLocation::invalid();
-  if (Key == "loc")
+  SILLocation EndLoc = SILLocation::invalid();
+  if (Key == "loc") {
     if (ScopeState.parseSILLocation(Loc))
       return true;
+
+    if (P.consumeIf(tok::arrow)) {
+      unsigned Line = 0;
+      if (ScopeState.parseInteger(Line, diag::sil_invalid_line_in_sil_location))
+        return true;
+      if (P.parseToken(tok::colon, diag::expected_colon_in_sil_location))
+        return true;
+      unsigned Column = 0;
+      if (ScopeState.parseInteger(Column,
+                                  diag::sil_invalid_column_in_sil_location))
+        return true;
+      EndLoc = RegularLocation(SILLocation::FilenameAndLocation::alloc(
+          Line, Column, Loc.getFilenameAndLocation()->filename,
+          ScopeState.SILMod));
+    }
+  }
   ScopeState.parseVerbatim("parent");
   Identifier FnName;
   SILDebugScope *Parent = nullptr;
@@ -8516,6 +8533,6 @@ bool SILParserState::parseSILScope(Parser &P) {
     return true;
   }
 
-  Scope = new (M) SILDebugScope(Loc, ParentFn, Parent, InlinedAt);
+  Scope = new (M) SILDebugScope(Loc, ParentFn, Parent, InlinedAt, EndLoc);
   return false;
 }
