@@ -561,12 +561,7 @@ Type TypeChecker::typeCheckParameterDefault(Expr *&defaultValue,
                                             DeclContext *DC, Type paramType,
                                             bool isAutoClosure,
                                             bool atCallerSide) {
-  // During normal type checking we don't type check the parameter default if
-  // the param has an error type. For code completion, we also type check the
-  // parameter default because it might contain the code completion token.
-  assert(paramType &&
-         (!paramType->hasError() || DC->getASTContext().CompletionCallback));
-
+  assert(paramType);
   auto &ctx = DC->getASTContext();
 
   // First, let's try to type-check default expression using interface
@@ -611,8 +606,9 @@ Type TypeChecker::typeCheckParameterDefault(Expr *&defaultValue,
       return Type();
 
     // Parameter type doesn't have any generic parameters mentioned
-    // in it, so there is nothing to infer.
-    if (!paramInterfaceTy->hasTypeParameter())
+    // in it, so there is nothing to infer. Also don't bother inferring if
+    // there's already an error.
+    if (!paramInterfaceTy->hasTypeParameter() || paramInterfaceTy->hasError())
       return Type();
 
     // Ignore any diagnostics emitted by the original type-check.

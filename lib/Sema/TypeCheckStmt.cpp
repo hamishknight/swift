@@ -816,42 +816,17 @@ static bool typeCheckBooleanStmtConditionElement(StmtConditionElement &elt,
 static bool
 typeCheckPatternBindingStmtConditionElement(StmtConditionElement &elt,
                                             bool &isFalsable, DeclContext *dc) {
-  auto &Context = dc->getASTContext();
-
-  // This is cleanup goop run on the various paths where type checking of the
-  // pattern binding fails.
-  auto typeCheckPatternFailed = [&] {
-    elt.getPattern()->setType(ErrorType::get(Context));
-    elt.getInitializer()->setType(ErrorType::get(Context));
-
-    elt.getPattern()->forEachVariable([&](VarDecl *var) {
-      // Don't change the type of a variable that we've been able to
-      // compute a type for.
-      if (var->hasInterfaceType() && !var->isInvalid())
-        return;
-      var->setInvalid();
-    });
-  };
-
   // Resolve the pattern.
   assert(!elt.getPattern()->hasType() &&
          "the pattern binding condition is already type checked");
   auto *pattern = TypeChecker::resolvePattern(elt.getPattern(), dc,
                                               /*isStmtCondition*/ true);
-  if (!pattern) {
-    typeCheckPatternFailed();
-    return true;
-  }
   elt.setPattern(pattern);
 
   // Check the pattern, it allows unspecified types because the pattern can
   // provide type information.
   auto contextualPattern = ContextualPattern::forRawPattern(pattern, dc);
-  Type patternType = TypeChecker::typeCheckPattern(contextualPattern);
-  if (patternType->hasError()) {
-    typeCheckPatternFailed();
-    return true;
-  }
+  auto patternType = TypeChecker::typeCheckPattern(contextualPattern);
 
   // If the pattern didn't get a type, it's because we ran into some
   // unknown types along the way. We'll need to check the initializer.
@@ -1055,27 +1030,33 @@ public:
   Stmt *visitBraceStmt(BraceStmt *BS);
 
   Stmt *visitReturnStmt(ReturnStmt *RS) {
-    // First, let's do a pre-check, and bail if the return is completely
-    // invalid.
     auto &eval = getASTContext().evaluator;
-    auto *S =
-        evaluateOrDefault(eval, PreCheckReturnStmtRequest{RS, DC}, nullptr);
 
-    // We do a cast here as it may have been turned into a FailStmt. We should
-    // return that without doing anything else.
-    RS = dyn_cast_or_null<ReturnStmt>(S);
-    if (!RS)
-      return S;
+    // First, let's do a pre-check.
+    bool hadError = false;
+    if (auto *S =
+        evaluateOrDefault(eval, PreCheckReturnStmtRequest{RS, DC}, nullptr)) {
+      // We do a cast here as it may have been turned into a FailStmt. We should
+      // return that without doing anything else.
+      RS = dyn_cast<ReturnStmt>(S);
+      if (!RS)
+        return S;
+    } else {
+      hadError = true;
+    }
 
-    auto TheFunc = AnyFunctionRef::fromDeclContext(DC);
-    assert(TheFunc && "Should have bailed from pre-check if this is None");
-
-    Type ResultTy = TheFunc->getBodyResultType();
-    if (!ResultTy || ResultTy->hasError())
-      return nullptr;
+    Type ResultTy;
+    if (!hadError) {
+      auto TheFunc = AnyFunctionRef::fromDeclContext(DC);
+      assert(TheFunc && "Should have bailed from pre-check if this is None");
+      ResultTy = TheFunc->getBodyResultType();
+    } else {
+      ResultTy = ErrorType::get(Ctx);
+    }
+    assert(ResultTy);
 
     if (!RS->hasResult()) {
-      if (!ResultTy->isVoid())
+      if (!ResultTy->isVoid() && !hadError)
         getASTContext().Diags.diagnose(RS->getReturnLoc(),
                                        diag::return_expr_missing);
       return RS;
@@ -1093,7 +1074,7 @@ public:
       tryDiagnoseUnnecessaryCastOverOptionSet(getASTContext(), RS->getResult(),
                                               ResultTy, DC->getParentModule());
     }
-    return RS;
+    return hadError ? nullptr : RS;
   }
 
   Stmt *visitYieldStmt(YieldStmt *YS) {
@@ -1423,26 +1404,24 @@ public:
     GenericEnvironment *genericSignature =
         genericSigStack.empty() ? nullptr : genericSigStack.back();
 
-    if (TypeChecker::typeCheckForEachPreamble(DC, S, genericSignature))
-      return nullptr;
-
+    auto hadError = TypeChecker::typeCheckForEachPreamble(DC, S,
+                                                          genericSignature);
     // Type-check the body of the loop.
     auto sourceFile = DC->getParentSourceFile();
     checkLabeledStmtShadowing(getASTContext(), sourceFile, S);
-
-    BraceStmt *Body = S->getBody();
 
     if (auto packExpansion =
             dyn_cast<PackExpansionExpr>(S->getParsedSequence()))
       genericSigStack.push_back(packExpansion->getGenericEnvironment());
 
-    typeCheckStmt(Body);
+    BraceStmt *Body = S->getBody();
+    hadError |= typeCheckStmt(Body);
     S->setBody(Body);
 
     if (isa<PackExpansionExpr>(S->getParsedSequence()))
       genericSigStack.pop_back();
 
-    return S;
+    return hadError ? nullptr : S;
   }
 
   Stmt *visitBreakStmt(BreakStmt *S) {

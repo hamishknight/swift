@@ -210,7 +210,7 @@ func missingControllingExprInForEach() {
 #if true  // <rdar://problem/21679557> compiler crashes on "for{{"
   // expected-error @+2 {{expected pattern}}
   // expected-error @+1 {{expected Sequence expression for for-each loop}}
-  for{{ // expected-note 2 {{to match this opening '{'}}
+  for{{ // expected-note 2 {{to match this opening '{'}} expected-error {{closure expression is unused}} expected-note {{did you mean to use a 'do' statement?}}
 #endif  // expected-error {{expected '}' at end of closure}} expected-error {{expected '}' at end of brace statement}}
 
 #if true

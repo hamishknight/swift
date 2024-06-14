@@ -1273,12 +1273,6 @@ Expr *DefaultArgumentExprRequest::evaluate(Evaluator &evaluator,
       !checkExpressionMacroDefaultValueRestrictions(param))
     return new (ctx) ErrorExpr(initExpr->getSourceRange(), ErrorType::get(ctx));
 
-  // If the param has an error type, there's no point type checking the default
-  // expression, unless we are type checking for code completion, in which case
-  // the default expression might contain the code completion token.
-  if (paramTy->hasError() && !ctx.CompletionCallback)
-    return new (ctx) ErrorExpr(initExpr->getSourceRange(), ErrorType::get(ctx));
-
   auto *dc = param->getDefaultArgumentInitContext();
   assert(dc);
 
@@ -3151,23 +3145,12 @@ public:
 
     TypeChecker::checkPatternBindingCaptures(ED);
 
-    auto &DE = Ctx.Diags;
-    if (auto rawTy = ED->getRawType()) {
-      // The raw type must be one of the blessed literal convertible types.
-      if (!computeAutomaticEnumValueKind(ED)) {
-        if (!rawTy->is<ErrorType>()) {
-          DE.diagnose(ED->getInherited().getStartLoc(),
-                      diag::raw_type_not_literal_convertible, rawTy);
-        }
-      }
-      
-      // We need at least one case to have a raw value.
-      if (ED->getAllElements().empty()) {
-        DE.diagnose(ED->getInherited().getStartLoc(),
-                    diag::empty_enum_raw_type);
-      }
+    // Make sure we check the raw values of the enum.
+    {
+      auto &eval = ED->getASTContext().evaluator;
+      auto req = EnumRawValuesRequest{ED, TypeResolutionStage::Interface};
+      (void)evaluateOrDefault(eval, req, {});
     }
-
     // -----
     // NonCopyableChecks
     //
@@ -3735,8 +3718,6 @@ public:
 
   void visitEnumElementDecl(EnumElementDecl *EED) {
     (void) EED->getInterfaceType();
-    auto *ED = EED->getParentEnum();
-
     TypeChecker::checkDeclAttributes(EED);
 
     if (auto *PL = EED->getParameterList()) {
@@ -3744,24 +3725,6 @@ public:
 
       checkDefaultArguments(PL);
       checkVariadicParameters(PL, EED);
-    }
-
-    auto &DE = Ctx.Diags;
-    // We don't yet support raw values on payload cases.
-    if (EED->hasAssociatedValues()) {
-      if (auto rawTy = ED->getRawType()) {
-        EED->diagnose(diag::enum_with_raw_type_case_with_argument);
-        DE.diagnose(ED->getInherited().getStartLoc(),
-                    diag::enum_raw_type_here, rawTy);
-        EED->setInvalid();
-      }
-    }
-
-    // Force the raw value expr then yell if our parent doesn't have a raw type.
-    Expr *RVE = EED->getRawValueExpr();
-    if (RVE && !ED->hasRawType()) {
-      DE.diagnose(RVE->getLoc(), diag::enum_raw_value_without_raw_type);
-      EED->setInvalid();
     }
 
     checkAccessControl(EED);

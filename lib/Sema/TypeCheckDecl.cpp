@@ -1204,26 +1204,69 @@ swift::computeAutomaticEnumValueKind(EnumDecl *ED) {
 evaluator::SideEffect
 EnumRawValuesRequest::evaluate(Evaluator &eval, EnumDecl *ED,
                                TypeResolutionStage stage) const {
-  Type rawTy = ED->getRawType();
-  if (!rawTy) {
-    return std::make_tuple<>();
+  auto &ctx = ED->getASTContext();
+  auto &diags = ctx.Diags;
+
+  // Make the raw member accesses explicit.
+  auto uncheckedRawValueOf = [](EnumElementDecl *EED) -> LiteralExpr * {
+    return EED->RawValueExpr;
+  };
+
+  auto markRawValueInvalid = [&](EnumElementDecl *EED) {
+    // Only invalidate if we're checking the interface type.
+    if (stage != TypeResolutionStage::Interface)
+      return;
+
+    auto *RVE = uncheckedRawValueOf(EED);
+    if (!RVE)
+      return;
+
+    if (!ED->getRawType()) {
+      diags.diagnose(RVE->getLoc(), diag::enum_raw_value_without_raw_type);
+      EED->setInvalid();
+    }
+
+    // Make sure to fill in an ErrorType if we don't have a proper type.
+    if (!RVE->getType())
+      RVE->setType(ErrorType::get(ctx));
+  };
+
+  auto markRawValuesInvalid = [&]() -> evaluator::SideEffect {
+    for (auto elt : ED->getAllElements())
+      markRawValueInvalid(elt);
+    return {};
+  };
+
+  auto rawTy = ED->getRawType();
+  if (!rawTy)
+    return markRawValuesInvalid();
+
+  // We need at least one case to have a raw value.
+  if (ED->getAllElements().empty() &&
+      stage == TypeResolutionStage::Interface) {
+    diags.diagnose(ED->getInherited().getStartLoc(),
+                   diag::empty_enum_raw_type);
   }
-  
+
+  if (ED->getGenericEnvironmentOfContext() != nullptr)
+    rawTy = ED->mapTypeIntoContext(rawTy);
+  if (rawTy->hasError())
+    return markRawValuesInvalid();
+
+  if (!computeAutomaticEnumValueKind(ED)) {
+    if (stage == TypeResolutionStage::Interface) {
+      diags.diagnose(ED->getInherited().getStartLoc(),
+                     diag::raw_type_not_literal_convertible, rawTy);
+    }
+    return markRawValuesInvalid();
+  }
+
   // Avoid computing raw values for enum cases in swiftinterface files since raw
   // values are intentionally omitted from them (unless the enum is @objc).
   // Without bailing here, incorrect raw values can be automatically generated
   // and incorrect diagnostics may be omitted for some decls.
   SourceFile *Parent = ED->getDeclContext()->getParentSourceFile();
   if (Parent && Parent->Kind == SourceFileKind::Interface && !ED->isObjC())
-    return std::make_tuple<>();
-
-  if (!computeAutomaticEnumValueKind(ED)) {
-    return std::make_tuple<>();
-  }
-
-  if (ED->getGenericEnvironmentOfContext() != nullptr)
-    rawTy = ED->mapTypeIntoContext(rawTy);
-  if (rawTy->hasError())
     return std::make_tuple<>();
 
   // Check the raw values of the cases.
@@ -1233,16 +1276,25 @@ EnumRawValuesRequest::evaluate(Evaluator &eval, EnumDecl *ED,
   // Keep a map we can use to check for duplicate case values.
   llvm::SmallDenseMap<RawValueKey, RawValueSource, 8> uniqueRawValues;
 
-  // Make the raw member accesses explicit.
-  auto uncheckedRawValueOf = [](EnumElementDecl *EED) -> LiteralExpr * {
-    return EED->RawValueExpr;
-  };
-
   std::optional<AutomaticEnumValueKind> valueKind;
   for (auto elt : ED->getAllElements()) {
     // If the element has been diagnosed up to now, skip it.
-    if (elt->isInvalid())
+    if (elt->isInvalid()) {
+      markRawValueInvalid(elt);
       continue;
+    }
+
+    // We don't yet support raw values on payload cases.
+    if (elt->hasAssociatedValues()) {
+      if (stage == TypeResolutionStage::Interface) {
+        elt->diagnose(diag::enum_with_raw_type_case_with_argument);
+        diags.diagnose(ED->getInherited().getStartLoc(),
+                       diag::enum_raw_type_here, rawTy);
+      }
+      markRawValueInvalid(elt);
+      elt->setInvalid();
+      continue;
+    }
 
     if (uncheckedRawValueOf(elt)) {
       if (!uncheckedRawValueOf(elt)->isImplicit())
