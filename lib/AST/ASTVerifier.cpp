@@ -484,19 +484,7 @@ public:
     }
 
     // Default cases for whether we should verify a checked subtree.
-    bool shouldVerifyChecked(Expr *E) {
-      if (!E->getType()) {
-        // For @objc enums, we serialize the pre-type-checked integer
-        // literal raw values, and thus when they are deserialized
-        // they do not have a type on them.
-        if (!isa<IntegerLiteralExpr>(E) && !isa<MacroExpansionExpr>(E)) {
-          Out << "expression has no type\n";
-          E->dump(Out);
-          abort();
-        }
-      }
-      return true;
-    }
+    bool shouldVerifyChecked(Expr *E) { return true; }
     bool shouldVerifyChecked(Stmt *S) { return true; }
     bool shouldVerifyChecked(Pattern *S) { return true; }
     bool shouldVerifyChecked(Decl *S) { return true; }
@@ -558,8 +546,20 @@ public:
     /// These verification functions are always run on type checked ASTs
     /// (even if there were errors).
     void verifyCheckedAlways(Expr *E) {
-      if (E->getType())
-        verifyChecked(E->getType());
+      // Some imported expressions don't have types, even in checked mode.
+      // TODO: eliminate all these
+      if (!E->getType()) {
+        // For @objc enums, we serialize the pre-type-checked integer
+        // literal raw values, and thus when they are deserialized
+        // they do not have a type on them.
+        if (!isa<IntegerLiteralExpr>(E)) {
+          Out << "expression has no type\n";
+          E->dump(Out);
+          abort();
+        }
+        return;
+      }
+      verifyChecked(E->getType());
     }
     void verifyCheckedAlways(Stmt *S) {}
     void verifyCheckedAlways(Pattern *P) {
@@ -578,22 +578,10 @@ public:
     /// @{
     /// These verification functions are run on type checked ASTs if there were
     /// no errors.
-    void verifyChecked(Expr *E) {
-      // Some imported expressions don't have types, even in checked mode.
-      // TODO: eliminate all these
-      if (!E->getType()) {
-        // For @objc enums, we serialize the pre-type-checked integer
-        // literal raw values, and thus when they are deserialized
-        // they do not have a type on them.
-        if (!isa<IntegerLiteralExpr>(E)) {
-          Out << "expression has no type\n";
-          E->dump(Out);
-          abort();
-        }
-        return;
-      }
-    }
+    void verifyChecked(Expr *E) {}
     void verifyChecked(Pattern *P) {
+      // FIXME: This should always be checked in verifyCheckedAlways once we
+      // always fill in ErrorTypes for patterns.
       if (!P->hasType()) {
         Out << "pattern has no type\n";
         P->dump(Out);
