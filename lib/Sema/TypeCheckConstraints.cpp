@@ -507,6 +507,12 @@ TypeChecker::typeCheckTarget(SyntacticElementTarget &target,
   ConstraintSystem cs(dc, csOptions);
 
   if (auto *expr = target.getAsExpr()) {
+    // If the contextual type is an error, there's no point in solving. We've
+    // already diagnosed the issue elsewhere, just invalidate the target.
+    if (auto contextTy = target.getExprContextualType()) {
+      if (contextTy->hasError())
+        return errorResult();
+    }
     // Tell the constraint system what the contextual type is.  This informs
     // diagnostics and is a hint for various performance optimizations.
     cs.setContextualInfo(expr, target.getExprContextualTypeInfo());
@@ -903,11 +909,6 @@ bool TypeChecker::typeCheckPatternBinding(PatternBindingDecl *PBD,
     else {
       auto contextualPattern = ContextualPattern::forRawPattern(pattern, DC);
       patternType = typeCheckPattern(contextualPattern);
-    }
-
-    if (patternType->hasError()) {
-      PBD->setInvalid();
-      return true;
     }
   }
 

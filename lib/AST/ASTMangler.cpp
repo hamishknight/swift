@@ -3765,12 +3765,6 @@ void ASTMangler::appendClosureEntity(const AbstractClosureExpr *closure) {
   ArrayRef<GenericEnvironment *> capturedEnvs;
 
   auto type = closure->getType();
-
-  // FIXME: CodeCompletionResultBuilder calls printValueDeclUSR() but the
-  // closure hasn't been type checked yet.
-  if (!type)
-    type = ErrorType::get(closure->getASTContext());
-
   if (type->hasLocalArchetype())
     capturedEnvs = closure->getCaptureInfo().getGenericEnvironments();
 

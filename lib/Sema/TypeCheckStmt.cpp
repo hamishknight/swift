@@ -1087,6 +1087,9 @@ public:
     if (resultTarget) {
       RS->setResult(resultTarget->getAsExpr());
     } else {
+      // Write back the expression, which may have at least been rewritten.
+      RS->setResult(target.getAsExpr());
+
       tryDiagnoseUnnecessaryCastOverOptionSet(getASTContext(), RS->getResult(),
                                               ResultTy, DC->getParentModule());
     }

@@ -35,6 +35,8 @@ static bool shouldCopyAssociatedUSRForDecl(const ValueDecl *VD) {
     return false;
   if (VD->hasClangNode() && !VD->getClangDecl())
     return false;
+  if (VD->getDeclContext()->getLocalContext())
+    return false;
 
   return true;
 }
