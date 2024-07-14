@@ -123,7 +123,8 @@ func test21057425() -> (Int, Int) {
 // rdar://problem/21081340
 func test21081340() {
   func foo() { }
-  let (x: a, y: b): () = foo() // expected-error{{tuple pattern has the wrong length for tuple type '()'}}
+  let (x: a, y: b): () = foo()
+  // expected-error@-1 {{'()' is not convertible to '(x: _, y: _)', tuples have a different number of elements}}
 }
 
 // <rdar://problem/22322266> Swift let late initialization in top level control flow statements

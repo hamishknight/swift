@@ -674,6 +674,16 @@ ConstraintLocator *ConstraintSystem::getCalleeLocator(
   if (isExpr<SubscriptExpr>(anchor))
     return getConstraintLocator(anchor, ConstraintLocator::SubscriptMember);
 
+  // If we have an enum element pattern anchor, the callee is the member
+  // being looked up.
+  if (auto *EEP = getAsPattern<EnumElementPattern>(anchor)) {
+    if (EEP->getParentType() || EEP->getParentTypeRepr()) {
+      return getConstraintLocator(EEP, ConstraintLocator::Member);
+    } else {
+      return getConstraintLocator(EEP, ConstraintLocator::UnresolvedMember);
+    }
+  }
+
   auto getSpecialFnCalleeLoc = [&](Type fnTy) -> ConstraintLocator * {
     fnTy = simplifyType(fnTy);
     // It's okay for function type to contain type variable(s) e.g.
@@ -1685,6 +1695,10 @@ unwrapPropertyWrapperParameterTypes(ConstraintSystem &cs, AbstractFunctionDecl *
   // Note: If the transform is ever enabled for patterns - new branch
   // would have to be added to `nameLoc` selection.
   if (locator.endsWith<LocatorPathElt::PatternMatch>())
+    return functionType;
+
+  auto *loc = cs.getConstraintLocator(locator);
+  if (loc->isForEnumElementPatternMember())
     return functionType;
 
   auto *paramList = funcDecl->getParameters();
@@ -3470,15 +3484,14 @@ FunctionType::ExtInfo ClosureEffectsRequest::evaluate(
       if (!ctx.getErrorDecl())
         return false;
 
-      auto contextualPattern =
-          ContextualPattern::forRawPattern(pattern, DC);
-      pattern = TypeChecker::coercePatternToType(
-        contextualPattern, ctx.getErrorExistentialType(),
-        TypeResolverContext::InExpression);
-      if (!pattern)
+      auto target = SyntacticElementTarget::forCaseLabelItem(
+          &LabelItem, ctx.getErrorExistentialType(), DC);
+      auto result = TypeChecker::typeCheckTarget(target);
+      if (!result)
         return false;
 
-      LabelItem.setPattern(pattern, /*resolved=*/true);
+      LabelItem.setPattern((*result->getAsCaseLabelItem())->getPattern(),
+                           /*resolved=*/true);
       return LabelItem.isSyntacticallyExhaustive();
     }
 
@@ -7288,6 +7301,15 @@ void SyntacticElementTargetKey::dump(raw_ostream &OS) const {
     storage.stmt->dump(OS);
     return;
 
+  case Kind::caseLabelItem:
+    OS << "case label item:\n";
+    storage.caseLabelItem->getPattern()->dump(OS);
+    if (auto *guard = storage.caseLabelItem->getGuardExpr()) {
+      OS << "guard:\n";
+      guard->dump(OS);
+    }
+    return;
+
   case Kind::pattern:
     storage.pattern->dump(OS);
     return;
@@ -7366,7 +7388,7 @@ void ConstraintSystem::diagnoseFailureFor(SyntacticElementTarget target) {
     }
   } else if (auto *var = target.getAsUninitializedVar()) {
     DE.diagnose(target.getLoc(), diag::failed_to_produce_diagnostic);
-  } else if (target.isForEachPreamble()) {
+  } else if (target.isForEachPreamble() || target.getAsCaseLabelItem()) {
     DE.diagnose(target.getLoc(), diag::failed_to_produce_diagnostic);
   } else {
     // Emit a poor fallback message.

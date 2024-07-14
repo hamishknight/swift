@@ -409,7 +409,8 @@ ElementInfo makeJoinElement(ConstraintSystem &cs, TypeJoinExpr *join,
 
 struct SyntacticElementContext
     : public llvm::PointerUnion<AbstractFunctionDecl *, AbstractClosureExpr *,
-                                SingleValueStmtExpr *, ExprPattern *, TapExpr *> {
+                                SingleValueStmtExpr *, ExprPattern *, TapExpr *,
+                                DeclContext *> {
   // Inherit the constructors from PointerUnion.
   using PointerUnion::PointerUnion;
 
@@ -442,6 +443,10 @@ struct SyntacticElementContext
     return context;
   }
 
+  static SyntacticElementContext forArbitraryContext(DeclContext *DC) {
+    return {DC};
+  }
+
   static SyntacticElementContext forExprPattern(ExprPattern *EP) {
     return SyntacticElementContext{EP};
   }
@@ -457,6 +462,8 @@ struct SyntacticElementContext
       return EP->getDeclContext();
     } else if (auto *tap = this->dyn_cast<TapExpr *>()) {
       return tap->getVar()->getDeclContext();
+    } else if (auto *DC = this->dyn_cast<DeclContext *>()) {
+      return DC;
     } else {
       llvm_unreachable("unsupported kind");
     }
@@ -579,24 +586,36 @@ public:
       return;
     }
 
-    auto parentElement =
-        locator->getLastElementAs<LocatorPathElt::SyntacticElement>();
+    auto parentNode = [&]() {
+      if (auto lastElt =
+              locator->getLastElementAs<LocatorPathElt::SyntacticElement>()) {
+        return lastElt->getElement();
+      }
+      if (locator->getPath().empty())
+        return locator->getAnchor();
 
-    if (!parentElement) {
+      return ASTNode();
+    }();
+
+    if (!parentNode) {
       hadError = true;
       return;
     }
 
-    if (auto *stmt = parentElement->getElement().dyn_cast<Stmt *>()) {
-      if (isa<ForEachStmt>(stmt)) {
-        visitForEachPattern(pattern, cast<ForEachStmt>(stmt));
+    if (auto *stmt = getAsStmt(parentNode)) {
+      if (auto *forEach = dyn_cast<ForEachStmt>(stmt)) {
+        visitForEachPattern(pattern, forEach);
         return;
       }
 
       if (isa<CaseStmt>(stmt)) {
-        visitCaseItemPattern(pattern, contextInfo);
+        visitCaseStmtPattern(pattern, contextInfo);
         return;
       }
+    }
+    if (parentNode.is<CaseLabelItem *>()) {
+      visitCaseLabelItemPattern(pattern, contextInfo);
+      return;
     }
 
     llvm_unreachable("Unsupported pattern");
@@ -677,9 +696,10 @@ private:
     cs.setTargetFor(forEachStmt, target);
   }
 
-  void visitCaseItemPattern(Pattern *pattern, ContextualTypeInfo context) {
+  void visitCaseLabelItemPattern(Pattern *pattern, ContextualTypeInfo context) {
     Type patternType = cs.generateConstraints(
         pattern, locator, /*bindPatternVarsOneWay=*/false,
+        /*openOpaqueTypes*/ true,
         /*patternBinding=*/nullptr, /*patternIndex=*/0);
 
     if (!patternType) {
@@ -694,6 +714,10 @@ private:
                   LocatorPathElt::ContextualType(context.purpose)});
     cs.addConstraint(ConstraintKind::Equal, context.getType(), patternType,
                      loc);
+  }
+
+  void visitCaseStmtPattern(Pattern *pattern, ContextualTypeInfo context) {
+    visitCaseLabelItemPattern(pattern, context);
 
     // For any pattern variable that has a parent variable (i.e., another
     // pattern variable with the same name in the same case), require that
@@ -1089,6 +1113,10 @@ private:
 
     SmallVector<ElementInfo, 4> elements;
     for (auto &caseLabelItem : caseStmt->getMutableCaseLabelItems()) {
+      SyntacticElementTarget target(&caseLabelItem, contextualTy,
+                                    context.getAsDeclContext());
+      cs.setTargetFor(&caseLabelItem, target);
+
       elements.push_back(
           makeElement(&caseLabelItem, caseLoc, {contextualTy, CTP_CaseStmt}));
     }
@@ -1574,6 +1602,15 @@ bool ConstraintSystem::generateConstraints(SingleValueStmtExpr *E) {
   return generator.hadError;
 }
 
+bool ConstraintSystem::generateConstraints(CaseLabelItem *caseLabelItem,
+                                           DeclContext *dc, Type subjectTy) {
+  auto *locator = getConstraintLocator(caseLabelItem);
+  auto context = SyntacticElementContext::forArbitraryContext(dc);
+  SyntacticElementConstraintGenerator generator(*this, context, locator);
+  generator.visitCaseItem(caseLabelItem, {subjectTy, CTP_CaseStmt});
+  return generator.hadError;
+}
+
 void ConstraintSystem::generateConstraints(ArrayRef<ExprPattern *> exprPatterns,
                                            ConstraintLocatorBuilder locator) {
   assert(!exprPatterns.empty());
@@ -1997,10 +2034,9 @@ private:
   void visitCaseStmtPreamble(CaseStmt *caseStmt) {
     // Translate the patterns and guard expressions for each case label item.
     for (auto &caseItem : caseStmt->getMutableCaseLabelItems()) {
-      SyntacticElementTarget caseTarget(&caseItem, context.getAsDeclContext());
-      if (!rewriteTarget(caseTarget)) {
+      auto target = *solution.getTargetFor(&caseItem);
+      if (!rewriteTarget(target))
         hadError = true;
-      }
     }
 
     bindSwitchCasePatternVars(context.getAsDeclContext(), caseStmt);
@@ -2714,15 +2750,17 @@ void ConjunctionElement::findReferencedVariables(
   }
 }
 
-Type constraints::isPlaceholderVar(PatternBindingDecl *PB) {
-  auto *var = PB->getSingleVar();
+Type constraints::isPlaceholderVar(Pattern *pattern) {
+  if (!pattern->hasType())
+    return Type();
+
+  auto *var = pattern->getSingleVar();
   if (!var)
     return Type();
 
   if (!var->getName().hasDollarPrefix())
     return Type();
 
-  auto *pattern = PB->getPattern(0);
   if (auto *typedPattern = dyn_cast<TypedPattern>(pattern)) {
     auto type = typedPattern->getType();
     if (type && type->hasPlaceholder())
@@ -2730,4 +2768,11 @@ Type constraints::isPlaceholderVar(PatternBindingDecl *PB) {
   }
 
   return Type();
+}
+
+Type constraints::isPlaceholderVar(PatternBindingDecl *PB) {
+  if (PB->getNumPatternEntries() != 1)
+    return Type();
+
+  return isPlaceholderVar(PB->getPattern(0));
 }

@@ -10,7 +10,7 @@ func ~= (lhs: any Error, rhs: E) -> Bool { true }
 // TODO: This ought to compile.
 func foo(_ error: any Error) {
   switch error {
-  case E.e: // expected-error {{pattern of type 'E' cannot match 'any Error'}}
+  case E.e: // expected-error {{pattern of type 'E' does not conform to expected match type 'Error'}}
     break
   default:
     break

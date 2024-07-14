@@ -120,7 +120,7 @@ case iPadHair<E>.HairForceOne:
   ()
 case iPadHair.HairForceOne: // expected-error{{generic enum type 'iPadHair' is ambiguous without explicit generic parameters when matching value of type 'any HairType'}}
   ()
-case Watch.Edition: // expected-error {{pattern of type 'Watch' cannot match 'any HairType'}}
+case Watch.Edition: // expected-error {{pattern of type 'Watch' does not conform to 'HairType'}}
   ()
 case .HairForceOne: // expected-error{{type 'any HairType' has no member 'HairForceOne'}}
   ()
@@ -621,6 +621,29 @@ struct TestRecursiveVarRef<T> {
 
 func testMultiStmtClosureExprPattern(_ x: Int) {
   if case { (); return x }() = x {}
+}
+
+func testTuplePattern(_ labeledTuple: (a: Bool, b: Bool), _ unlabeledTuple: (Bool, Bool)) {
+  switch labeledTuple {
+  case (true, true):
+    break
+  case (a: false, true):
+    break
+  case (x: true, b: false): // expected-error {{pattern of type '(x: Bool, b: Bool)' cannot match '(a: Bool, b: Bool)'}}
+    break
+  default:
+    break
+  }
+  switch unlabeledTuple {
+  case (a: true, b: true): // expected-error {{pattern of type '(a: Bool, b: Bool)' cannot match '(Bool, Bool)'}}
+    break
+  case (true, c: false): // expected-error {{pattern of type '(Bool, c: Bool)' cannot match '(Bool, Bool)'}}
+    break
+  case (_: false, true):
+    break
+  default:
+    break
+  }
 }
 
 func testExprPatternIsolation() {
