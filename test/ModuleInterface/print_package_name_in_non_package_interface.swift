@@ -51,10 +51,7 @@
 // RUN: rm -rf %t/Bar.package.swiftinterface
 
 /// Print -package-name in public or private interface.
-/// Note the order of arguments differs across old/new driver, so force old
-/// driver for now.
-// RUN: env SWIFT_USE_OLD_DRIVER=1 %target-build-swift \
-// RUN:   -emit-module %t/Bar.swift -I %t \
+// RUN: %target-build-swift -emit-module %t/Bar.swift -I %t \
 // RUN:   -module-name Bar -package-name barpkg \
 // RUN:   -enable-library-evolution -swift-version 6 \
 // RUN:   -Xfrontend -print-package-name-in-non-package-interface \
@@ -66,7 +63,7 @@
 // RUN: %FileCheck %s < %t/Bar.private.swiftinterface
 // RUN: %FileCheck %s < %t/Bar.package.swiftinterface
 
-// CHECK: -enable-library-evolution -package-name barpkg -swift-version 6 -module-name Bar
+// CHECK: -enable-library-evolution -swift-version 6 -module-name Bar -package-name barpkg
 
 /// Building modules from non-package interfaces with package-name (default mode) should succeed.
 // RUN: %target-swift-frontend -compile-module-from-interface %t/Bar.swiftinterface -o %t/Bar.swiftmodule -module-name Bar
