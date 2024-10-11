@@ -1068,10 +1068,11 @@ void diagnosePotentialUnavailability(const RootProtocolConformance *rootConf,
                                      const DeclContext *dc,
                                      const AvailabilityRange &availability);
 
-void diagnosePotentialUnavailability(SourceRange ReferenceRange,
-                                     Diag<StringRef, llvm::VersionTuple> Diag,
-                                     const DeclContext *ReferenceDC,
-                                     const AvailabilityRange &Availability);
+void diagnosePotentialUnavailability(
+    SourceRange ReferenceRange,
+    llvm::function_ref<InFlightDiagnostic(StringRef, llvm::VersionTuple)>
+        Diagnose,
+    const DeclContext *ReferenceDC, const AvailabilityRange &Availability);
 
 /// Type check a 'distributed actor' declaration.
 void checkDistributedActor(SourceFile *SF, NominalTypeDecl *decl);
@@ -1080,6 +1081,12 @@ void checkDistributedActor(SourceFile *SF, NominalTypeDecl *decl);
 ///
 /// Returns `true` if there was an error.
 bool checkDistributedFunc(FuncDecl *func);
+
+bool checkAvailability(
+    SourceRange ReferenceRange, AvailabilityRange RequiredAvailability,
+    const DeclContext *ReferenceDC,
+    llvm::function_ref<InFlightDiagnostic(StringRef, llvm::VersionTuple)>
+        Diagnose);
 
 bool checkAvailability(SourceRange ReferenceRange,
                        AvailabilityRange RequiredAvailability,
