@@ -5110,6 +5110,7 @@ struct RegexLiteralPatternInfo {
   StringRef RegexToEmit;
   Type RegexType;
   size_t Version;
+  ArrayRef<RegexLiteralExpr::PatternFeature> Features;
 };
 
 /// Parses the regex pattern for a given regex literal using the
@@ -5129,6 +5130,73 @@ private:
 
 public:
   bool isCached() const { return true; }
+};
+
+/// The key for RegexLiteralFeatureDescriptionRequest +
+/// RegexLiteralFeatureAvailabilityRequest. We only need to cache on the opaque
+/// kind, not the source range. We need to cache since we allocate the
+/// description in the ASTContext.
+struct RegexLiteralPatternFeatureKindKey {
+  ASTContext *context;
+  RegexLiteralExpr::PatternFeature feature;
+
+  friend hash_code hash_value(const RegexLiteralPatternFeatureKindKey &key) {
+    return llvm::hash_value(key.feature.getKind());
+  }
+
+  friend bool operator==(const RegexLiteralPatternFeatureKindKey &lhs,
+                         const RegexLiteralPatternFeatureKindKey &rhs) {
+    return lhs.feature.getKind() == rhs.feature.getKind();
+  }
+
+  friend bool operator!=(const RegexLiteralPatternFeatureKindKey &lhs,
+                         const RegexLiteralPatternFeatureKindKey &rhs) {
+    return !(lhs == rhs);
+  }
+
+  friend SourceLoc
+  extractNearestSourceLoc(const RegexLiteralPatternFeatureKindKey &key) {
+    return key.feature.getRange().getStart();
+  }
+
+  friend void simple_display(llvm::raw_ostream &out,
+                             const RegexLiteralPatternFeatureKindKey &key) {
+    out << "regex pattern feature " << key.feature.getKind();
+  }
+};
+
+/// The description for a given regex pattern feature. This is cached since
+/// the resulting string is allocated in the ASTContext for ease of bridging.
+class RegexLiteralFeatureDescriptionRequest
+    : public SimpleRequest<RegexLiteralFeatureDescriptionRequest,
+                           StringRef(RegexLiteralPatternFeatureKindKey),
+                           RequestFlags::Cached> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  StringRef evaluate(Evaluator &evaluator,
+                     RegexLiteralPatternFeatureKindKey key) const;
+
+public:
+  bool isCached() const { return true; }
+};
+
+/// The availability range for a given regex pattern feature.
+class RegexLiteralFeatureAvailabilityRequest
+    : public SimpleRequest<RegexLiteralFeatureAvailabilityRequest,
+                           AvailabilityRange(RegexLiteralPatternFeatureKindKey),
+                           RequestFlags::Uncached> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  AvailabilityRange evaluate(Evaluator &evaluator,
+                             RegexLiteralPatternFeatureKindKey key) const;
 };
 
 class IsUnsafeRequest

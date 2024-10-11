@@ -595,6 +595,12 @@ SWIFT_REQUEST(TypeChecker, SuppressesConformanceRequest,
 SWIFT_REQUEST(TypeChecker, RegexLiteralPatternInfoRequest,
               RegexLiteralPatternInfo(const RegexLiteralExpr *),
               Cached, NoLocationInfo)
+SWIFT_REQUEST(TypeChecker, RegexLiteralFeatureDescriptionRequest,
+              StringRef(RegexLiteralPatternFeatureKindKey),
+              Cached, NoLocationInfo)
+SWIFT_REQUEST(TypeChecker, RegexLiteralFeatureAvailabilityRequest,
+              AvailabilityRange(RegexLiteralPatternFeatureKindKey),
+              Uncached, NoLocationInfo)
 
 SWIFT_REQUEST(TypeChecker, CaptureInfoRequest,
               CaptureInfo(AbstractFunctionDecl *),

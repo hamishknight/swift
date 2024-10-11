@@ -426,6 +426,25 @@ public:
 #endif
 };
 
+//===----------------------------------------------------------------------===//
+// MARK: BridgedSwiftVersion
+//===----------------------------------------------------------------------===//
+
+class BridgedSwiftVersion {
+  unsigned Major;
+  unsigned Minor;
+
+public:
+  BridgedSwiftVersion() : Major(0), Minor(0) {}
+
+  SWIFT_NAME("init(major:minor:)")
+  BridgedSwiftVersion(SwiftInt major, SwiftInt minor)
+      : Major(major), Minor(minor) {}
+
+  unsigned getMajor() const { return Major; }
+  unsigned getMinor() const { return Minor; }
+};
+
 SWIFT_END_NULLABILITY_ANNOTATIONS
 
 #ifndef PURE_BRIDGING_MODE

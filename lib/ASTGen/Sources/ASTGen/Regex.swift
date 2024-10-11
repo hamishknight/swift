@@ -98,6 +98,7 @@ public func _RegexLiteralParsingFn(
   _ versionOut: UnsafeMutablePointer<UInt>,
   _ captureStructureOut: UnsafeMutableRawPointer,
   _ captureStructureSize: UInt,
+  _ patternFeaturesOut: UnsafeMutablePointer<BridgedRegexPatternFeatures>,
   _ bridgedDiagnosticBaseLoc: BridgedSourceLoc,
   _ bridgedDiagnosticEngine: BridgedDiagnosticEngine
 ) -> Bool {
@@ -113,6 +114,22 @@ public func _RegexLiteralParsingFn(
       str,
       captureBufferOut: captureBuffer
     )
+    // STUB: -> [Feature((String.Index, length), opaque kind)]
+    let featuresStub: [BridgedRegexPatternFeature] = [
+      .init(
+        kind: 0,
+        at: .init(
+          start: bridgedDiagnosticBaseLoc.advanced(by: 1), byteLength: 3
+        )
+      )
+    ]
+    let featuresBuffer = UnsafeMutableBufferPointer<BridgedRegexPatternFeature>
+      .allocate(capacity: featuresStub.count)
+    _ = featuresBuffer.initialize(from: featuresStub)
+    patternFeaturesOut.pointee = .init(
+      baseAddress: featuresBuffer.baseAddress, count: featuresBuffer.count
+    )
+
     versionOut.pointee = UInt(version)
     return false
   } catch let error as CompilerParseError {
@@ -133,6 +150,37 @@ public func _RegexLiteralParsingFn(
     return true
   } catch {
     fatalError("Expected CompilerParseError")
+  }
+}
+
+@_cdecl("swift_ASTGen_freeBridgedRegexPatternFeatures")
+func freeBridgedRegexPatternFeatures(_ features: BridgedRegexPatternFeatures) {
+  let buffer = UnsafeMutableBufferPointer(
+    start: features.getData(), count: features.getCount()
+  )
+  buffer.deinitialize()
+  buffer.deallocate()
+}
+
+@_cdecl("swift_ASTGen_getSwiftVersionForRegexPatternFeature")
+func getSwiftVersionForRegexPatternFeature(
+  _ feature: BridgedRegexPatternFeature,
+  _ versionOut: UnsafeMutablePointer<BridgedSwiftVersion>
+) {
+  // STUB: Feature((String.Index, length), opaque kind) -> Version(major, minor)
+  versionOut.pointee = .init(major: 6, minor: 0)
+}
+
+@_cdecl("swift_ASTGen_getDescriptionForRegexPatternFeature")
+func getDescriptionForRegexPatternFeature(
+  _ feature: BridgedRegexPatternFeature,
+  _ context: BridgedASTContext,
+  _ descriptionOut: UnsafeMutablePointer<BridgedStringRef>
+) {
+  // STUB: Feature((String.Index, length), opaque kind) -> String
+  var str = "test feature"
+  descriptionOut.pointee = str.withBridgedString {
+    context.allocateCopy(string: $0)
   }
 }
 

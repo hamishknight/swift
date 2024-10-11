@@ -103,12 +103,22 @@ bool swift_ASTGen_lexRegexLiteral(const char *_Nonnull *_Nonnull curPtrPtr,
                                   bool mustBeRegex,
                                   BridgedNullableDiagnosticEngine diagEngine);
 
-bool swift_ASTGen_parseRegexLiteral(BridgedStringRef inputPtr,
-                                    size_t *_Nonnull versionOut,
-                                    void *_Nonnull UnsafeMutableRawPointer,
-                                    size_t captureStructureSize,
-                                    BridgedSourceLoc diagLoc,
-                                    BridgedDiagnosticEngine diagEngine);
+bool swift_ASTGen_parseRegexLiteral(
+    BridgedStringRef inputPtr, size_t *_Nonnull versionOut,
+    void *_Nonnull UnsafeMutableRawPointer, size_t captureStructureSize,
+    BridgedRegexPatternFeatures *_Nonnull featuresOut, BridgedSourceLoc diagLoc,
+    BridgedDiagnosticEngine diagEngine);
+
+void swift_ASTGen_freeBridgedRegexPatternFeatures(
+    BridgedRegexPatternFeatures features);
+
+void swift_ASTGen_getSwiftVersionForRegexPatternFeature(
+    BridgedRegexPatternFeature feature,
+    BridgedSwiftVersion *_Nonnull versionOut);
+
+void swift_ASTGen_getDescriptionForRegexPatternFeature(
+    BridgedRegexPatternFeature feature, BridgedASTContext astContext,
+    BridgedStringRef *_Nonnull descriptionOut);
 
 intptr_t swift_ASTGen_configuredRegions(
     BridgedASTContext astContext,

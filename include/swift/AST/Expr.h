@@ -1004,6 +1004,26 @@ class RegexLiteralExpr : public LiteralExpr {
         ParsedRegexText(parsedRegexText) {}
 
 public:
+  /// A specific feature of a regex pattern, used for availability diagnostics.
+  class PatternFeature {
+    /// The opaque kind of feature, which should only be interpreted by the
+    /// compiler's regex parsing library.
+    unsigned Kind;
+
+    /// The range of the feature in the regex pattern.
+    CharSourceRange Range;
+
+  public:
+    PatternFeature(unsigned kind, CharSourceRange range)
+        : Kind(kind), Range(range) {}
+
+    AvailabilityRange getAvailability(ASTContext &ctx) const;
+    StringRef getDescription(ASTContext &ctx) const;
+
+    unsigned getKind() const { return Kind; }
+    CharSourceRange getRange() const { return Range; }
+  };
+
   static RegexLiteralExpr *createParsed(ASTContext &ctx, SourceLoc loc,
                                         StringRef regexText);
 
@@ -1020,6 +1040,9 @@ public:
 
   /// Retrieve the version of the regex string.
   unsigned getVersion() const;
+
+  /// Retrieve any features used in the regex pattern.
+  ArrayRef<PatternFeature> getPatternFeatures() const;
 
   SourceRange getSourceRange() const { return Loc; }
 

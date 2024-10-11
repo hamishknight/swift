@@ -27,6 +27,7 @@
 #include "swift/AST/Decl.h"
 #include "swift/AST/DiagnosticConsumer.h"
 #include "swift/AST/DiagnosticEngine.h"
+#include "swift/AST/Expr.h"
 #include "swift/AST/IfConfigClauseRangeInfo.h"
 #include "swift/AST/Stmt.h"
 #endif
@@ -1411,6 +1412,55 @@ SWIFT_NAME("BridgedPrefixUnaryExpr.createParsed(_:operator:operand:)")
 BridgedPrefixUnaryExpr
 BridgedPrefixUnaryExpr_createParsed(BridgedASTContext cContext,
                                     BridgedExpr oper, BridgedExpr operand);
+
+class BridgedRegexPatternFeature {
+  BridgedCharSourceRange Range;
+  SwiftInt Kind;
+
+public:
+  SWIFT_NAME("init(kind:at:)")
+  BridgedRegexPatternFeature(SwiftInt kind, BridgedCharSourceRange range)
+      : Range(range), Kind(kind) {}
+
+#ifdef USED_IN_CPP_SOURCE
+  using UnbridgedTy = swift::RegexLiteralExpr::PatternFeature;
+
+  BridgedRegexPatternFeature(UnbridgedTy feature)
+      : Range(feature.getRange()), Kind(feature.getKind()) {}
+
+  UnbridgedTy unbridged() const {
+    return UnbridgedTy(Kind, Range.unbridged());
+  }
+#endif
+};
+
+class BridgedRegexPatternFeatures final {
+  BridgedRegexPatternFeature *_Nullable Data;
+  SwiftInt Count;
+
+public:
+  BridgedRegexPatternFeatures() : Data(nullptr), Count(0) {}
+
+  SWIFT_NAME("init(baseAddress:count:)")
+  BridgedRegexPatternFeatures(BridgedRegexPatternFeature *_Nullable data,
+                              SwiftInt count)
+      : Data(data), Count(count) {}
+
+#ifdef USED_IN_CPP_SOURCE
+  using UnbridgedTy = llvm::ArrayRef<BridgedRegexPatternFeature>;
+
+  UnbridgedTy unbridged() const {
+    return UnbridgedTy(Data, Count);
+  }
+#endif
+
+  BridgedRegexPatternFeature *_Nullable getData() const {
+    return Data;
+  }
+  SwiftInt getCount() const {
+    return Count;
+  }
+};
 
 SWIFT_NAME("BridgedRegexLiteralExpr.createParsed(_:loc:regexText:)")
 BridgedRegexLiteralExpr
