@@ -377,6 +377,40 @@ swift::IfConfigClauseRangeInfo BridgedIfConfigClauseRangeInfo::unbridged() const
 }
 
 //===----------------------------------------------------------------------===//
+// MARK: BridgedRegexLiteralPatternFeature
+//===----------------------------------------------------------------------===//
+
+BridgedRegexLiteralPatternFeatureKind::BridgedRegexLiteralPatternFeatureKind(
+    SwiftInt rawValue)
+    : RawValue(rawValue) {
+  ASSERT(rawValue >= 0);
+  ASSERT(rawValue == RawValue);
+}
+
+BridgedRegexLiteralPatternFeatureKind::BridgedRegexLiteralPatternFeatureKind(
+    UnbridgedTy kind)
+    : RawValue(kind.getRawValue()) {}
+
+BridgedRegexLiteralPatternFeatureKind::UnbridgedTy
+BridgedRegexLiteralPatternFeatureKind::unbridged() const {
+  return UnbridgedTy(RawValue);
+}
+
+BridgedRegexLiteralPatternFeature::BridgedRegexLiteralPatternFeature(
+    UnbridgedTy feature)
+    : Range(feature.getRange()), Kind(feature.getKind()) {}
+
+BridgedRegexLiteralPatternFeature::UnbridgedTy
+BridgedRegexLiteralPatternFeature::unbridged() const {
+  return UnbridgedTy(Kind.unbridged(), Range.unbridged());
+}
+
+BridgedRegexLiteralPatternFeatures::UnbridgedTy
+BridgedRegexLiteralPatternFeatures::unbridged() const {
+  return UnbridgedTy(Data, Count);
+}
+
+//===----------------------------------------------------------------------===//
 // MARK: BridgedStmtConditionElement
 //===----------------------------------------------------------------------===//
 
