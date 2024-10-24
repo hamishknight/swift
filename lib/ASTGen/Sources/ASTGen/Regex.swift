@@ -114,8 +114,22 @@ public func _RegexLiteralParsingFn(
       str,
       captureBufferOut: captureBuffer
     )
-    // TODO: -> [Feature(opaque kind, (String.Index, length))]
-    patternFeaturesOut.pointee = .init(baseAddress: nil, count: 0)
+    // STUB: -> [Feature((String.Index, length), opaque kind)]
+    let featuresStub: [BridgedRegexLiteralPatternFeature] = [
+      .init(
+        kind: .init(rawValue: 0),
+        at: .init(
+          start: bridgedDiagnosticBaseLoc.advanced(by: 1), byteLength: 3
+        )
+      )
+    ]
+    let featuresBuffer = UnsafeMutableBufferPointer<BridgedRegexLiteralPatternFeature>
+      .allocate(capacity: featuresStub.count)
+    _ = featuresBuffer.initialize(from: featuresStub)
+    patternFeaturesOut.pointee = .init(
+      baseAddress: featuresBuffer.baseAddress, count: featuresBuffer.count
+    )
+
     versionOut.pointee = UInt(version)
     return false
   } catch let error as CompilerParseError {
@@ -140,9 +154,7 @@ public func _RegexLiteralParsingFn(
 }
 
 @_cdecl("swift_ASTGen_freeBridgedRegexLiteralPatternFeatures")
-func freeBridgedRegexLiteralPatternFeatures(
-  _ features: BridgedRegexLiteralPatternFeatures
-) {
+func freeBridgedRegexLiteralPatternFeatures(_ features: BridgedRegexLiteralPatternFeatures) {
   let buffer = UnsafeMutableBufferPointer(
     start: features.getData(), count: features.getCount()
   )
@@ -155,8 +167,8 @@ func getSwiftVersionForRegexPatternFeature(
   _ featureKind: BridgedRegexLiteralPatternFeatureKind,
   _ versionOut: UnsafeMutablePointer<BridgedSwiftVersion>
 ) {
-  // TODO: FeatureKind(opaque kind) -> Version(major, minor)
-  fatalError("Unimplemented")
+  // STUB: FeatureKind(opaque kind) -> Version(major, minor)
+  versionOut.pointee = .init(major: 6, minor: 0)
 }
 
 @_cdecl("swift_ASTGen_getDescriptionForRegexPatternFeature")
@@ -165,8 +177,11 @@ func getDescriptionForRegexPatternFeature(
   _ context: BridgedASTContext,
   _ descriptionOut: UnsafeMutablePointer<BridgedStringRef>
 ) {
-  // TODO: FeatureKind(opaque kind) -> String
-  fatalError("Unimplemented")
+  // STUB: FeatureKind(opaque kind) -> String
+  var str = "test feature"
+  descriptionOut.pointee = str.withBridgedString {
+    context.allocateCopy(string: $0)
+  }
 }
 
 #else  // canImport(_CompilerRegexParser)
