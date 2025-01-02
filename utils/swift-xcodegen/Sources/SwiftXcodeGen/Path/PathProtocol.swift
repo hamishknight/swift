@@ -28,6 +28,11 @@ public extension PathProtocol {
     return Self(result)
   }
 
+  /// Returns a sequence of all the parents for this path.
+  var parents: some Sequence {
+    sequence(first: self, next: \.parentDir).dropFirst()
+  }
+
   /// Drops the last `n` components, or all components if `n` is greater
   /// than the number of components.
   func dropLast(_ n: Int = 1) -> Self {
@@ -131,8 +136,12 @@ extension PathProtocol {
     hasExtension(.c, .cpp, .m, .mm)
   }
 
+  var isSwift: Bool {
+    hasExtension(.swift)
+  }
+
   var isSourceLike: Bool {
-    isCSourceLike || hasExtension(.swift)
+    isCSourceLike || isSwift
   }
 
   var isDocLike: Bool {

@@ -16,12 +16,17 @@ struct ClangTargetSource {
   var path: RelativePath
   var mayHaveUnbuildableFiles: Bool
 
+  /// If true, attempt to split the sources into groups of folder references
+  /// suitable for buildable folders.
+  var shouldSplitSources: Bool
+
   init(
     at path: RelativePath, named name: String,
-    mayHaveUnbuildableFiles: Bool
+    mayHaveUnbuildableFiles: Bool, shouldSplitSources: Bool
   ) {
     self.name = name
     self.path = path
     self.mayHaveUnbuildableFiles = mayHaveUnbuildableFiles
+    self.shouldSplitSources = shouldSplitSources
   }
 }
