@@ -1840,18 +1840,24 @@ public:
       return selfDeclAllowsImplicitSelf510(DRE, ty, inClosure);
 
     return selfDeclAllowsImplicitSelf(DRE->getDecl(), ty, inClosure,
-                                      /*validateParentClosures:*/ true,
-                                      /*validateSelfRebindings:*/ true);
+                                      /*isValidatingParentClosures:*/ false);
   }
 
   /// Whether or not implicit self is allowed for this implicit self decl
   static bool selfDeclAllowsImplicitSelf(const ValueDecl *selfDecl,
                                          const Type captureType,
                                          const AbstractClosureExpr *inClosure,
-                                         bool validateParentClosures,
-                                         bool validateSelfRebindings) {
+                                         bool isValidatingParentClosures) {
     ASTContext &ctx = inClosure->getASTContext();
 
+    // Referencing a weak self directly always requires explicit self. Avoid
+    // checking if we're evaluating parent closures since it can be rebound in
+    // those cases.
+    if (selfDecl->getInterfaceType()->is<WeakStorageType>() &&
+        !isValidatingParentClosures) { 
+      return false;
+    }
+    
     auto requiresSelfQualification =
         isClosureRequiringSelfQualification(inClosure);
 
@@ -1889,20 +1895,10 @@ public:
     //    be a closure nested in some parent closure with a `weak self`
     //    capture, so we should always validate the conditional statement
     //    that defines self if present.
-    if (validateSelfRebindings) {
-      if (auto conditionalStmt = parentConditionalStmt(selfDecl)) {
-        if (!hasValidSelfRebinding(conditionalStmt, ctx)) {
-          return false;
-        }
+    if (auto conditionalStmt = parentConditionalStmt(selfDecl)) {
+      if (!hasValidSelfRebinding(conditionalStmt, ctx)) {
+        return false;
       }
-    }
-
-    // If this closure has a `weak self` capture, require that the
-    // closure unwraps self. If not, implicit self is not allowed
-    // in this closure or in any nested closure.
-    if (closureHasWeakSelfCapture(inClosure) &&
-        !hasValidSelfRebinding(parentConditionalStmt(selfDecl), ctx)) {
-      return false;
     }
 
     if (auto autoclosure = dyn_cast<AutoClosureExpr>(inClosure)) {
@@ -1927,12 +1923,11 @@ public:
     //  - We have to do this for all closures, even closures that typically
     //    don't require self qualificationm since an invalid self capture in
     //    a parent closure still disallows implicit self in a nested closure.
-    if (validateParentClosures) {
-      return !implicitSelfDisallowedDueToInvalidParent(selfDecl, captureType,
-                                                       inClosure);
-    } else {
+    if (isValidatingParentClosures)
       return true;
-    }
+    
+    return !implicitSelfDisallowedDueToInvalidParent(selfDecl, captureType,
+                                                     inClosure);
   }
 
   static bool implicitSelfDisallowedDueToInvalidParent(
@@ -2050,8 +2045,7 @@ public:
         // so we can return the specific closure that is invalid.
         if (!selfDeclAllowsImplicitSelf(outerSelfDecl, captureType,
                                         outerClosure,
-                                        /*validateParentClosures:*/ false,
-                                        /*validateSelfRebindings:*/ true)) {
+                                        /*isValidatingParentClosures:*/ true)) {
           return outerClosure;
         }
 
@@ -2064,8 +2058,7 @@ public:
       // parent closures, we don't need to do that separate for this closure.
       if (validateIntermediateParents) {
         if (!selfDeclAllowsImplicitSelf(selfDecl, captureType, outerClosure,
-                                        /*validateParentClosures*/ false,
-                                        /*validateSelfRebindings*/ false)) {
+                                        /*isValidatingParentClosures*/ true)) {
           return outerClosure;
         }
       }
