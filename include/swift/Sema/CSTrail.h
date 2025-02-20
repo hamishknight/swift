@@ -152,6 +152,7 @@ public:
       PackExpansionType *TheExpansion;
       PackExpansionExpr *TheExpansionExpr;
       PackElementExpr *TheElement;
+      GenericEnvironment *TheEnvironment;
       Expr *TheExpr;
       Stmt *TheStmt;
       StmtConditionElement *TheCondElt;
@@ -215,6 +216,9 @@ public:
     /// Create a change that recorded a mapping from a pack element expression
     /// to its parent expansion expression.
     static Change RecordedPackElementExpansion(PackElementExpr *packElement);
+
+    /// Create a change that records a new inner generic environment.
+    static Change RecordedInnerGenericEnvironment(GenericEnvironment *env);
 
     /// Create a change that records the GenericEnvironment for a given
     /// PackExpansionExpr.

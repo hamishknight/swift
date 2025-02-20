@@ -4935,12 +4935,9 @@ bool ConstraintSystem::generateConstraints(
   }
 
   case SyntacticElementTarget::Kind::forEachPreamble: {
-
-    // Cache the outer generic environment, if it exists.
-    if (target.getPackElementEnv()) {
-      InnerGenericEnvironments.push_back(target.getPackElementEnv());
-      ASSERT(!solverState && "Need to record a change");
-    }
+    // Record the outer generic environment, if it exists.
+    if (target.getPackElementEnv())
+      recordInnerGenericEnvironment(target.getPackElementEnv());
 
     // For a for-each statement, generate constraints for the pattern, where
     // clause, and sequence traversal.

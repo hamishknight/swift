@@ -929,6 +929,19 @@ void ConstraintSystem::recordPackElementExpansion(
   }
 }
 
+void ConstraintSystem::recordInnerGenericEnvironment(GenericEnvironment *env) {
+  InnerGenericEnvironments.push_back(env);
+
+  if (solverState)
+    recordChange(SolverTrail::Change::RecordedInnerGenericEnvironment(env));
+}
+
+void ConstraintSystem::removeInnerGenericEnvironment(GenericEnvironment *env) {
+  ASSERT(!InnerGenericEnvironments.empty() &&
+         InnerGenericEnvironments.back() == env);
+  InnerGenericEnvironments.pop_back();
+}
+
 /// Extend the given depth map by adding depths for all of the subexpressions
 /// of the given expression.
 static void extendDepthMap(

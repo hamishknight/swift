@@ -15,6 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "swift/AST/GenericEnvironment.h"
 #include "swift/Basic/Defer.h"
 #include "swift/Basic/Statistic.h"
 #include "swift/Sema/ConstraintGraph.h"
@@ -196,6 +197,14 @@ SolverTrail::Change SolverTrail::Change::RecordedPackElementExpansion(
   Change result;
   result.Kind = ChangeKind::RecordedPackElementExpansion;
   result.TheElement = packElement;
+  return result;
+}
+
+SolverTrail::Change
+SolverTrail::Change::RecordedInnerGenericEnvironment(GenericEnvironment *env) {
+  Change result;
+  result.Kind = ChangeKind::RecordedInnerGenericEnvironment;
+  result.TheEnvironment = env;
   return result;
 }
 
@@ -436,6 +445,10 @@ void SolverTrail::Change::undo(ConstraintSystem &cs) const {
 
   case ChangeKind::RecordedPackElementExpansion:
     cs.removePackElementExpansion(TheElement);
+    break;
+
+  case ChangeKind::RecordedInnerGenericEnvironment:
+    cs.removeInnerGenericEnvironment(TheEnvironment);
     break;
 
   case ChangeKind::RecordedPackExpansionEnvironment:
@@ -711,6 +724,12 @@ void SolverTrail::Change::dump(llvm::raw_ostream &out,
   case ChangeKind::RecordedPackElementExpansion:
     out << "(RecordedPackElementExpansion ";
     dumpAnchor(TheElement, &SM, out);
+    out << ")\n";
+    break;
+
+  case ChangeKind::RecordedInnerGenericEnvironment:
+    out << "(RecordedInnerGenericEnvironment ";
+    TheEnvironment->dump(out);
     out << ")\n";
     break;
 

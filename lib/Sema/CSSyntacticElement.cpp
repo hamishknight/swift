@@ -1219,6 +1219,20 @@ private:
       }
     }
 
+    // Before solving the body of a for loop, push the generic environment
+    // for a pack expansion if needed, ensuring that child local environments
+    // have the correct depth.
+    if (isChildOf(StmtKind::ForEach)) {
+      auto *forEach = cast<ForEachStmt>(
+          locator->castLastElementTo<LocatorPathElt::SyntacticElement>()
+              .asStmt());
+      auto *seqExpr = forEach->getParsedSequence();
+      if (auto *packExpansion = dyn_cast<PackExpansionExpr>(seqExpr)) {
+        if (auto *env = cs.getPackExpansionEnvironment(packExpansion))
+          cs.recordInnerGenericEnvironment(env);
+      }
+    }
+
     for (auto element : braceStmt->getElements()) {
       if (cs.isForCodeCompletion() &&
           !cs.containsIDEInspectionTarget(element)) {
