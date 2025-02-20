@@ -4938,7 +4938,7 @@ bool ConstraintSystem::generateConstraints(
 
     // Cache the outer generic environment, if it exists.
     if (target.getPackElementEnv()) {
-      PackElementGenericEnvironments.push_back(target.getPackElementEnv());
+      InnerGenericEnvironments.push_back(target.getPackElementEnv());
       ASSERT(!solverState && "Need to record a change");
     }
 

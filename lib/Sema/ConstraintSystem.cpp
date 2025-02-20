@@ -885,11 +885,14 @@ ConstraintSystem::getPackExpansionEnvironment(PackExpansionExpr *expr) const {
   return result->second;
 }
 
+GenericEnvironment *ConstraintSystem::getInnermostGenericEnvironment() const {
+  return InnerGenericEnvironments.empty() ? DC->getGenericEnvironmentOfContext()
+                                          : InnerGenericEnvironments.back();
+}
+
 GenericEnvironment *ConstraintSystem::createPackExpansionEnvironment(
     PackExpansionExpr *expr, CanGenericTypeParamType shapeParam) {
-  auto *contextEnv = PackElementGenericEnvironments.empty()
-                         ? DC->getGenericEnvironmentOfContext()
-                         : PackElementGenericEnvironments.back();
+  auto *contextEnv = getInnermostGenericEnvironment();
   auto elementSig = getASTContext().getOpenedElementSignature(
       contextEnv->getGenericSignature().getCanonicalSignature(), shapeParam);
   auto contextSubs = contextEnv->getForwardingSubstitutionMap();

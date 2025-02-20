@@ -2418,7 +2418,10 @@ private:
   llvm::SmallDenseMap<PackElementExpr *, PackExpansionExpr *, 2>
       PackElementExpansions;
 
-  llvm::SmallVector<GenericEnvironment *, 4> PackElementGenericEnvironments;
+  /// A stack of inner generic environments that gets populated as the
+  /// constraint system solves AST nodes that establish a new generic
+  /// environment, e.g for loops over pack expansions.
+  llvm::SmallVector<GenericEnvironment *, 4> InnerGenericEnvironments;
 
   /// The set of functions that have been transformed by a result builder.
   llvm::MapVector<AnyFunctionRef, AppliedBuilderTransform>
@@ -3374,6 +3377,10 @@ public:
   /// Update OpenedExistentials and record a change in the trail.
   void recordOpenedExistentialType(ConstraintLocator *locator,
                                    OpenedArchetypeType *opened);
+
+  /// Retrieves the innermost generic environment for the current solver path,
+  /// taking into account local environments for e.g pack iteration.
+  GenericEnvironment *getInnermostGenericEnvironment() const;
 
   /// Retrieve the generic environment for the opened element of a given pack
   /// expansion, or \c nullptr if no environment was recorded yet.
