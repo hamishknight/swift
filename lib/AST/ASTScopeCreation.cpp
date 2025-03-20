@@ -623,46 +623,30 @@ void ScopeCreator::addChildrenForParsedAccessors(
 
 void ScopeCreator::addChildrenForKnownAttributes(Decl *decl,
                                                  ASTScopeImpl *parent) {
-  SmallVector<DeclAttribute *, 2> relevantAttrs;
+  auto &ctx = getASTContext();
+  auto declStartLoc = decl->getStartLoc();
 
-  for (auto *attr : decl->getAttrs()) {
-    if (attr->isImplicit())
+  SourceRange range;
+  for (auto *attr : decl->getParsedAttrs()) {
+    // Some parsed attributes happen after the start of the decl (e.g rethrows),
+    // ignore them. We can use `isBeforeInBuffer` since `ParsedDeclAttributes`
+    // only iterates attributes in the same file as the decl.
+    auto attrRange = attr->getRange();
+    ASSERT(attrRange.isValid() && "Invalid source range for parsed attr?");
+
+    if (!ctx.SourceMgr.isBeforeInBuffer(attrRange.Start, declStartLoc))
       continue;
 
-    if (isa<DifferentiableAttr>(attr))
-      relevantAttrs.push_back(attr);
-
-    if (isa<SpecializeAttr>(attr))
-      relevantAttrs.push_back(attr);
-
-    if (isa<CustomAttr>(attr))
-      relevantAttrs.push_back(attr);
-
-    if (isa<ABIAttr>(attr))
-      relevantAttrs.push_back(attr);
-  }
-
-  // Decl::getAttrs() is a linked list with head insertion, so the
-  // attributes are in reverse source order.
-  std::reverse(relevantAttrs.begin(), relevantAttrs.end());
-
-  for (auto *attr : relevantAttrs) {
-    if (auto *diffAttr = dyn_cast<DifferentiableAttr>(attr)) {
-      constructExpandAndInsert<DifferentiableAttributeScope>(
-          parent, diffAttr, decl);
-    } else if (auto *specAttr = dyn_cast<SpecializeAttr>(attr)) {
-      if (auto *afd = dyn_cast<AbstractFunctionDecl>(decl)) {
-        constructExpandAndInsert<SpecializeAttributeScope>(
-            parent, specAttr, afd);
-      }
-    } else if (auto *customAttr = dyn_cast<CustomAttr>(attr)) {
-      constructExpandAndInsert<CustomAttributeScope>(
-          parent, customAttr, decl);
-    } else if (auto *abiAttr = dyn_cast<ABIAttr>(attr)) {
-      constructExpandAndInsert<ABIAttributeScope>(
-          parent, abiAttr, decl);
+    if (range.isInvalid()) {
+      range = attrRange;
+      continue;
     }
+    range.widen(attrRange);
   }
+  if (range.isInvalid())
+    return;
+
+  constructExpandAndInsert<DeclAttributesScope>(parent, decl, range);
 }
 
 ASTScopeImpl *
@@ -778,6 +762,7 @@ CREATES_NEW_INSERTION_POINT(ABIAttributeScope)
 
 NO_NEW_INSERTION_POINT(FunctionBodyScope)
 NO_NEW_INSERTION_POINT(AbstractFunctionDeclScope)
+NO_NEW_INSERTION_POINT(DeclAttributesScope)
 NO_NEW_INSERTION_POINT(CustomAttributeScope)
 NO_NEW_INSERTION_POINT(EnumElementScope)
 NO_NEW_INSERTION_POINT(GuardStmtBodyScope)
@@ -1260,6 +1245,57 @@ void DefaultArgumentInitializerScope::
   scopeCreator.addToScopeTree(initExpr, this);
 }
 
+void DeclAttributesScope::expandAScopeThatDoesNotCreateANewInsertionPoint(ScopeCreator &scopeCreator) {
+  SmallVector<DeclAttribute *, 2> relevantAttrs;
+
+  for (auto *_attr : decl->getParsedAttrs()) {
+    auto *attr = const_cast<DeclAttribute *>(_attr);
+    if (isa<DifferentiableAttr>(attr))
+      relevantAttrs.push_back(attr);
+
+    if (isa<RawLayoutAttr>(attr))
+      relevantAttrs.push_back(attr);
+
+    if (isa<SpecializeAttr>(attr))
+      relevantAttrs.push_back(attr);
+
+    if (isa<CustomAttr>(attr))
+      relevantAttrs.push_back(attr);
+
+    if (isa<ABIAttr>(attr))
+      relevantAttrs.push_back(attr);
+  }
+
+  // Decl::getAttrs() is a linked list with head insertion, so the
+  // attributes are in reverse source order.
+  std::reverse(relevantAttrs.begin(), relevantAttrs.end());
+
+  for (auto *attr : relevantAttrs) {
+    if (auto *diffAttr = dyn_cast<DifferentiableAttr>(attr)) {
+      scopeCreator.constructExpandAndInsert<DifferentiableAttributeScope>(
+                                                                          this, diffAttr, decl);
+      continue;
+    }
+    if (auto *specAttr = dyn_cast<SpecializeAttr>(attr)) {
+      if (auto *afd = dyn_cast<AbstractFunctionDecl>(decl)) {
+        scopeCreator.constructExpandAndInsert<SpecializeAttributeScope>(
+                                                                        this, specAttr, afd);
+      }
+      continue;
+    }
+    if (auto *customAttr = dyn_cast<CustomAttr>(attr)) {
+      scopeCreator.constructExpandAndInsert<CustomAttributeScope>(
+                                                                  this, customAttr, decl);
+      continue;
+    }
+    if (auto *abiAttr = dyn_cast<ABIAttr>(attr)) {
+      scopeCreator.constructExpandAndInsert<ABIAttributeScope>(
+                                                               this, abiAttr, decl);
+      continue;
+    }
+  }
+}
+
 void CustomAttributeScope::
     expandAScopeThatDoesNotCreateANewInsertionPoint(
         ScopeCreator &scopeCreator) {
@@ -1279,11 +1315,12 @@ ASTScopeImpl *GenericTypeOrExtensionWholePortion::expandScope(
   scopeCreator.addChildrenForKnownAttributes(scope->getDecl(), scope);
 
   auto *context = scope->getGenericContext();
-  auto *genericParams = (isa<TypeAliasDecl>(context)
-                         ? context->getParsedGenericParams()
-                         : context->getGenericParams());
+  auto *decl = scope->getDecl();
+  auto *genericParams = context->getParsedGenericParams();
   auto *deepestScope = scopeCreator.addNestedGenericParamScopesToTree(
-      scope->getDecl(), genericParams, scope);
+      decl, genericParams, scope);
+  if (!InheritedTypes(decl).empty())
+    scope->createInheritanceClauseScope(deepestScope, scopeCreator);
   if (context->getTrailingWhereClause())
     scope->createTrailingWhereClauseScope(deepestScope, scopeCreator);
 
@@ -1306,6 +1343,11 @@ IterableTypeBodyPortion::expandScope(GenericTypeOrExtensionScope *scope,
 }
 
 ASTScopeImpl *GenericTypeOrExtensionWherePortion::expandScope(
+    GenericTypeOrExtensionScope *scope, ScopeCreator &) const {
+  return scope->getParent().get();
+}
+
+ASTScopeImpl *GenericTypeOrExtensionInheritancePortion::expandScope(
     GenericTypeOrExtensionScope *scope, ScopeCreator &) const {
   return scope->getParent().get();
 }
@@ -1349,6 +1391,26 @@ TypeAliasScope::createTrailingWhereClauseScope(ASTScopeImpl *parent,
                                                ScopeCreator &scopeCreator) {
   return scopeCreator.constructWithPortionExpandAndInsert<
       TypeAliasScope, GenericTypeOrExtensionWherePortion>(parent, decl);
+}
+
+#pragma mark createInheritanceClauseScope
+
+ASTScopeImpl *GenericTypeOrExtensionScope::createInheritanceClauseScope(
+    ASTScopeImpl *parent, ScopeCreator &scopeCreator) {
+  return parent;
+}
+
+ASTScopeImpl *
+ExtensionScope::createInheritanceClauseScope(ASTScopeImpl *parent,
+                                             ScopeCreator &scopeCreator) {
+  return scopeCreator.constructWithPortionExpandAndInsert<
+      ExtensionScope, GenericTypeOrExtensionInheritancePortion>(parent, decl);
+}
+ASTScopeImpl *
+NominalTypeScope::createInheritanceClauseScope(ASTScopeImpl *parent,
+                                               ScopeCreator &scopeCreator) {
+  return scopeCreator.constructWithPortionExpandAndInsert<
+      NominalTypeScope, GenericTypeOrExtensionInheritancePortion>(parent, decl);
 }
 
 #pragma mark misc
@@ -1425,6 +1487,11 @@ GenericTypeOrExtensionWholePortion::insertionPointForDeferredExpansion(
 }
 NullablePtr<ASTScopeImpl>
 GenericTypeOrExtensionWherePortion::insertionPointForDeferredExpansion(
+    IterableTypeScope *) const {
+  return nullptr;
+}
+NullablePtr<ASTScopeImpl>
+GenericTypeOrExtensionInheritancePortion::insertionPointForDeferredExpansion(
     IterableTypeScope *) const {
   return nullptr;
 }

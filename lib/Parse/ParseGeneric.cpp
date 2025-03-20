@@ -471,12 +471,12 @@ ParserStatus Parser::parseProtocolOrAssociatedTypeWhereClause(
   SmallVector<RequirementRepr, 4> requirements;
   auto whereStatus =
       parseGenericWhereClause(whereLoc, endLoc, requirements);
-  if (whereStatus.isSuccess() && !whereStatus.hasCodeCompletion()) {
+  // If we either had a successful parse, or encountered a code completion
+  // token, setup the trailing where clause. We need to do this for code
+  // completion to ensure the AST scope is setup correctly.
+  if (whereStatus.isSuccess() || whereStatus.hasCodeCompletion()) {
     trailingWhere =
         TrailingWhereClause::create(Context, whereLoc, endLoc, requirements);
-  } else if (whereStatus.hasCodeCompletion()) {
-    return whereStatus;
   }
-
-  return ParserStatus();
+  return whereStatus;
 }

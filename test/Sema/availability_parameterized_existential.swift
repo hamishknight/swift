@@ -12,7 +12,9 @@ func hedge() {
   // We rely on not allowing nesting of extensions, so test to make sure
   // this emits an error.
   // CHECK:error: declaration is only valid at file scope
+  // CHECK:error: cannot find type 'Value' in scope
   extension Value { } // expected-error {{declaration is only valid at file scope}}
+  // expected-error@-1 {{cannot find type 'Value' in scope}}
 }
 
 protocol P<T> {

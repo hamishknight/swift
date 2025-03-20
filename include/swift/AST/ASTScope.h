@@ -138,7 +138,7 @@ class ASTScopeImpl : public ASTAllocated<ASTScopeImpl> {
   friend class GenericTypeOrExtensionWholePortion;
   friend class NomExtDeclPortion;
   friend class GenericTypeOrExtensionWherePortion;
-  friend class GenericTypeOrExtensionWherePortion;
+  friend class GenericTypeOrExtensionInheritancePortion;
   friend class IterableTypeBodyPortion;
   friend class ScopeCreator;
   friend class ASTSourceFileScope;
@@ -492,6 +492,9 @@ public:
   virtual NullablePtr<const ASTScopeImpl>
   getLookupLimitFor(const GenericTypeOrExtensionScope *) const;
 
+  virtual GenericParamList *
+  getVisibleGenericParamsFor(const GenericTypeOrExtensionScope *) const = 0;
+
   virtual NullablePtr<ASTScopeImpl>
   insertionPointForDeferredExpansion(IterableTypeScope *) const = 0;
 };
@@ -512,6 +515,9 @@ public:
   NullablePtr<const ASTScopeImpl>
   getLookupLimitFor(const GenericTypeOrExtensionScope *) const override;
 
+  GenericParamList *getVisibleGenericParamsFor(
+      const GenericTypeOrExtensionScope *) const override;
+
   NullablePtr<ASTScopeImpl>
   insertionPointForDeferredExpansion(IterableTypeScope *) const override;
 };
@@ -531,6 +537,26 @@ public:
   SourceRange getChildlessSourceRangeOf(const GenericTypeOrExtensionScope *,
                                         bool omitAssertions) const override;
 
+  GenericParamList *getVisibleGenericParamsFor(
+      const GenericTypeOrExtensionScope *) const override;
+
+  NullablePtr<ASTScopeImpl>
+  insertionPointForDeferredExpansion(IterableTypeScope *) const override;
+};
+
+class GenericTypeOrExtensionInheritancePortion final : public Portion {
+public:
+  GenericTypeOrExtensionInheritancePortion() : Portion("Inheritance") {}
+
+  ASTScopeImpl *expandScope(GenericTypeOrExtensionScope *,
+                            ScopeCreator &) const override;
+
+  SourceRange getChildlessSourceRangeOf(const GenericTypeOrExtensionScope *,
+                                        bool omitAssertions) const override;
+
+  GenericParamList *getVisibleGenericParamsFor(
+      const GenericTypeOrExtensionScope *) const override;
+
   NullablePtr<ASTScopeImpl>
   insertionPointForDeferredExpansion(IterableTypeScope *) const override;
 };
@@ -548,6 +574,9 @@ public:
                             ScopeCreator &) const override;
   SourceRange getChildlessSourceRangeOf(const GenericTypeOrExtensionScope *,
                                         bool omitAssertions) const override;
+
+  GenericParamList *getVisibleGenericParamsFor(
+      const GenericTypeOrExtensionScope *) const override;
 
   NullablePtr<ASTScopeImpl>
   insertionPointForDeferredExpansion(IterableTypeScope *) const override;
@@ -584,17 +613,6 @@ public:
   SourceRange
   getSourceRangeOfThisASTNode(bool omitAssertions = false) const override;
 
-  /// \c tryBindExtension needs to get the extended nominal, and the DeclContext
-  /// is the parent of the \c ExtensionDecl. If the \c SourceRange of an \c
-  /// ExtensionScope were to start where the \c ExtensionDecl says, the lookup
-  /// source location would fall within the \c ExtensionScope. This inclusion
-  /// would cause the lazy \c ExtensionScope to be expanded which would ask for
-  /// its generic parameters in order to create those sub-scopes. That request
-  /// would cause a cycle because it would ask for the extended nominal. So,
-  /// move the source range of an \c ExtensionScope *past* the extended nominal
-  /// type, which is not in-scope there anyway.
-  virtual SourceRange moveStartPastExtendedNominal(SourceRange) const = 0;
-
   virtual GenericContext *getGenericContext() const = 0;
   virtual std::string declKindName() const = 0;
   virtual bool doesDeclHaveABody() const;
@@ -607,6 +625,9 @@ public:
   // Returns the where clause scope, or the parent if none
   virtual ASTScopeImpl *createTrailingWhereClauseScope(ASTScopeImpl *parent,
                                                        ScopeCreator &);
+  // Returns the inheritance clause scope, or the parent if none
+  virtual ASTScopeImpl *createInheritanceClauseScope(ASTScopeImpl *parent,
+                                                     ScopeCreator &);
   virtual NullablePtr<NominalTypeDecl> getCorrespondingNominalTypeDecl() const {
     return nullptr;
   }
@@ -637,7 +658,6 @@ public:
   GenericTypeScope(ScopeKind kind, const Portion *p)
       : GenericTypeOrExtensionScope(kind, p) { }
   virtual ~GenericTypeScope() {}
-  SourceRange moveStartPastExtendedNominal(SourceRange) const override;
 
 protected:
   NullablePtr<const GenericParamList> visibleGenericParams() const override;
@@ -687,6 +707,8 @@ public:
   void createBodyScope(ASTScopeImpl *leaf, ScopeCreator &) override;
   ASTScopeImpl *createTrailingWhereClauseScope(ASTScopeImpl *parent,
                                                ScopeCreator &) override;
+  ASTScopeImpl *createInheritanceClauseScope(ASTScopeImpl *parent,
+                                             ScopeCreator &) override;
 
   static bool classof(const ASTScopeImpl *scope) {
     return scope->getKind() == ScopeKind::NominalType;
@@ -707,9 +729,10 @@ public:
   NullablePtr<NominalTypeDecl> getCorrespondingNominalTypeDecl() const override;
   std::string declKindName() const override { return "Extension"; }
   SourceRange getBraces() const override;
-  SourceRange moveStartPastExtendedNominal(SourceRange) const override;
   ASTScopeImpl *createTrailingWhereClauseScope(ASTScopeImpl *parent,
                                                ScopeCreator &) override;
+  ASTScopeImpl *createInheritanceClauseScope(ASTScopeImpl *parent,
+                                             ScopeCreator &) override;
   void createBodyScope(ASTScopeImpl *leaf, ScopeCreator &) override;
   Decl *getDecl() const override { return decl; }
   NullablePtr<const ASTScopeImpl> getLookupLimitForDecl() const override;
@@ -920,6 +943,38 @@ public:
 
   static bool classof(const ASTScopeImpl *scope) {
     return scope->getKind() == ScopeKind::DefaultArgumentInitializer;
+  }
+};
+
+class DeclAttributesScope final : public ASTScopeImpl {
+public:
+  Decl *decl;
+  SourceRange range;
+
+  DeclAttributesScope(Decl *decl, SourceRange range)
+  : ASTScopeImpl(ScopeKind::DeclAttributes), decl(decl), range(range) {}
+
+  virtual ~DeclAttributesScope() {}
+
+protected:
+  ASTScopeImpl *expandSpecifically(ScopeCreator &) override;
+  NullablePtr<const GenericParamList> visibleGenericParams() const override;
+
+public:
+  SourceRange
+  getSourceRangeOfThisASTNode(bool omitAssertions = false) const override {
+    return range;
+  }
+  NullablePtr<const void> addressForPrinting() const override { return decl; }
+
+  bool ignoreInDebugInfo() const override { return true; }
+
+private:
+  void expandAScopeThatDoesNotCreateANewInsertionPoint(ScopeCreator &);
+
+public:
+  static bool classof(const ASTScopeImpl *scope) {
+    return scope->getKind() == ScopeKind::DeclAttributes;
   }
 };
 
@@ -1259,7 +1314,6 @@ public:
 
 protected:
   ASTScopeImpl *expandSpecifically(ScopeCreator &) override;
-  bool lookupLocalsOrMembers(DeclConsumer) const override;
 
 public:
   static bool classof(const ASTScopeImpl *scope) {
@@ -1289,7 +1343,6 @@ public:
 
 protected:
   ASTScopeImpl *expandSpecifically(ScopeCreator &) override;
-  bool lookupLocalsOrMembers(DeclConsumer) const override;
 
 public:
   static bool classof(const ASTScopeImpl *scope) {
