@@ -182,19 +182,20 @@ void ASTScopeImpl::lookup(const NullablePtr<const ASTScopeImpl> limit,
                               consumer);
 }
 
-#pragma mark genericParams()
+#pragma mark visibleGenericParams()
 
-NullablePtr<const GenericParamList> ASTScopeImpl::genericParams() const {
+NullablePtr<const GenericParamList>
+ASTScopeImpl::visibleGenericParams() const {
   return nullptr;
 }
 NullablePtr<const GenericParamList>
-AbstractFunctionDeclScope::genericParams() const {
+AbstractFunctionDeclScope::visibleGenericParams() const {
   return decl->getParsedGenericParams();
 }
-NullablePtr<const GenericParamList> SubscriptDeclScope::genericParams() const {
+NullablePtr<const GenericParamList> SubscriptDeclScope::visibleGenericParams() const {
   return decl->getParsedGenericParams();
 }
-NullablePtr<const GenericParamList> GenericTypeScope::genericParams() const {
+NullablePtr<const GenericParamList> GenericTypeScope::visibleGenericParams() const {
   // For Decls:
   // WAIT, WHAT?! Isn't this covered by the GenericParamScope
   // lookupLocalsOrMembers? No, that's for use of generics in the body. This is
@@ -209,10 +210,10 @@ NullablePtr<const GenericParamList> GenericTypeScope::genericParams() const {
     return context->getParsedGenericParams();
   return context->getGenericParams();
 }
-NullablePtr<const GenericParamList> ExtensionScope::genericParams() const {
+NullablePtr<const GenericParamList> ExtensionScope::visibleGenericParams() const {
   return decl->getGenericParams();
 }
-NullablePtr<const GenericParamList> MacroDeclScope::genericParams() const {
+NullablePtr<const GenericParamList> MacroDeclScope::visibleGenericParams() const {
   return decl->getParsedGenericParams();
 }
 
@@ -233,7 +234,7 @@ std::pair<bool, NullablePtr<const GenericParamList>>
 ASTScopeImpl::lookInMyGenericParameters(
     NullablePtr<const GenericParamList> formerListSearched,
     ASTScopeImpl::DeclConsumer consumer) const {
-  auto listToSearch = genericParams();
+  auto listToSearch = visibleGenericParams();
   if (listToSearch == formerListSearched)
     return std::make_pair(false, formerListSearched);
 

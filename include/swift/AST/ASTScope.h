@@ -380,7 +380,7 @@ protected:
       NullablePtr<const GenericParamList> priorListSearched,
       DeclConsumer consumer) const;
 
-  virtual NullablePtr<const GenericParamList> genericParams() const;
+  virtual NullablePtr<const GenericParamList> visibleGenericParams() const;
 
   // Consume the generic parameters in the context and its outer contexts
   static bool lookInGenericParametersOf(NullablePtr<const GenericParamList>,
@@ -640,7 +640,7 @@ public:
   SourceRange moveStartPastExtendedNominal(SourceRange) const override;
 
 protected:
-  NullablePtr<const GenericParamList> genericParams() const override;
+  NullablePtr<const GenericParamList> visibleGenericParams() const override;
 };
 
 class IterableTypeScope : public GenericTypeScope {
@@ -714,7 +714,7 @@ public:
   Decl *getDecl() const override { return decl; }
   NullablePtr<const ASTScopeImpl> getLookupLimitForDecl() const override;
 protected:
-  NullablePtr<const GenericParamList> genericParams() const override;
+  NullablePtr<const GenericParamList> visibleGenericParams() const override;
 
 public:
   static bool classof(const ASTScopeImpl *scope) {
@@ -826,7 +826,7 @@ public:
   Decl *getDecl() const { return decl; }
 
 protected:
-  NullablePtr<const GenericParamList> genericParams() const override;
+  NullablePtr<const GenericParamList> visibleGenericParams() const override;
 
 public:
   static bool classof(const ASTScopeImpl *scope) {
@@ -1323,7 +1323,7 @@ public:
   Decl *getDecl() const { return decl; }
 
 protected:
-  NullablePtr<const GenericParamList> genericParams() const override;
+  NullablePtr<const GenericParamList> visibleGenericParams() const override;
 
 public:
   static bool classof(const ASTScopeImpl *scope) {
@@ -1377,7 +1377,7 @@ public:
   Decl *getDecl() const { return decl; }
 
 protected:
-  NullablePtr<const GenericParamList> genericParams() const override;
+  NullablePtr<const GenericParamList> visibleGenericParams() const override;
   bool lookupLocalsOrMembers(DeclConsumer) const override;
 
 public:
