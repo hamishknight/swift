@@ -166,10 +166,8 @@ public:
   }
 
 public:
-  /// Create the matryoshka nested generic param scopes (if any)
-  /// that are subscopes of the receiver. Return
-  /// the furthest descendant.
-  /// Last GenericParamsScope includes the where clause
+  /// Create the matryoshka nested generic param scopes (if any) that are
+  /// sub-scopes of the receiver. Returns the furthest descendant.
   ASTScopeImpl *addNestedGenericParamScopesToTree(Decl *parameterizedDecl,
                                                   GenericParamList *generics,
                                                   ASTScopeImpl *parent) {
@@ -1315,10 +1313,8 @@ ASTScopeImpl *GenericTypeOrExtensionWholePortion::expandScope(
   scopeCreator.addChildrenForKnownAttributes(scope->getDecl(), scope);
 
   auto *context = scope->getGenericContext();
-  auto *genericParams = (isa<TypeAliasDecl>(context)
-                         ? context->getParsedGenericParams()
-                         : context->getGenericParams());
   auto *decl = scope->getDecl();
+  auto *genericParams = context->getParsedGenericParams();
   auto *deepestScope = scopeCreator.addNestedGenericParamScopesToTree(
       decl, genericParams, scope);
   if (!InheritedTypes(decl).empty())
