@@ -1314,7 +1314,6 @@ public:
 
 protected:
   ASTScopeImpl *expandSpecifically(ScopeCreator &) override;
-  bool lookupLocalsOrMembers(DeclConsumer) const override;
 
 public:
   static bool classof(const ASTScopeImpl *scope) {
@@ -1344,7 +1343,6 @@ public:
 
 protected:
   ASTScopeImpl *expandSpecifically(ScopeCreator &) override;
-  bool lookupLocalsOrMembers(DeclConsumer) const override;
 
 public:
   static bool classof(const ASTScopeImpl *scope) {

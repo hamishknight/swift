@@ -408,34 +408,6 @@ bool FunctionBodyScope::lookupLocalsOrMembers(
   return false;
 }
 
-bool SpecializeAttributeScope::lookupLocalsOrMembers(
-    DeclConsumer consumer) const {
-  if (auto *params = whatWasSpecialized->getGenericParams())
-    for (auto *param : params->getParams())
-      if (consumer.consume({param}))
-        return true;
-  return false;
-}
-
-bool DifferentiableAttributeScope::lookupLocalsOrMembers(
-    DeclConsumer consumer) const {
-  auto visitAbstractFunctionDecl = [&](AbstractFunctionDecl *afd) {
-    if (auto *params = afd->getGenericParams())
-      for (auto *param : params->getParams())
-        if (consumer.consume({param}))
-          return true;
-    return false;
-  };
-  if (auto *afd = dyn_cast<AbstractFunctionDecl>(attributedDeclaration)) {
-    return visitAbstractFunctionDecl(afd);
-  } else if (auto *asd = dyn_cast<AbstractStorageDecl>(attributedDeclaration)) {
-    if (auto *accessor = asd->getParsedAccessor(AccessorKind::Get))
-      if (visitAbstractFunctionDecl(accessor))
-        return true;
-  }
-  return false;
-}
-
 bool BraceStmtScope::lookupLocalsOrMembers(DeclConsumer consumer) const {
   if (consumer.consume(localFuncsAndTypes))
     return true;
