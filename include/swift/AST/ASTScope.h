@@ -492,6 +492,9 @@ public:
   virtual NullablePtr<const ASTScopeImpl>
   getLookupLimitFor(const GenericTypeOrExtensionScope *) const;
 
+  virtual GenericParamList *
+  getVisibleGenericParamsFor(const GenericTypeOrExtensionScope *) const = 0;
+
   virtual NullablePtr<ASTScopeImpl>
   insertionPointForDeferredExpansion(IterableTypeScope *) const = 0;
 };
@@ -512,6 +515,9 @@ public:
   NullablePtr<const ASTScopeImpl>
   getLookupLimitFor(const GenericTypeOrExtensionScope *) const override;
 
+  GenericParamList *getVisibleGenericParamsFor(
+      const GenericTypeOrExtensionScope *) const override;
+
   NullablePtr<ASTScopeImpl>
   insertionPointForDeferredExpansion(IterableTypeScope *) const override;
 };
@@ -531,6 +537,9 @@ public:
   SourceRange getChildlessSourceRangeOf(const GenericTypeOrExtensionScope *,
                                         bool omitAssertions) const override;
 
+  GenericParamList *getVisibleGenericParamsFor(
+      const GenericTypeOrExtensionScope *) const override;
+
   NullablePtr<ASTScopeImpl>
   insertionPointForDeferredExpansion(IterableTypeScope *) const override;
 };
@@ -548,6 +557,9 @@ public:
                             ScopeCreator &) const override;
   SourceRange getChildlessSourceRangeOf(const GenericTypeOrExtensionScope *,
                                         bool omitAssertions) const override;
+
+  GenericParamList *getVisibleGenericParamsFor(
+      const GenericTypeOrExtensionScope *) const override;
 
   NullablePtr<ASTScopeImpl>
   insertionPointForDeferredExpansion(IterableTypeScope *) const override;

@@ -196,22 +196,10 @@ NullablePtr<const GenericParamList> SubscriptDeclScope::visibleGenericParams() c
   return decl->getParsedGenericParams();
 }
 NullablePtr<const GenericParamList> GenericTypeScope::visibleGenericParams() const {
-  // For Decls:
-  // WAIT, WHAT?! Isn't this covered by the GenericParamScope
-  // lookupLocalsOrMembers? No, that's for use of generics in the body. This is
-  // for generic restrictions.
-
-  // For Bodies:
-  // Sigh... These must be here so that from body, we search generics before
-  // members. But they also must be on the Decl scope for lookups starting from
-  // generic parameters, where clauses, etc.
-  auto *context = getGenericContext();
-  if (isa<TypeAliasDecl>(context))
-    return context->getParsedGenericParams();
-  return context->getGenericParams();
+  return portion->getVisibleGenericParamsFor(this);
 }
 NullablePtr<const GenericParamList> ExtensionScope::visibleGenericParams() const {
-  return decl->getGenericParams();
+  return portion->getVisibleGenericParamsFor(this);
 }
 NullablePtr<const GenericParamList> MacroDeclScope::visibleGenericParams() const {
   return decl->getParsedGenericParams();
@@ -556,6 +544,36 @@ NullablePtr<const ASTScopeImpl> ASTScopeImpl::ancestorWithDeclSatisfying(
     }
   }
   return nullptr;
+}
+
+GenericParamList *
+GenericTypeOrExtensionWholePortion::getVisibleGenericParamsFor(
+  const GenericTypeOrExtensionScope *scope) const {
+  auto *context = scope->getGenericContext();
+  if (isa<TypeAliasDecl>(context))
+    return context->getParsedGenericParams();
+
+  return context->getGenericParams();
+}
+
+GenericParamList *
+GenericTypeOrExtensionWherePortion::getVisibleGenericParamsFor(
+    const GenericTypeOrExtensionScope *scope) const {
+  // Isn't this covered by the GenericParamScope lookupLocalsOrMembers? No,
+  // that's for use of generics in the body. This is for generic restrictions.
+  auto *context = scope->getGenericContext();
+  if (isa<TypeAliasDecl>(context))
+    return context->getParsedGenericParams();
+
+  return context->getGenericParams();
+}
+
+GenericParamList *IterableTypeBodyPortion::getVisibleGenericParamsFor(
+    const GenericTypeOrExtensionScope *scope) const {
+  // Sigh... These must be here so that from body, we search generics before
+  // members. But they also must be on the Decl scope for lookups starting from
+  // generic parameters, where clauses, etc.
+  return scope->getGenericContext()->getGenericParams();
 }
 
 #pragma mark isLabeledStmtLookupTerminator implementations
