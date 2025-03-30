@@ -1935,6 +1935,10 @@ public:
     return getEntries().back().getSourceRange().End;
   }
 
+  SourceRange getSourceRange() const {
+    return SourceRange(getStartLoc(), getEndLoc());
+  }
+
   /// Compute the SourceRange to be used when removing entry \c i from the
   /// inheritance clause. Accounts for commas and colons as-needed.
   SourceRange getRemovalRange(unsigned i) const;

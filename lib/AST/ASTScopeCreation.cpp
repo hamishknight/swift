@@ -1282,8 +1282,11 @@ ASTScopeImpl *GenericTypeOrExtensionWholePortion::expandScope(
   auto *genericParams = (isa<TypeAliasDecl>(context)
                          ? context->getParsedGenericParams()
                          : context->getGenericParams());
+  auto *decl = scope->getDecl();
   auto *deepestScope = scopeCreator.addNestedGenericParamScopesToTree(
-      scope->getDecl(), genericParams, scope);
+      decl, genericParams, scope);
+  if (!InheritedTypes(decl).empty())
+    scope->createInheritanceClauseScope(deepestScope, scopeCreator);
   if (context->getTrailingWhereClause())
     scope->createTrailingWhereClauseScope(deepestScope, scopeCreator);
 
@@ -1306,6 +1309,11 @@ IterableTypeBodyPortion::expandScope(GenericTypeOrExtensionScope *scope,
 }
 
 ASTScopeImpl *GenericTypeOrExtensionWherePortion::expandScope(
+    GenericTypeOrExtensionScope *scope, ScopeCreator &) const {
+  return scope->getParent().get();
+}
+
+ASTScopeImpl *GenericTypeOrExtensionInheritancePortion::expandScope(
     GenericTypeOrExtensionScope *scope, ScopeCreator &) const {
   return scope->getParent().get();
 }
@@ -1349,6 +1357,26 @@ TypeAliasScope::createTrailingWhereClauseScope(ASTScopeImpl *parent,
                                                ScopeCreator &scopeCreator) {
   return scopeCreator.constructWithPortionExpandAndInsert<
       TypeAliasScope, GenericTypeOrExtensionWherePortion>(parent, decl);
+}
+
+#pragma mark createInheritanceClauseScope
+
+ASTScopeImpl *GenericTypeOrExtensionScope::createInheritanceClauseScope(
+    ASTScopeImpl *parent, ScopeCreator &scopeCreator) {
+  return parent;
+}
+
+ASTScopeImpl *
+ExtensionScope::createInheritanceClauseScope(ASTScopeImpl *parent,
+                                             ScopeCreator &scopeCreator) {
+  return scopeCreator.constructWithPortionExpandAndInsert<
+      ExtensionScope, GenericTypeOrExtensionInheritancePortion>(parent, decl);
+}
+ASTScopeImpl *
+NominalTypeScope::createInheritanceClauseScope(ASTScopeImpl *parent,
+                                               ScopeCreator &scopeCreator) {
+  return scopeCreator.constructWithPortionExpandAndInsert<
+      NominalTypeScope, GenericTypeOrExtensionInheritancePortion>(parent, decl);
 }
 
 #pragma mark misc
@@ -1425,6 +1453,11 @@ GenericTypeOrExtensionWholePortion::insertionPointForDeferredExpansion(
 }
 NullablePtr<ASTScopeImpl>
 GenericTypeOrExtensionWherePortion::insertionPointForDeferredExpansion(
+    IterableTypeScope *) const {
+  return nullptr;
+}
+NullablePtr<ASTScopeImpl>
+GenericTypeOrExtensionInheritancePortion::insertionPointForDeferredExpansion(
     IterableTypeScope *) const {
   return nullptr;
 }

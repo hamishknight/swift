@@ -248,6 +248,11 @@ SourceRange GenericTypeOrExtensionWherePortion::getChildlessSourceRangeOf(
   return scope->getGenericContext()->getTrailingWhereClause()->getSourceRange();
 }
 
+SourceRange GenericTypeOrExtensionInheritancePortion::getChildlessSourceRangeOf(
+    const GenericTypeOrExtensionScope *scope, bool omitAssertions) const {
+  return InheritedTypes(scope->getDecl()).getSourceRange();
+}
+
 SourceRange IterableTypeBodyPortion::getChildlessSourceRangeOf(
     const GenericTypeOrExtensionScope *scope, const bool omitAssertions) const {
   auto *d = scope->getDecl();

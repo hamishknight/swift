@@ -138,7 +138,7 @@ class ASTScopeImpl : public ASTAllocated<ASTScopeImpl> {
   friend class GenericTypeOrExtensionWholePortion;
   friend class NomExtDeclPortion;
   friend class GenericTypeOrExtensionWherePortion;
-  friend class GenericTypeOrExtensionWherePortion;
+  friend class GenericTypeOrExtensionInheritancePortion;
   friend class IterableTypeBodyPortion;
   friend class ScopeCreator;
   friend class ASTSourceFileScope;
@@ -544,6 +544,23 @@ public:
   insertionPointForDeferredExpansion(IterableTypeScope *) const override;
 };
 
+class GenericTypeOrExtensionInheritancePortion final : public Portion {
+public:
+  GenericTypeOrExtensionInheritancePortion() : Portion("Inheritance") {}
+
+  ASTScopeImpl *expandScope(GenericTypeOrExtensionScope *,
+                            ScopeCreator &) const override;
+
+  SourceRange getChildlessSourceRangeOf(const GenericTypeOrExtensionScope *,
+                                        bool omitAssertions) const override;
+
+  GenericParamList *getVisibleGenericParamsFor(
+      const GenericTypeOrExtensionScope *) const override;
+
+  NullablePtr<ASTScopeImpl>
+  insertionPointForDeferredExpansion(IterableTypeScope *) const override;
+};
+
 /// Behavior specific to representing the Body of a NominalTypeDecl or
 /// ExtensionDecl scope
 class IterableTypeBodyPortion final : public Portion {
@@ -619,6 +636,9 @@ public:
   // Returns the where clause scope, or the parent if none
   virtual ASTScopeImpl *createTrailingWhereClauseScope(ASTScopeImpl *parent,
                                                        ScopeCreator &);
+  // Returns the inheritance clause scope, or the parent if none
+  virtual ASTScopeImpl *createInheritanceClauseScope(ASTScopeImpl *parent,
+                                                     ScopeCreator &);
   virtual NullablePtr<NominalTypeDecl> getCorrespondingNominalTypeDecl() const {
     return nullptr;
   }
@@ -699,6 +719,8 @@ public:
   void createBodyScope(ASTScopeImpl *leaf, ScopeCreator &) override;
   ASTScopeImpl *createTrailingWhereClauseScope(ASTScopeImpl *parent,
                                                ScopeCreator &) override;
+  ASTScopeImpl *createInheritanceClauseScope(ASTScopeImpl *parent,
+                                             ScopeCreator &) override;
 
   static bool classof(const ASTScopeImpl *scope) {
     return scope->getKind() == ScopeKind::NominalType;
@@ -722,6 +744,8 @@ public:
   SourceRange moveStartPastExtendedNominal(SourceRange) const override;
   ASTScopeImpl *createTrailingWhereClauseScope(ASTScopeImpl *parent,
                                                ScopeCreator &) override;
+  ASTScopeImpl *createInheritanceClauseScope(ASTScopeImpl *parent,
+                                             ScopeCreator &) override;
   void createBodyScope(ASTScopeImpl *leaf, ScopeCreator &) override;
   Decl *getDecl() const override { return decl; }
   NullablePtr<const ASTScopeImpl> getLookupLimitForDecl() const override;

@@ -568,6 +568,13 @@ GenericTypeOrExtensionWherePortion::getVisibleGenericParamsFor(
   return context->getGenericParams();
 }
 
+GenericParamList *
+GenericTypeOrExtensionInheritancePortion::getVisibleGenericParamsFor(
+    const GenericTypeOrExtensionScope *scope) const {
+  // We allow e.g `protocol P : Q<Self> {}`.
+  return scope->getGenericContext()->getGenericParams();
+}
+
 GenericParamList *IterableTypeBodyPortion::getVisibleGenericParamsFor(
     const GenericTypeOrExtensionScope *scope) const {
   // Sigh... These must be here so that from body, we search generics before
