@@ -549,11 +549,7 @@ NullablePtr<const ASTScopeImpl> ASTScopeImpl::ancestorWithDeclSatisfying(
 GenericParamList *
 GenericTypeOrExtensionWholePortion::getVisibleGenericParamsFor(
   const GenericTypeOrExtensionScope *scope) const {
-  auto *context = scope->getGenericContext();
-  if (isa<TypeAliasDecl>(context))
-    return context->getParsedGenericParams();
-
-  return context->getGenericParams();
+  return nullptr;
 }
 
 GenericParamList *

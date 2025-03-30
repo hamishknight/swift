@@ -361,7 +361,10 @@ func testInClosure1() {
   { #^IN_CLOSURE_1?check=KW_DECL_STMT;check=KW_RETURN;check=KW_IN^# }
 }
 func testInClosure2() {
+  // Use #if delimiters to avoid placing the rest of the file in this function
+  #if true
   { #^IN_CLOSURE_2?check=KW_DECL_STMT;check=KW_RETURN;check=KW_IN^#
+  #endif
 }
 struct InVarClosureInit {
   let x = { #^IN_CLOSURE_3?check=KW_DECL_STMT;check=KW_RETURN;check=KW_IN^# }()

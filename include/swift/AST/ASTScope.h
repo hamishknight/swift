@@ -613,17 +613,6 @@ public:
   SourceRange
   getSourceRangeOfThisASTNode(bool omitAssertions = false) const override;
 
-  /// \c tryBindExtension needs to get the extended nominal, and the DeclContext
-  /// is the parent of the \c ExtensionDecl. If the \c SourceRange of an \c
-  /// ExtensionScope were to start where the \c ExtensionDecl says, the lookup
-  /// source location would fall within the \c ExtensionScope. This inclusion
-  /// would cause the lazy \c ExtensionScope to be expanded which would ask for
-  /// its generic parameters in order to create those sub-scopes. That request
-  /// would cause a cycle because it would ask for the extended nominal. So,
-  /// move the source range of an \c ExtensionScope *past* the extended nominal
-  /// type, which is not in-scope there anyway.
-  virtual SourceRange moveStartPastExtendedNominal(SourceRange) const = 0;
-
   virtual GenericContext *getGenericContext() const = 0;
   virtual std::string declKindName() const = 0;
   virtual bool doesDeclHaveABody() const;
@@ -669,7 +658,6 @@ public:
   GenericTypeScope(ScopeKind kind, const Portion *p)
       : GenericTypeOrExtensionScope(kind, p) { }
   virtual ~GenericTypeScope() {}
-  SourceRange moveStartPastExtendedNominal(SourceRange) const override;
 
 protected:
   NullablePtr<const GenericParamList> visibleGenericParams() const override;
@@ -741,7 +729,6 @@ public:
   NullablePtr<NominalTypeDecl> getCorrespondingNominalTypeDecl() const override;
   std::string declKindName() const override { return "Extension"; }
   SourceRange getBraces() const override;
-  SourceRange moveStartPastExtendedNominal(SourceRange) const override;
   ASTScopeImpl *createTrailingWhereClauseScope(ASTScopeImpl *parent,
                                                ScopeCreator &) override;
   ASTScopeImpl *createInheritanceClauseScope(ASTScopeImpl *parent,

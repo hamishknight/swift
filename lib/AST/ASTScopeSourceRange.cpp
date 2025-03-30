@@ -220,27 +220,9 @@ SourceRange GenericTypeOrExtensionWholePortion::getChildlessSourceRangeOf(
   auto r = d->getSourceRangeIncludingAttrs();
   if (r.Start.isValid()) {
     ASTScopeAssert(r.End.isValid(), "Start valid imples end valid.");
-    return scope->moveStartPastExtendedNominal(r);
+    return r;
   }
   return d->getSourceRange();
-}
-
-SourceRange
-ExtensionScope::moveStartPastExtendedNominal(const SourceRange sr) const {
-  const auto afterExtendedNominal = getLocAfterExtendedNominal(decl);
-  // Illegal code can have an endLoc that is before the end of the
-  // ExtendedNominal
-  if (getSourceManager().isBeforeInBuffer(sr.End, afterExtendedNominal)) {
-    // Must not have the source range returned include the extended nominal
-    return SourceRange(sr.Start, sr.Start);
-  }
-  return SourceRange(afterExtendedNominal, sr.End);
-}
-
-SourceRange
-GenericTypeScope::moveStartPastExtendedNominal(const SourceRange sr) const {
-  // There is no extended nominal
-  return sr;
 }
 
 SourceRange GenericTypeOrExtensionWherePortion::getChildlessSourceRangeOf(
