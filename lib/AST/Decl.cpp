@@ -980,7 +980,7 @@ SourceRange Decl::getSourceRangeIncludingAttrs() const {
         continue;
 
       SourceLoc AttrStartLoc = Attr->getRangeWithAt().Start;
-      if (getASTContext().SourceMgr.isBeforeInBuffer(VarLoc, AttrStartLoc))
+      if (getASTContext().SourceMgr.isBefore(VarLoc, AttrStartLoc))
         Range.widen(AttrStartLoc);
     }
     return Range;

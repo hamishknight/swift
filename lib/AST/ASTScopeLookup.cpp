@@ -205,6 +205,15 @@ NullablePtr<const GenericParamList> MacroDeclScope::visibleGenericParams() const
   return decl->getParsedGenericParams();
 }
 
+NullablePtr<const GenericParamList>
+DeclAttributesScope::visibleGenericParams() const {
+  auto context = decl->getAsGenericContext();
+  if (!context)
+    return nullptr;
+
+  return context->getGenericParams();
+}
+
 bool MacroDeclScope::lookupLocalsOrMembers(
     DeclConsumer consumer) const {
   if (auto *paramList = decl->parameterList) {

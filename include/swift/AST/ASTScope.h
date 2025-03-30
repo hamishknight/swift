@@ -946,6 +946,38 @@ public:
   }
 };
 
+class DeclAttributesScope final : public ASTScopeImpl {
+public:
+  Decl *decl;
+  SourceRange range;
+
+  DeclAttributesScope(Decl *decl, SourceRange range)
+  : ASTScopeImpl(ScopeKind::DeclAttributes), decl(decl), range(range) {}
+
+  virtual ~DeclAttributesScope() {}
+
+protected:
+  ASTScopeImpl *expandSpecifically(ScopeCreator &) override;
+  NullablePtr<const GenericParamList> visibleGenericParams() const override;
+
+public:
+  SourceRange
+  getSourceRangeOfThisASTNode(bool omitAssertions = false) const override {
+    return range;
+  }
+  NullablePtr<const void> addressForPrinting() const override { return decl; }
+
+  bool ignoreInDebugInfo() const override { return true; }
+
+private:
+  void expandAScopeThatDoesNotCreateANewInsertionPoint(ScopeCreator &);
+
+public:
+  static bool classof(const ASTScopeImpl *scope) {
+    return scope->getKind() == ScopeKind::DeclAttributes;
+  }
+};
+
 /// The scope for custom attributes and their arguments, such as for
 /// attached property wrappers and for attached macros.
 ///

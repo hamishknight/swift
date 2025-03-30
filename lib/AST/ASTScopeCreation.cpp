@@ -623,46 +623,30 @@ void ScopeCreator::addChildrenForParsedAccessors(
 
 void ScopeCreator::addChildrenForKnownAttributes(Decl *decl,
                                                  ASTScopeImpl *parent) {
-  SmallVector<DeclAttribute *, 2> relevantAttrs;
+  auto &ctx = getASTContext();
+  auto declStartLoc = decl->getStartLoc();
 
-  for (auto *attr : decl->getAttrs()) {
-    if (attr->isImplicit())
+  SourceRange range;
+  for (auto *attr : decl->getParsedAttrs()) {
+    auto attrRange = attr->getRange();
+    ASSERT(attrRange.isValid() && "Invalid source range for parsed attr?");
+
+    // Some parsed attributes happen after the start of the decl (e.g rethrows),
+    // ignore them. We can use `isBeforeInBuffer` since `ParsedDeclAttributes`
+    // only iterates attributes in the same file as the decl.
+    if (!ctx.SourceMgr.isBeforeInBuffer(attrRange.Start, declStartLoc))
       continue;
 
-    if (isa<DifferentiableAttr>(attr))
-      relevantAttrs.push_back(attr);
-
-    if (isa<SpecializeAttr>(attr))
-      relevantAttrs.push_back(attr);
-
-    if (isa<CustomAttr>(attr))
-      relevantAttrs.push_back(attr);
-
-    if (isa<ABIAttr>(attr))
-      relevantAttrs.push_back(attr);
-  }
-
-  // Decl::getAttrs() is a linked list with head insertion, so the
-  // attributes are in reverse source order.
-  std::reverse(relevantAttrs.begin(), relevantAttrs.end());
-
-  for (auto *attr : relevantAttrs) {
-    if (auto *diffAttr = dyn_cast<DifferentiableAttr>(attr)) {
-      constructExpandAndInsert<DifferentiableAttributeScope>(
-          parent, diffAttr, decl);
-    } else if (auto *specAttr = dyn_cast<SpecializeAttr>(attr)) {
-      if (auto *afd = dyn_cast<AbstractFunctionDecl>(decl)) {
-        constructExpandAndInsert<SpecializeAttributeScope>(
-            parent, specAttr, afd);
-      }
-    } else if (auto *customAttr = dyn_cast<CustomAttr>(attr)) {
-      constructExpandAndInsert<CustomAttributeScope>(
-          parent, customAttr, decl);
-    } else if (auto *abiAttr = dyn_cast<ABIAttr>(attr)) {
-      constructExpandAndInsert<ABIAttributeScope>(
-          parent, abiAttr, decl);
+    if (range.isInvalid()) {
+      range = attrRange;
+      continue;
     }
+    range.widen(attrRange);
   }
+  if (range.isInvalid())
+    return;
+
+  constructExpandAndInsert<DeclAttributesScope>(parent, decl, range);
 }
 
 ASTScopeImpl *
@@ -778,6 +762,7 @@ CREATES_NEW_INSERTION_POINT(ABIAttributeScope)
 
 NO_NEW_INSERTION_POINT(FunctionBodyScope)
 NO_NEW_INSERTION_POINT(AbstractFunctionDeclScope)
+NO_NEW_INSERTION_POINT(DeclAttributesScope)
 NO_NEW_INSERTION_POINT(CustomAttributeScope)
 NO_NEW_INSERTION_POINT(EnumElementScope)
 NO_NEW_INSERTION_POINT(GuardStmtBodyScope)
@@ -1258,6 +1243,57 @@ void DefaultArgumentInitializerScope::
   ASTScopeAssert(initExpr,
                  "Default argument initializer must have an initializer.");
   scopeCreator.addToScopeTree(initExpr, this);
+}
+
+void DeclAttributesScope::expandAScopeThatDoesNotCreateANewInsertionPoint(ScopeCreator &scopeCreator) {
+  SmallVector<DeclAttribute *, 2> relevantAttrs;
+
+  for (auto *_attr : decl->getParsedAttrs()) {
+    auto *attr = const_cast<DeclAttribute *>(_attr);
+    if (isa<DifferentiableAttr>(attr))
+      relevantAttrs.push_back(attr);
+
+    if (isa<RawLayoutAttr>(attr))
+      relevantAttrs.push_back(attr);
+
+    if (isa<SpecializeAttr>(attr))
+      relevantAttrs.push_back(attr);
+
+    if (isa<CustomAttr>(attr))
+      relevantAttrs.push_back(attr);
+
+    if (isa<ABIAttr>(attr))
+      relevantAttrs.push_back(attr);
+  }
+
+  // Decl::getAttrs() is a linked list with head insertion, so the
+  // attributes are in reverse source order.
+  std::reverse(relevantAttrs.begin(), relevantAttrs.end());
+
+  for (auto *attr : relevantAttrs) {
+    if (auto *diffAttr = dyn_cast<DifferentiableAttr>(attr)) {
+      scopeCreator.constructExpandAndInsert<DifferentiableAttributeScope>(
+                                                                          this, diffAttr, decl);
+      continue;
+    }
+    if (auto *specAttr = dyn_cast<SpecializeAttr>(attr)) {
+      if (auto *afd = dyn_cast<AbstractFunctionDecl>(decl)) {
+        scopeCreator.constructExpandAndInsert<SpecializeAttributeScope>(
+                                                                        this, specAttr, afd);
+      }
+      continue;
+    }
+    if (auto *customAttr = dyn_cast<CustomAttr>(attr)) {
+      scopeCreator.constructExpandAndInsert<CustomAttributeScope>(
+                                                                  this, customAttr, decl);
+      continue;
+    }
+    if (auto *abiAttr = dyn_cast<ABIAttr>(attr)) {
+      scopeCreator.constructExpandAndInsert<ABIAttributeScope>(
+                                                               this, abiAttr, decl);
+      continue;
+    }
+  }
 }
 
 void CustomAttributeScope::
