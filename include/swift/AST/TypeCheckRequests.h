@@ -3536,6 +3536,24 @@ public:
   bool isCached() const { return true; }
 };
 
+class TypeCheckedClosureBodyRequest
+    : public SimpleRequest<TypeCheckedClosureBodyRequest,
+                           BraceStmt *(ClosureExpr *),
+                           RequestFlags::SeparatelyCached> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  BraceStmt *evaluate(Evaluator &evaluator, ClosureExpr *closure) const;
+
+public:
+  bool isCached() const { return true; }
+  std::optional<BraceStmt *> getCachedResult() const;
+  void cacheResult(BraceStmt *body) const;
+};
+
 /// Determine whether closure body has any `return`
 /// statements which could produce a non-void result.
 class ClosureHasResultExprRequest

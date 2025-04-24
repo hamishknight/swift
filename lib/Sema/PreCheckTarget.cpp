@@ -1177,7 +1177,7 @@ public:
 
   ASTContext &getASTContext() const { return Ctx; }
 
-  bool walkToClosureExprPre(ClosureExpr *expr, ParentTy &parent);
+  bool walkToClosureExprPre(ClosureExpr *expr);
 
   MacroWalking getMacroWalkingBehavior() const override {
     return MacroWalking::Arguments;
@@ -1278,7 +1278,7 @@ public:
     // but do not walk into the body. That will be type-checked after
     // we've determine the complete function type.
     if (auto closure = dyn_cast<ClosureExpr>(expr))
-      return finish(walkToClosureExprPre(closure, Parent), expr);
+      return finish(walkToClosureExprPre(closure), expr);
 
     if (auto *unresolved = dyn_cast<UnresolvedDeclRefExpr>(expr))
       return finish(true, TypeChecker::resolveDeclRefExpr(unresolved, DC));
@@ -1547,26 +1547,10 @@ public:
 
 /// Perform prechecking of a ClosureExpr before we dive into it.  This returns
 /// true when we want the body to be considered part of this larger expression.
-bool PreCheckTarget::walkToClosureExprPre(ClosureExpr *closure,
-                                          ParentTy &parent) {
-  if (auto *expandedBody = closure->getExpandedBody()) {
-    if (Parent.getAsExpr()) {
-      // We cannot simply replace the body when closure i.e. is passed
-      // as an argument to a call or is a source of an assignment
-      // because the source range of the argument list would cross
-      // buffer boundaries. One way to avoid that is to inject
-      // elements into a new implicit brace statement with the original
-      // source locations. Brace statement has to be implicit because its
-      // elements are in a different buffer.
-      auto sourceRange = closure->getSourceRange();
-      closure->setBody(BraceStmt::create(getASTContext(), sourceRange.Start,
-                                         expandedBody->getElements(),
-                                         sourceRange.End,
-                                         /*implicit=*/true));
-    } else {
-      closure->setBody(expandedBody);
-    }
-  }
+bool PreCheckTarget::walkToClosureExprPre(ClosureExpr *closure) {
+  // Don't walk into the body if we're separately type-checking.
+  if (closure->isSeparatelyTypeChecked())
+    return false;
 
   // Pre-check the closure body.
   (void)evaluateOrDefault(Ctx.evaluator, PreCheckClosureBodyRequest{closure},

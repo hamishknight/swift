@@ -24,6 +24,7 @@
 #include "swift/AST/Decl.h" // FIXME: Bad dependency
 #include "swift/AST/ExistentialLayout.h"
 #include "swift/AST/MacroDiscriminatorContext.h"
+#include "swift/AST/NameLookupRequests.h"
 #include "swift/AST/ParameterList.h"
 #include "swift/AST/Stmt.h"
 #include "swift/AST/ASTWalker.h"
@@ -2017,27 +2018,38 @@ BraceStmt * AbstractClosureExpr::getBody() const {
   llvm_unreachable("Unknown closure expression");
 }
 
-BraceStmt *ClosureExpr::getExpandedBody() {
+bool AbstractClosureExpr::isSeparatelyTypeChecked() const {
+  if (auto *CE = dyn_cast<ClosureExpr>(this))
+    return CE->isSeparatelyTypeChecked();
+
+  return false;
+}
+
+CustomAttr *ClosureExpr::getBodyMacroAttr() const {
+  ClosureBodyMacroAttrsRequest req(const_cast<ClosureExpr *>(this));
+  auto results = evaluateOrDefault(getASTContext().evaluator, req, {});
+  // We only support a single body macro, take the first one. We'll diagnose
+  // duplicates in ClosureAttributeChecker.
+  return results.empty() ? nullptr : results.front();
+}
+
+BraceStmt *ClosureExpr::getTypecheckedBody() {
+  // If the body hasn't been type-checked yet, return nullptr. At some point
+  // we could make this kick type-checking for the enclosing syntactic element.
+  if (getBodyState() == BodyState::Parsed)
+    return nullptr;
+
   auto &ctx = getASTContext();
-
-  // Expand a body macro, if there is one.
-  BraceStmt *macroExpandedBody = nullptr;
-  if (auto bufferID = evaluateOrDefault(
-          ctx.evaluator,
-          ExpandBodyMacroRequest{this},
-          std::nullopt)) {
-    CharSourceRange bufferRange = ctx.SourceMgr.getRangeForBuffer(*bufferID);
-    auto bufferStart = bufferRange.getStart();
-    auto module = getParentModule();
-    auto macroSourceFile = module->getSourceFileContainingLocation(bufferStart);
-
-    if (macroSourceFile->getTopLevelItems().size() == 1) {
-      auto stmt = macroSourceFile->getTopLevelItems()[0].dyn_cast<Stmt *>();
-      macroExpandedBody = dyn_cast<BraceStmt>(stmt);
-    }
+  auto *mutableThis = const_cast<ClosureExpr *>(this);
+  auto result = evaluateOrDefault(
+      ctx.evaluator, TypeCheckedClosureBodyRequest{mutableThis}, nullptr);
+  // If we hit a cycle, return an error body.
+  if (!result) {
+    auto range = getBody()->getSourceRange();
+    auto *error = new (ctx) ErrorExpr(range, ErrorType::get(ctx));
+    return BraceStmt::create(ctx, range.Start, {error}, range.End);
   }
-
-  return macroExpandedBody;
+  return result;
 }
 
 bool AbstractClosureExpr::bodyHasExplicitReturnStmt() const {
@@ -2950,6 +2962,19 @@ MacroExpansionExpr *MacroExpansionExpr::create(
       genericArgs,
       argList ? argList : ArgumentList::createImplicit(ctx, {})};
   return new (ctx) MacroExpansionExpr(dc, info, roles, isImplicit, ty);
+}
+
+MacroExpansionExpr *MacroExpansionExpr::forAttachedMacro(CustomAttr *attr,
+                                                         DeclContext *DC) {
+  ASSERT(attr);
+  UnresolvedMacroReference macroRef(attr);
+  SourceRange genericArgsRange = macroRef.getGenericArgsRange();
+  return MacroExpansionExpr::create(
+      DC, macroRef.getSigilLoc(), macroRef.getModuleName(),
+      macroRef.getModuleNameLoc(), macroRef.getMacroName(),
+      macroRef.getMacroNameLoc(), genericArgsRange.Start,
+      macroRef.getGenericArgs(), genericArgsRange.End, macroRef.getArgs(),
+      macroRef.getMacroRoles());
 }
 
 MacroExpansionDecl *MacroExpansionExpr::createSubstituteDecl() {

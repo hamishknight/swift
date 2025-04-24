@@ -1165,7 +1165,9 @@ void SILGenFunction::emitClosure(AbstractClosureExpr *ace) {
 
   emitProfilerIncrement(ace);
   if (auto *ce = dyn_cast<ClosureExpr>(ace)) {
-    emitStmt(ce->getBody());
+    auto *body = ce->getTypecheckedBody();
+    ASSERT(body);
+    emitStmt(body);
   } else {
     auto *autoclosure = cast<AutoClosureExpr>(ace);
     // Closure expressions implicitly return the result of their body

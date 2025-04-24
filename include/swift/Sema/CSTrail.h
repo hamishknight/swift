@@ -164,6 +164,8 @@ public:
       CaseLabelItem *TheItem;
       CatchNode TheCatchNode;
       ParamDecl *TheParam;
+      CustomAttr *TheCustomAttr;
+      MacroExpansionExpr *TheMacroExpansion;
     };
 
     Change() : Kind(ChangeKind::AddedTypeVariable), TypeVar(nullptr) { }
@@ -239,6 +241,10 @@ public:
 
     /// Create a change that recorded a SyntacticElementTarget.
     static Change RecordedCaseLabelItemInfo(CaseLabelItem *item);
+
+    /// Create a change that recorded a macro expansion expression for a closure
+    /// body macro.
+    static Change RecordedClosureBodyMacro(MacroExpansionExpr *E);
 
     /// Create a change that recorded a potential throw site.
     static Change RecordedPotentialThrowSite(CatchNode catchNode);

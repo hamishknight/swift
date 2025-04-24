@@ -429,6 +429,7 @@ namespace {
     // Delayed items to type-check.
     SmallVector<Decl *, 4> LocalDeclsToTypeCheck;
     SmallVector<MacroExpansionExpr *, 4> MacrosToExpand;
+    SmallVector<ClosureExpr *, 4> ClosuresToTypeCheck;
 
   public:
     ASTContext &ctx;
@@ -447,6 +448,10 @@ namespace {
           SuppressDiagnostics(suppressDiagnostics) {}
 
     ConstraintSystem &getConstraintSystem() const { return cs; }
+
+    void addClosureToTypeCheck(ClosureExpr *CE) {
+      ClosuresToTypeCheck.push_back(CE);
+    }
 
     void addLocalDeclToTypeCheck(Decl *D) {
       // If we're doing code completion, avoid doing any further type-checking,
@@ -5708,6 +5713,10 @@ namespace {
       for (auto *D : LocalDeclsToTypeCheck)
         TypeChecker::typeCheckDecl(D);
 
+      // Type-check any closure bodies.
+      for (auto *CE : ClosuresToTypeCheck)
+        (void)CE->getTypecheckedBody();
+
       // Expand any macros encountered.
       // FIXME: Expansion should be lazy.
       auto &eval = ctx.evaluator;
@@ -9067,7 +9076,15 @@ namespace {
     ///
     /// \returns true if an error occurred.
     bool rewriteFunction(AnyFunctionRef fn) {
-      return Rewriter.cs.applySolution(fn, *this);
+      if (Rewriter.cs.applySolution(fn, *this))
+        return true;
+
+      if (auto *closure =
+              dyn_cast_or_null<ClosureExpr>(fn.getAbstractClosureExpr())) {
+        if (closure->isSeparatelyTypeChecked())
+          Rewriter.addClosureToTypeCheck(closure);
+      }
+      return false;
     }
 
     bool rewriteSingleValueStmtExpr(SingleValueStmtExpr *SVE) {

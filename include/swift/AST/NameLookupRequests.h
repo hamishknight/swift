@@ -933,6 +933,24 @@ public:
   bool isCached() const { return true; }
 };
 
+/// Retrieves the attached body macro attributes for a closure.
+/// TODO: Split cache?
+class ClosureBodyMacroAttrsRequest
+    : public SimpleRequest<ClosureBodyMacroAttrsRequest,
+                           ArrayRef<CustomAttr *>(ClosureExpr *),
+                           RequestFlags::Cached> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  ArrayRef<CustomAttr *> evaluate(Evaluator &evaluator, ClosureExpr *CE) const;
+
+public:
+  bool isCached() const { return true; }
+};
+
 /// Resolves the protocol referenced by an @_implements attribute.
 class ImplementsAttrProtocolRequest
     : public SimpleRequest<ImplementsAttrProtocolRequest,

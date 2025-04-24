@@ -2228,11 +2228,20 @@ static bool diagnoseArbitraryGlobalNames(DeclContext *dc,
 ConcreteDeclRef ResolveMacroRequest::evaluate(Evaluator &evaluator,
                                               UnresolvedMacroReference macroRef,
                                               DeclContext *dc) const {
-  // Macro expressions and declarations have their own stored macro
+  // Macro expressions and attributes have their own stored macro
   // reference. Use it if it's there.
   if (auto *expansion = macroRef.getFreestanding()) {
     if (auto ref = expansion->getMacroRef())
       return ref;
+  }
+  if (auto *attr = macroRef.getAttr()) {
+    if (auto ref = attr->getMacroRef())
+      return ref;
+
+    // If this is a closure attribute, it must be resolved during type-checking
+    // of the closure, we can't resolve separately.
+    if (attr->isClosureAttr())
+      return ConcreteDeclRef();
   }
 
   auto &ctx = dc->getASTContext();
@@ -2271,36 +2280,8 @@ ConcreteDeclRef ResolveMacroRequest::evaluate(Evaluator &evaluator,
           dc, expansion->getExpansionInfo(), roles);
     }
   } else {
-    if (isa<ClosureExpr>(dc) && roles.contains(MacroRole::Body)) {
-      // The closures are type-checked after macros are expanded
-      // which means that macro cannot reference any declarations
-      // from inner or outer closures as its arguments.
-      //
-      // For example:
-      // `_: (Int) -> Void = { x in { @Macro(x) in ... }() }`
-      //
-      // `x` is not going to be type-checked at macro expansion
-      // time and cannot be referenced by `@Macro`.
-      //
-      // Let's walk up declaration contexts until we find first
-      // non-closure one. This means that we can support a local
-      // declaration that is defined inside of a closure because
-      // they are separately checked after outer ones are already
-      // processed.
-      while ((dc = dc->getParent())) {
-        if (!isa<AbstractClosureExpr>(dc))
-          break;
-      }
-    }
-
-    SourceRange genericArgsRange = macroRef.getGenericArgsRange();
-    macroExpansion = MacroExpansionExpr::create(
-      dc, macroRef.getSigilLoc(),
-      macroRef.getModuleName(), macroRef.getModuleNameLoc(),
-      macroRef.getMacroName(), macroRef.getMacroNameLoc(),
-      genericArgsRange.Start,
-      macroRef.getGenericArgs(), genericArgsRange.End,
-      macroRef.getArgs(), roles);
+    macroExpansion =
+        MacroExpansionExpr::forAttachedMacro(macroRef.getAttr(), dc);
   }
 
   Expr *result = macroExpansion;
@@ -2311,13 +2292,15 @@ ConcreteDeclRef ResolveMacroRequest::evaluate(Evaluator &evaluator,
   if (!macroExpansion->getMacroRef() && macroRef.getAttr())
     macroRef.getAttr()->setInvalid();
 
-  // Macro expressions and declarations have their own stored macro
+  // Macro expressions and attributes have their own stored macro
   // reference. If we got a reference, store it there, too.
   // FIXME: This duplication of state is really unfortunate.
   if (auto ref = macroExpansion->getMacroRef()) {
     if (auto *expansion = macroRef.getFreestanding()) {
       expansion->setMacroRef(ref);
     }
+    if (auto *attr = macroRef.getAttr())
+      attr->setMacroRef(ref);
   }
 
   return macroExpansion->getMacroRef();

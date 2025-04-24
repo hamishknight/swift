@@ -8282,6 +8282,12 @@ public:
           ctx.Diags.diagnose(
               attr->getLocation(),
               diag::experimental_closure_body_macro);
+          return;
+        }
+        // Make sure we don't have multiple body macros.
+        if (attr != closure->getBodyMacroAttr()) {
+          ctx.Diags.diagnose(attr->getLocation(),
+                             diag::closure_multiple_body_macros);
         }
 
         // Function body macros are allowed on closures.

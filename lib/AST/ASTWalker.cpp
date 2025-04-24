@@ -1011,10 +1011,12 @@ class Traversal : public ASTVisitor<Traversal, Expr*, Stmt*,
         return nullptr;
     }
 
-    // Handle other closures.
-    if (BraceStmt *body = cast_or_null<BraceStmt>(doIt(expr->getBody()))) {
-      expr->setBody(body);
-      return expr;
+    if (Walker.shouldWalkIntoSeparatelyTypeCheckedClosures() ||
+        !expr->isSeparatelyTypeChecked()) {
+      if (BraceStmt *body = cast_or_null<BraceStmt>(doIt(expr->getBody()))) {
+        expr->setBody(body);
+        return expr;
+      }
     }
     return nullptr;
   }

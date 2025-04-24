@@ -24,6 +24,7 @@
 #include "swift/AST/Expr.h"
 #include "swift/AST/GenericSignature.h"
 #include "swift/AST/GenericEnvironment.h"
+#include "swift/AST/NameLookupRequests.h"
 #include "swift/AST/ParameterList.h"
 #include "swift/AST/PrettyStackTrace.h"
 #include "swift/AST/SubstitutionMap.h"
@@ -3086,6 +3087,42 @@ namespace {
       return CS.getType(expr->getClosureBody());
     }
 
+    bool generateClosureMacroConstraints(ClosureExpr *closure, Type closureTy,
+                                         ConstraintLocator *loc) {
+      auto *primaryAttr = closure->getBodyMacroAttr();
+      if (!primaryAttr)
+        return false;
+
+      auto &eval = CS.getASTContext().evaluator;
+      auto attrs = evaluateOrDefault(eval, ClosureBodyMacroAttrsRequest(closure), {});
+
+      for (auto *attr : attrs) {
+        auto *expansion = MacroExpansionExpr::forAttachedMacro(attr, CurDC);
+        if (attr == primaryAttr)
+          CS.recordClosureBodyMacro(expansion);
+
+        SyntacticElementTarget target(expansion, CurDC, CTP_Unused, Type(),
+                                      /*discarded*/ false);
+        if (CS.generateConstraints(target))
+          return true;
+
+        CS.setTargetFor(attr, target);
+
+        // We only pick a single attribute to use for the body macro, we
+        // still resolve the rest for better diagnostics though.
+        if (attr != primaryAttr)
+          continue;
+
+        // The result type of the body macro is convertible to the closure type.
+        auto *constraint = Constraint::create(
+            CS, ConstraintKind::Conversion, closureTy, CS.getType(expansion),
+            CS.getConstraintLocator(loc, LocatorPathElt::ClosureBodyMacro()));
+        CS.addUnsolvedConstraint(constraint);
+        CS.activateConstraint(constraint);
+      }
+      return false;
+    }
+
     Type visitClosureExpr(ClosureExpr *closure) {
       auto *locator = CS.getConstraintLocator(closure);
       auto closureType = CS.createTypeVariable(locator, TVO_CanBindToNoEscape);
@@ -3102,6 +3139,10 @@ namespace {
 
       auto inferredType = inferClosureType(closure);
       if (!inferredType || inferredType->hasError())
+        return Type();
+
+      // Setup the constraints needed for body macro type-checking if needed.
+      if (generateClosureMacroConstraints(closure, closureType, locator))
         return Type();
 
       auto referencedVars = refCollector.getTypeVars();

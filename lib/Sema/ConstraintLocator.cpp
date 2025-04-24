@@ -95,6 +95,7 @@ unsigned LocatorPathElt::getNewSummaryFlags() const {
   case ConstraintLocator::ArgumentAttribute:
   case ConstraintLocator::UnresolvedMemberChainResult:
   case ConstraintLocator::PlaceholderType:
+  case ConstraintLocator::ClosureBodyMacro:
   case ConstraintLocator::ImplicitConversion:
   case ConstraintLocator::ImplicitDynamicMemberSubscript:
   case ConstraintLocator::SyntacticElement:
@@ -178,6 +179,10 @@ void LocatorPathElt::dump(raw_ostream &out) const {
 
   case ConstraintLocator::OptionalInjection:
     out << "optional injection";
+    break;
+
+  case ConstraintLocator::ClosureBodyMacro:
+    out << "closure body macro";
     break;
 
   case ConstraintLocator::ApplyArgToParam: {
@@ -752,6 +757,16 @@ bool ConstraintLocator::isForSingleValueStmtBranch() const {
     return false;
 
   return path.back().is<LocatorPathElt::SingleValueStmtResult>();
+}
+
+bool ConstraintLocator::isForBodyMacroClosureResult() const {
+  if (!isExpr<ClosureExpr>(getAnchor()))
+    return false;
+
+  if (!isLastElement<LocatorPathElt::FunctionResult>())
+    return false;
+
+  return (bool)findFirst<LocatorPathElt::ClosureBodyMacro>();
 }
 
 NullablePtr<Pattern> ConstraintLocator::getPatternMatch() const {

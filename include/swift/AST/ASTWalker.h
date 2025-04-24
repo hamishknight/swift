@@ -639,6 +639,10 @@ public:
     }
   }
 
+  /// Whether the walker should walk into the bodies of separately type-checked
+  /// closures.
+  virtual bool shouldWalkIntoSeparatelyTypeCheckedClosures() { return true; }
+
   /// This method configures whether the walker should visit the body of a
   /// TapExpr.
   virtual bool shouldWalkIntoTapExpression() { return true; }

@@ -4099,6 +4099,10 @@ public:
   const ParameterList *getParameters() const { return parameterList; }
   void setParameterList(ParameterList *P);
 
+  /// Checks whether the closure body is type-checked separately from its
+  /// enclosing context.
+  bool isSeparatelyTypeChecked() const;
+
   // Expose this to users.
   using DeclContext::setParent;
 
@@ -4248,6 +4252,10 @@ public:
     /// The body was parsed.
     Parsed,
 
+    /// The signature has been type-checked, and is now ready for the body
+    /// to be type-checked.
+    ReadyForSeparateTypeChecking,
+
     /// The body was type-checked.
     TypeChecked,
   };
@@ -4315,6 +4323,10 @@ public:
       ExplicitResultTypeAndBodyState(explicitResultType, BodyState::Parsed),
       Body(nullptr) {
     setParameterList(params);
+    for (auto *attr : Attributes) {
+      if (auto *CA = dyn_cast<CustomAttr>(attr))
+        CA->setIsClosureAttr();
+    }
     Bits.ClosureExpr.HasAnonymousClosureVars = false;
     Bits.ClosureExpr.ImplicitSelfCapture = false;
     Bits.ClosureExpr.InheritActorContext = false;
@@ -4332,7 +4344,21 @@ public:
   BraceStmt *getBody() const { return Body; }
   void setBody(BraceStmt *S) { Body = S; }
 
-  BraceStmt *getExpandedBody();
+  /// Retrieve the macro attribute that will be used to expand the closure's
+  /// body.
+  CustomAttr *getBodyMacroAttr() const;
+
+  /// Checks whether the closure body is type-checked separately from its
+  /// enclosing context.
+  bool isSeparatelyTypeChecked() const {
+    // Currently the only case where we need separate type-checking is when the
+    // closure has an attached body macro.
+    return bool(getBodyMacroAttr());
+  }
+
+  /// Retrieve the type-checked body, expanding a body macro if needed, or
+  /// \c nullptr if the enclosing expression hasn't been type-checked yet.
+  BraceStmt *getTypecheckedBody();
 
   DeclAttributes &getAttrs() { return Attributes; }
   const DeclAttributes &getAttrs() const { return Attributes; }
@@ -6677,6 +6703,9 @@ public:
          ArrayRef<TypeRepr *> genericArgs, SourceLoc rightAngleLoc,
          ArgumentList *argList, MacroRoles roles, bool isImplicit = false,
          Type ty = Type());
+
+  static MacroExpansionExpr *forAttachedMacro(CustomAttr *attr,
+                                              DeclContext *DC);
 
   Expr *getRewritten() const { return Rewritten; }
   void setRewritten(Expr *rewritten) { Rewritten = rewritten; }

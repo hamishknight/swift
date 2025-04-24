@@ -1230,6 +1230,7 @@ struct SyntacticElementTargetKey {
     patternBindingEntry,
     varDecl,
     functionRef,
+    customAttr,
   };
 
   Kind kind;
@@ -1251,6 +1252,8 @@ struct SyntacticElementTargetKey {
     VarDecl *varDecl;
 
     DeclContext *functionRef;
+
+    CustomAttr *customAttr;
   } storage;
 
   SyntacticElementTargetKey(Kind kind) {
@@ -1305,6 +1308,11 @@ struct SyntacticElementTargetKey {
     storage.functionRef = functionRef.getAsDeclContext();
   }
 
+  SyntacticElementTargetKey(CustomAttr *attr) {
+    kind = Kind::customAttr;
+    storage.customAttr = attr;
+  }
+
   friend bool operator==(SyntacticElementTargetKey lhs,
                          SyntacticElementTargetKey rhs) {
     if (lhs.kind != rhs.kind)
@@ -1339,6 +1347,9 @@ struct SyntacticElementTargetKey {
 
     case Kind::functionRef:
       return lhs.storage.functionRef == rhs.storage.functionRef;
+
+    case Kind::customAttr:
+      return lhs.storage.customAttr == rhs.storage.customAttr;
     }
     llvm_unreachable("invalid SyntacticElementTargetKey kind");
   }
@@ -1395,6 +1406,11 @@ struct SyntacticElementTargetKey {
       return hash_combine(
           DenseMapInfo<unsigned>::getHashValue(static_cast<unsigned>(kind)),
           DenseMapInfo<void *>::getHashValue(storage.functionRef));
+
+    case Kind::customAttr:
+      return hash_combine(
+          DenseMapInfo<unsigned>::getHashValue(static_cast<unsigned>(kind)),
+          DenseMapInfo<void *>::getHashValue(storage.customAttr));
     }
     llvm_unreachable("invalid statement kind");
   }
@@ -2339,6 +2355,9 @@ private:
   /// A map of expressions to the ExprPatterns that they are being solved as
   /// a part of.
   llvm::SmallDenseMap<Expr *, ExprPattern *, 2> exprPatterns;
+
+  /// A set of macro expansion expressions for closure body macros.
+  llvm::SmallPtrSet<MacroExpansionExpr *, 2> closureBodyMacros;
 
   /// The set of parameters that have been inferred to be 'isolated'.
   llvm::SmallDenseSet<ParamDecl *, 2> isolatedParams;
@@ -3320,6 +3339,24 @@ public:
 
   void removeCaseLabelItemInfo(const CaseLabelItem *item) {
     bool erased = caseLabelItems.erase(item);
+    ASSERT(erased);
+  }
+
+  void recordClosureBodyMacro(MacroExpansionExpr *E) {
+    ASSERT(E);
+    bool inserted = closureBodyMacros.insert(E).second;
+    ASSERT(inserted);
+
+    if (solverState)
+      recordChange(SolverTrail::Change::RecordedClosureBodyMacro(E));
+  }
+
+  bool isClosureBodyMacro(MacroExpansionExpr *E) {
+    return closureBodyMacros.count(E);
+  }
+
+  void removeClosureBodyMacro(MacroExpansionExpr *E) {
+    bool erased = closureBodyMacros.erase(E);
     ASSERT(erased);
   }
 
@@ -6438,6 +6475,10 @@ public:
 
   MacroWalking getMacroWalkingBehavior() const override {
     return MacroWalking::Arguments;
+  }
+
+  bool shouldWalkIntoSeparatelyTypeCheckedClosures() override {
+    return false;
   }
 
   PreWalkResult<Expr *> walkToExprPre(Expr *expr) override;

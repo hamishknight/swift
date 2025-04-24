@@ -459,6 +459,8 @@ SWIFT_REQUEST(TypeChecker, ScopedImportLookupRequest,
               ArrayRef<ValueDecl *>(ImportDecl *), Cached, NoLocationInfo)
 SWIFT_REQUEST(TypeChecker, ClosureHasResultExprRequest,
               bool(ClosureExpr *), Cached, NoLocationInfo)
+SWIFT_REQUEST(TypeChecker, TypeCheckedClosureBodyRequest,
+              BraceStmt *(ClosureExpr *), SeparatelyCached, NoLocationInfo)
 SWIFT_REQUEST(TypeChecker, LookupAllConformancesInContextRequest,
               ProtocolConformanceLookupResult(const IterableDeclContext *),
               Uncached, NoLocationInfo)

@@ -68,6 +68,7 @@ class CustomAttributeInitializer;
 class GenericFunctionType;
 class LazyConformanceLoader;
 class LazyMemberLoader;
+class MacroExpansionExpr;
 class ModuleDecl;
 class PatternBindingInitializer;
 class TrailingWhereClause;
@@ -2104,6 +2105,12 @@ class CustomAttr final : public DeclAttribute {
   CustomAttributeInitializer *initContext;
   Expr *semanticInit = nullptr;
 
+  /// The resolved macro reference for an attached macro.
+  ConcreteDeclRef macroRef;
+
+  /// Whether this attribute is attached to a closure.
+  unsigned isClosureAttribute : 1;
+
   mutable unsigned isArgUnsafeBit : 1;
 
   CustomAttr(SourceLoc atLoc, SourceRange range, TypeExpr *type,
@@ -2134,6 +2141,18 @@ public:
   /// identifier.
   std::pair<UnqualifiedIdentTypeRepr *, DeclRefTypeRepr *>
   destructureMacroRef();
+
+  ConcreteDeclRef getMacroRef() const {
+    return macroRef;
+  }
+  void setMacroRef(ConcreteDeclRef newMacroRef) {
+    ASSERT(!macroRef || macroRef == newMacroRef);
+    macroRef = newMacroRef;
+  }
+
+  /// Whether this attribute is attached to a closure.
+  bool isClosureAttr() const { return isClosureAttribute; }
+  void setIsClosureAttr(bool value = true) { isClosureAttribute = value; }
 
   /// Whether the attribute has any arguments.
   bool hasArgs() const { return argList != nullptr; }

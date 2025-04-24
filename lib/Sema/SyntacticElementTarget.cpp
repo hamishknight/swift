@@ -305,6 +305,11 @@ void SyntacticElementTarget::markInvalid() const {
       if (!E->getType())
         E->setType(ErrorType::get(Ctx));
 
+      // Mark any closures we encounter as having been type-checked so we
+      // don't try to re-typecheck.
+      if (auto *CE = dyn_cast<ClosureExpr>(E))
+        CE->setBodyState(ClosureExpr::BodyState::TypeChecked);
+
       return Action::Continue(E);
     }
 

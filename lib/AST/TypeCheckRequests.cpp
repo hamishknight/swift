@@ -2201,6 +2201,25 @@ GlobalActorAttributeRequest::cacheResult(std::optional<CustomAttrNominalPair> va
 }
 
 //----------------------------------------------------------------------------//
+// TypeCheckedClosureBodyRequest caching.
+//----------------------------------------------------------------------------//
+
+std::optional<BraceStmt *>
+TypeCheckedClosureBodyRequest::getCachedResult() const {
+  auto *CE = std::get<0>(getStorage());
+  if (CE->getBodyState() == ClosureExpr::BodyState::TypeChecked)
+    return CE->getBody();
+
+  return std::nullopt;
+}
+
+void TypeCheckedClosureBodyRequest::cacheResult(BraceStmt *body) const {
+  auto *CE = std::get<0>(getStorage());
+  CE->setBody(body);
+  CE->setBodyState(ClosureExpr::BodyState::TypeChecked);
+}
+
+//----------------------------------------------------------------------------//
 // ResolveMacroRequest computation.
 //----------------------------------------------------------------------------//
 
@@ -2302,9 +2321,13 @@ MacroRoles UnresolvedMacroReference::getMacroRoles() const {
   if (pointer.is<FreestandingMacroExpansion *>())
     return getFreestandingMacroRoles();
 
-  if (pointer.is<CustomAttr *>())
-    return getAttachedMacroRoles();
+  if (auto *CA = pointer.dyn_cast<CustomAttr *>()) {
+    // An attached macro on a closure is a body macro.
+    if (CA->isClosureAttr())
+      return MacroRole::Body;
 
+    return getAttachedMacroRoles();
+  }
   llvm_unreachable("Unsupported macro reference");
 }
 

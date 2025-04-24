@@ -322,6 +322,8 @@ public:
   /// branch.
   bool isForSingleValueStmtBranch() const;
 
+  bool isForBodyMacroClosureResult() const;
+
   /// If the locator in question is for a pattern match, returns the pattern,
   /// otherwise \c nullptr.
   NullablePtr<Pattern> getPatternMatch() const;

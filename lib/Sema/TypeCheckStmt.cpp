@@ -90,7 +90,6 @@ namespace {
       if (auto *CE = dyn_cast<AbstractClosureExpr>(E)) {
         CE->setParent(ParentDC);
         contextualize(CE->getBody(), CE);
-
         TypeChecker::computeCaptures(CE);
         return Action::SkipNode(E);
       }
@@ -299,8 +298,7 @@ namespace {
             innerVisitor.setLocalDiscriminator(param);
           }
         }
-        CE->getBody()->walk(innerVisitor);
-
+        CE->getTypecheckedBody()->walk(innerVisitor);
         return Action::SkipNode(E);
       }
 
@@ -2851,6 +2849,12 @@ static bool requiresDefinition(Decl *decl) {
   return true;
 }
 
+static BraceStmt *makeErrorBody(ASTContext &ctx, SourceRange range) {
+  return BraceStmt::create(ctx, range.Start,
+                           {new (ctx) ErrorExpr(range, ErrorType::get(ctx))},
+                           range.End);
+}
+
 BraceStmt *
 TypeCheckFunctionBodyRequest::evaluate(Evaluator &eval,
                                        AbstractFunctionDecl *AFD) const {
@@ -2898,9 +2902,7 @@ TypeCheckFunctionBodyRequest::evaluate(Evaluator &eval,
     // un-type-checked body.
     // FIXME: This should be handled by typeCheckExpression.
     auto range = AFD->getBodySourceRange();
-    return BraceStmt::create(ctx, range.Start,
-                             {new (ctx) ErrorExpr(range, ErrorType::get(ctx))},
-                             range.End);
+    return makeErrorBody(ctx, range);
   };
 
   // First do a pre-check of the body.
@@ -2967,6 +2969,58 @@ TypeCheckFunctionBodyRequest::evaluate(Evaluator &eval,
   }
 
   return hadError ? errorBody() : body;
+}
+
+BraceStmt *TypeCheckedClosureBodyRequest::evaluate(Evaluator &evaluator,
+                                                   ClosureExpr *closure) const {
+  using BodyState = ClosureExpr::BodyState;
+  ASSERT(closure->isSeparatelyTypeChecked());
+  ASSERT(closure->getBodyState() == BodyState::ReadyForSeparateTypeChecking &&
+         "Must have been first been type-checked in enclosing expr");
+
+  auto &ctx = closure->getASTContext();
+  BraceStmt *body = closure->getBody();
+  ASSERT(body);
+
+  // Try expand the body macro.
+  if (auto bufferID = evaluateOrDefault(
+          ctx.evaluator, ExpandBodyMacroRequest{closure}, std::nullopt)) {
+    CharSourceRange bufferRange = ctx.SourceMgr.getRangeForBuffer(*bufferID);
+    auto bufferStart = bufferRange.getStart();
+    auto module = closure->getParentModule();
+    auto macroSourceFile = module->getSourceFileContainingLocation(bufferStart);
+
+    if (macroSourceFile->getTopLevelItems().size() == 1) {
+      auto stmt = macroSourceFile->getTopLevelItems()[0].dyn_cast<Stmt *>();
+      if (auto *expandedBody = dyn_cast<BraceStmt>(stmt)) {
+        // We cannot simply replace the body when closure i.e. is passed
+        // as an argument to a call or is a source of an assignment
+        // because the source range of the argument list would cross
+        // buffer boundaries. One way to avoid that is to inject
+        // elements into a new implicit brace statement with the original
+        // source locations. Brace statement has to be implicit because its
+        // elements are in a different buffer.
+        auto sourceRange = closure->getSourceRange();
+        body = BraceStmt::create(ctx, sourceRange.Start,
+                                 expandedBody->getElements(),
+                                 sourceRange.End,
+                                 /*implicit=*/true);
+        closure->setBody(body);
+      }
+    }
+  }
+
+  {
+    std::optional<FunctionBodyTimer> timer;
+    const auto &tyOpts = closure->getASTContext().TypeCheckerOpts;
+    if (tyOpts.DebugTimeFunctionBodies || tyOpts.WarnLongFunctionBodies)
+      timer.emplace(closure);
+
+    bool hadError = StmtChecker(closure).typeCheckBody(body);
+    if (hadError)
+      return makeErrorBody(ctx, body->getSourceRange());
+  }
+  return body;
 }
 
 bool TypeChecker::typeCheckTapBody(TapExpr *expr, DeclContext *DC) {

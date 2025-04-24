@@ -1966,6 +1966,24 @@ PotentialMacroExpansions PotentialMacroExpansionsInContextRequest::evaluate(
   return nameTracker.potentialExpansions;
 }
 
+ArrayRef<CustomAttr *>
+ClosureBodyMacroAttrsRequest::evaluate(Evaluator &evaluator,
+                                       ClosureExpr *CE) const {
+  SmallVector<CustomAttr *, 1> results;
+  for (auto *attr : CE->getAttrs()) {
+    auto *CA = dyn_cast<CustomAttr>(attr);
+    if (!CA)
+      continue;
+
+    UnresolvedMacroReference macroRef(CA);
+    auto foundMacros = namelookup::lookupMacros(
+        CE, macroRef.getModuleName(), macroRef.getMacroName(), MacroRole::Body);
+    if (!foundMacros.empty())
+      results.push_back(CA);
+  }
+  return CE->getASTContext().AllocateCopy(results);
+}
+
 bool MemberLookupTable::hasAnyMacroNamesMatching(
     TypeOrExtensionDecl container, DeclName name) {
   ASTContext &ctx = container.getAsDecl()->getASTContext();

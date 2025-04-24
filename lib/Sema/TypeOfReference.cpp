@@ -1045,6 +1045,20 @@ ConstraintSystem::getTypeOfReference(ValueDecl *value,
         macroType->castTo<AnyFunctionType>(), locator, replacements,
         macro->getDeclContext());
 
+    // For a body macro, if the result isn't specified, it can match any
+    // function body type.
+    // FIXME: Really this ought to be checking for a lack of result type.
+    if (macro->getResultInterfaceType()->isVoid() &&
+        locator.directlyAt<MacroExpansionExpr>()) {
+      auto *macroExpr = castToExpr<MacroExpansionExpr>(locator.getAnchor());
+      if (isClosureBodyMacro(macroExpr)) {
+        auto *resultTy = createTypeVariable(getConstraintLocator(locator),
+                                            TVO_CanBindToHole);
+        openedType = openedType->replaceCovariantResultType(resultTy,
+                                                          /*level*/ 1);
+      }
+    }
+
     // If we opened up any type variables, record the replacements.
     recordOpenedTypes(locator, replacements);
 
@@ -1834,6 +1848,15 @@ Type ConstraintSystem::getEffectiveOverloadType(ConstraintLocator *locator,
   auto type = decl->getInterfaceType();
   if (type->hasError()) {
     return Type();
+  }
+
+  // Body macros without explicit result types are inferred by the matching
+  // closure type.
+  if (auto *MD = dyn_cast<MacroDecl>(decl)) {
+    if (auto *ME = getAsExpr<MacroExpansionExpr>(locator->getAnchor())) {
+      if (!MD->resultType.getTypeRepr() && isClosureBodyMacro(ME))
+        return Type();
+    }
   }
 
   // If we have a generic function type, drop the generic signature; we don't

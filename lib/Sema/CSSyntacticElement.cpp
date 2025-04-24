@@ -19,6 +19,7 @@
 #include "MiscDiagnostics.h"
 #include "TypeChecker.h"
 #include "TypeCheckAvailability.h"
+#include "swift/AST/NameLookupRequests.h"
 #include "swift/Basic/Assertions.h"
 #include "swift/Sema/ConstraintSystem.h"
 #include "swift/Sema/IDETypeChecking.h"
@@ -91,6 +92,10 @@ public:
 
   MacroWalking getMacroWalkingBehavior() const override {
     return MacroWalking::Arguments;
+  }
+
+  bool shouldWalkIntoSeparatelyTypeCheckedClosures() override {
+    return false;
   }
 
   PreWalkResult<Expr *> walkToExprPre(Expr *expr) override {
@@ -1200,6 +1205,17 @@ private:
       if (captureList) {
         for (const auto &capture : captureList->getCaptureList())
           visitPatternBinding(capture.PBD, elements);
+      }
+
+      // Avoid walking into the body if it's type-checked separately.
+      if (closure->isSeparatelyTypeChecked()) {
+        // Although the body doesn't participate in inference we still
+        // want to type-check captures to make sure that the context
+        // is valid.
+        if (captureList)
+          createConjunction(elements, locator);
+
+        return;
       }
     }
 
@@ -2570,6 +2586,23 @@ static void applySolutionToClosurePropertyWrappers(ClosureExpr *closure,
   }
 }
 
+static bool
+applySolutionToBodyMacrosIfNeeded(ClosureExpr *closure,
+                                  SyntacticElementTargetRewriter &rewriter) {
+  auto &eval = closure->getASTContext().evaluator;
+  auto attrs = evaluateOrDefault(eval, ClosureBodyMacroAttrsRequest(closure), {});
+  for (auto *attr : attrs) {
+    auto &solution = rewriter.getSolution();
+    auto target = rewriter.rewriteTarget(*solution.getTargetFor(attr));
+    if (!target)
+      return true;
+
+    auto *macroExpr = cast<MacroExpansionExpr>(target->getAsExpr());
+    attr->setMacroRef(macroExpr->getMacroRef());
+  }
+  return false;
+}
+
 bool ConstraintSystem::applySolution(AnyFunctionRef fn,
                                      SyntacticElementTargetRewriter &rewriter) {
   auto &solution = rewriter.getSolution();
@@ -2600,6 +2633,9 @@ bool ConstraintSystem::applySolution(AnyFunctionRef fn,
       closure->setExplicitResultType(closureFnType->getResult());
     }
 
+    if (applySolutionToBodyMacrosIfNeeded(closure, rewriter))
+      return true;
+
     applySolutionToClosurePropertyWrappers(closure, solution);
 
     TypeChecker::checkClosureAttributes(closure);
@@ -2621,6 +2657,11 @@ bool ConstraintSystem::applySolution(AnyFunctionRef fn,
     return builderRewriter.apply();
   }
   assert(closure && "Can only get here with a closure at the moment");
+  if (closure->isSeparatelyTypeChecked()) {
+    solution.setExprTypes(closure);
+    closure->setBodyState(ClosureExpr::BodyState::ReadyForSeparateTypeChecking);
+    return false;
+  }
   return applySolutionToBody(closure, rewriter);
 }
 

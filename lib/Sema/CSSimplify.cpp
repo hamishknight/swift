@@ -8186,7 +8186,11 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
       // a single expression body closure, in which case we still allow the
       // Never conversion.
       auto *loc = getConstraintLocator(locator);
-      if (elt->is<LocatorPathElt::ClosureBody>() || 
+      if (loc->isForBodyMacroClosureResult()) {
+        increaseScore(SK_FunctionConversion, locator);
+        return getTypeMatchSuccess();
+      }
+      if (elt->is<LocatorPathElt::ClosureBody>() ||
           loc->isForContextualType(CTP_ReturnStmt) ||
           loc->isForContextualType(CTP_ClosureResult) ||
           loc->isForSingleValueStmtBranch()) {
@@ -12129,7 +12133,10 @@ bool ConstraintSystem::resolveClosure(TypeVariableType *typeVar,
   }
 
   // Determine whether a result builder will be applied.
-  auto resultBuilderType = getOpenedResultBuilderTypeFor(*this, locator);
+  // TODO: should this be an error?
+  Type resultBuilderType;
+  if (!closure->isSeparatelyTypeChecked())
+    resultBuilderType = getOpenedResultBuilderTypeFor(*this, locator);
 
   auto *paramList = closure->getParameters();
   SmallVector<AnyFunctionType::Param, 4> parameters;
@@ -12288,6 +12295,9 @@ bool ConstraintSystem::resolveClosure(TypeVariableType *typeVar,
       FunctionType::get(parameters, inferredClosureType->getResult(),
                         closureExtInfo);
   assignFixedType(typeVar, closureType);
+
+  if (closure->isSeparatelyTypeChecked())
+    return true;
 
   // If there is a result builder to apply, do so now.
   if (resultBuilderType) {

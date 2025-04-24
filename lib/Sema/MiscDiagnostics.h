@@ -135,6 +135,10 @@ namespace swift {
 
   class BaseDiagnosticWalker : public ASTWalker {
   protected:
+    bool shouldWalkIntoSeparatelyTypeCheckedClosures() override {
+      return false;
+    }
+
     PreWalkAction walkToDeclPre(Decl *D) override {
       // We don't walk into any nested local decls, except PatternBindingDecls,
       // which are type-checked along with the parent, and MacroExpansionDecl,

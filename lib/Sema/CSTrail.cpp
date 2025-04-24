@@ -279,6 +279,9 @@ SolverTrail::Change::RecordedTarget(SyntacticElementTargetKey key) {
   case SyntacticElementTargetKey::Kind::functionRef:
     result.TheDeclContext = key.storage.functionRef;
     break;
+  case SyntacticElementTargetKey::Kind::customAttr:
+    result.TheCustomAttr = key.storage.customAttr;
+    break;
   }
 
   return result;
@@ -289,6 +292,14 @@ SolverTrail::Change::RecordedCaseLabelItemInfo(CaseLabelItem *item) {
   Change result;
   result.Kind = ChangeKind::RecordedCaseLabelItemInfo;
   result.TheItem = item;
+  return result;
+}
+
+SolverTrail::Change
+SolverTrail::Change::RecordedClosureBodyMacro(MacroExpansionExpr *E) {
+  Change result;
+  result.Kind = ChangeKind::RecordedClosureBodyMacro;
+  result.TheMacroExpansion = E;
   return result;
 }
 
@@ -365,6 +376,8 @@ SolverTrail::Change::getSyntacticElementTargetKey() const {
     return SyntacticElementTargetKey(TheVar);
   case SyntacticElementTargetKey::Kind::functionRef:
     return SyntacticElementTargetKey(TheDeclContext);
+  case SyntacticElementTargetKey::Kind::customAttr:
+    return SyntacticElementTargetKey(TheCustomAttr);
   }
 }
 
@@ -485,6 +498,10 @@ void SolverTrail::Change::undo(ConstraintSystem &cs) const {
 
   case ChangeKind::RecordedCaseLabelItemInfo:
     cs.removeCaseLabelItemInfo(TheItem);
+    break;
+
+  case ChangeKind::RecordedClosureBodyMacro:
+    cs.removeClosureBodyMacro(TheMacroExpansion);
     break;
 
   case ChangeKind::RecordedPotentialThrowSite:
@@ -763,6 +780,12 @@ void SolverTrail::Change::dump(llvm::raw_ostream &out,
   case ChangeKind::RecordedCaseLabelItemInfo:
     out << "(RecordedCaseLabelItemInfo ";
     dumpAnchor(TheItem, &SM, out);
+    out << ")\n";
+    break;
+
+  case ChangeKind::RecordedClosureBodyMacro:
+    out << "(RecordedClosureBodyMacro ";
+    dumpAnchor(TheMacroExpansion, &SM, out);
     out << ")\n";
     break;
 

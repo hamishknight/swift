@@ -2396,6 +2396,10 @@ void ConstraintSystem::forEachExpr(
       return MacroWalking::Arguments;
     }
 
+    bool shouldWalkIntoSeparatelyTypeCheckedClosures() override {
+      return false;
+    }
+
     PreWalkResult<Expr *> walkToExprPre(Expr *E) override {
       auto *NewE = callback(E);
       if (!NewE)

@@ -1429,7 +1429,7 @@ FunctionType::ExtInfo ClosureEffectsRequest::evaluate(
 
   // Scan the body to determine the effects.
   auto body = expr->getBody();
-  if (!body)
+  if (!body || expr->isSeparatelyTypeChecked())
     return ASTExtInfoBuilder().withSendable(sendable).build();
 
   auto throwFinder = FindInnerThrows(expr);
@@ -3682,6 +3682,11 @@ void constraints::simplifyLocator(ASTNode &anchor,
       break;
     }
 
+    case ConstraintLocator::ClosureBodyMacro: {
+      path = path.slice(1);
+      break;
+    }
+
     case ConstraintLocator::UnresolvedMemberChainResult: {
       auto *resultExpr = castToExpr<UnresolvedMemberChainResultExpr>(anchor);
       anchor = resultExpr->getSubExpr();
@@ -4689,6 +4694,10 @@ void SyntacticElementTargetKey::dump(raw_ostream &OS) const {
     OS << "<function>\n";
     storage.functionRef->printContext(OS);
     return;
+
+  case Kind::customAttr:
+    // TODO: We need to plumb through an ASTContext to dump
+    OS << "<custom_attr>\n";
   }
   llvm_unreachable("invalid statement kind");
 }
@@ -5397,7 +5406,7 @@ bool constraints::isOperatorDisjunction(Constraint *disjunction) {
 
 ASTNode constraints::findAsyncNode(ClosureExpr *closure) {
   auto *body = closure->getBody();
-  if (!body)
+  if (!body || closure->isSeparatelyTypeChecked())
     return ASTNode();
   return body->findAsyncNode();
 }
