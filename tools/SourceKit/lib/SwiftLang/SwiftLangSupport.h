@@ -556,6 +556,12 @@ public:
                     SourceKitCancellationToken CancellationToken,
                     IndexToStoreReceiver Receiver) override;
 
+  void codeCompleteFrontend(
+      llvm::ArrayRef<const char *> Args,
+      llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FileSystem,
+      llvm::MemoryBuffer *ideInspectionTargetBuffer,
+      unsigned int Offset) override;
+
   void codeComplete(llvm::MemoryBuffer *InputBuf, unsigned Offset,
                     OptionsDictionary *options,
                     SourceKit::CodeCompletionConsumer &Consumer,

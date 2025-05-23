@@ -1792,7 +1792,7 @@ static bool generateReproducer(CompilerInstance &Instance,
 /// \param Instance Will be reset after performIRGeneration when the verifier
 ///                 mode is NoVerify and there were no errors.
 /// \returns true on error
-static bool performCompile(CompilerInstance &Instance, int &ReturnValue,
+bool swift::performCompile(CompilerInstance &Instance, int &ReturnValue,
                            FrontendObserver *observer,
                            ArrayRef<const char *> CommandLineArgs) {
   const auto &Invocation = Instance.getInvocation();

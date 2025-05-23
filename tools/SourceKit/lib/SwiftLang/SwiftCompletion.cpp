@@ -219,6 +219,30 @@ void SwiftLangSupport::codeComplete(
       });
 }
 
+void SwiftLangSupport::codeCompleteFrontend(
+    llvm::ArrayRef<const char *> Args,
+    llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FileSystem,
+    llvm::MemoryBuffer *buffer, unsigned int Offset) {
+
+  auto newBuffer = ide::makeCodeCompletionMemoryBuffer(
+      buffer, Offset, buffer->getBufferIdentifier());
+
+  auto swiftCache = getCodeCompletionCache();
+  ide::CodeCompletionContext CompletionContext(swiftCache->getCache());
+
+  std::shared_ptr<std::atomic<bool>> CancellationFlag;
+  PrintingDiagnosticConsumer PDC;
+  CompilerInstance tmpInstance;
+
+  CompilerInvocation Invocation;
+  Invocation.parseArgs(Args, tmpInstance.getDiags(), nullptr, {},
+                       SwiftExecutablePath);
+
+  getIDEInspectionInstance()->codeComplete(
+      Invocation, Args, FileSystem, newBuffer.get(), Offset, &PDC,
+      CompletionContext, CancellationFlag, [&](auto) {});
+}
+
 static void getResultStructure(
     const CodeCompletion::SwiftResult &result, bool leadingPunctuation,
     CodeCompletionInfo::DescriptionStructure &structure,

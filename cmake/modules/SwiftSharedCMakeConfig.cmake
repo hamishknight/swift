@@ -396,4 +396,8 @@ macro(swift_common_sanitizer_config)
     set(CMAKE_Swift_FLAGS "${CMAKE_Swift_FLAGS} ${_Swift_SANITIZER_FLAGS}")
 
   endif()
+  if (SWIFT_USE_SANITIZE_COVERAGE)
+    append("-fsanitize=fuzzer-no-link" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+    append("-sanitize=fuzzer-no-link" CMAKE_Swift_FLAGS)
+  endif()
 endmacro()
