@@ -78,6 +78,10 @@ int performFrontend(ArrayRef<const char *> args,
                     void *mainAddr,
                     FrontendObserver *observer = nullptr);
 
+bool performCompile(CompilerInstance &Instance, int &ReturnValue,
+                    FrontendObserver *observer,
+                    ArrayRef<const char *> CommandLineArgs);
+
 bool performCompileStepsPostSema(CompilerInstance &Instance, int &ReturnValue,
                                  FrontendObserver *observer,
                                  ArrayRef<const char *> CommandLineArgs);

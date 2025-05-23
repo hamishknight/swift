@@ -131,7 +131,7 @@ class CMake(object):
             define("LLVM_USE_SANITIZER", ";".join(sanitizers))
 
         if args.enable_sanitize_coverage:
-            define("LLVM_USE_SANITIZE_COVERAGE", "ON")
+            define("SWIFT_USE_SANITIZE_COVERAGE", "ON")
 
         if args.export_compile_commands:
             define("CMAKE_EXPORT_COMPILE_COMMANDS", "ON")

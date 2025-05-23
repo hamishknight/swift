@@ -1071,6 +1071,12 @@ public:
                             SourceKitCancellationToken CancellationToken,
                             IndexToStoreReceiver Receiver) = 0;
 
+  /// Completion, but with frontend args.
+  virtual void codeCompleteFrontend(
+      llvm::ArrayRef<const char *> Args,
+      llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FileSystem,
+      llvm::MemoryBuffer *ideInspectionTargetBuffer, unsigned int Offset) = 0;
+
   virtual void codeComplete(llvm::MemoryBuffer *InputBuf, unsigned Offset,
                             OptionsDictionary *options,
                             CodeCompletionConsumer &Consumer,
