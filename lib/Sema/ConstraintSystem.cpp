@@ -1774,6 +1774,29 @@ struct TypeSimplifier {
       if (newBase.getPointer() == depMemTy->getBase().getPointer())
         return std::nullopt;
 
+      // Dependent members cannot be simplified if base type contains unresolved
+      // pack expansion type variables because they don't give enough
+      // information to substitution logic to form a correct type. For example:
+      //
+      // ```
+      // protocol P { associatedtype V }
+      // struct S<each T> : P { typealias V = (repeat (each T)?) }
+      // ```
+      //
+      // If pack expansion is represented as `$T1` and its pattern is `$T2`, a
+      // reference to `V` would get a type `S<Pack{$T1}>.V` and simplified
+      // version would be `Optional<Pack{$T1}>` instead of
+      // `Pack{repeat Optional<$T2>}` because `$T1` is treated as a substitution
+      // for `each T` until bound.
+      if (newBase->hasTypeVariable()) {
+        llvm::SmallPtrSet<TypeVariableType *, 4> typeVars;
+        newBase->getTypeVariables(typeVars);
+        for (auto *tv : typeVars) {
+          if (tv->getImpl().isPackExpansion())
+            return depMemTy;
+        }
+      }
+
       // Dependent member types should only be created for associated types.
       auto assocType = depMemTy->getAssocType();
       assert(depMemTy->getAssocType() && "Expected associated type!");

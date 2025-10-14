@@ -7099,23 +7099,6 @@ static bool isTupleWithUnresolvedPackExpansion(Type type) {
   return false;
 }
 
-static bool isDependentMemberTypeWithBaseThatContainsUnresolvedPackExpansions(
-    ConstraintSystem &cs, Type type) {
-  if (!type->is<DependentMemberType>())
-    return false;
-
-  // FIXME: It's really unfortunate we need to use `simplifyType` here since
-  // this is called from `matchTypes`. We need to completely simplify the type
-  // though since pack expansions can be present in fixed types for nested
-  // type vars.
-  auto baseTy = cs.simplifyType(type->getDependentMemberRoot());
-  llvm::SmallPtrSet<TypeVariableType *, 2> typeVars;
-  baseTy->getTypeVariables(typeVars);
-  return llvm::any_of(typeVars, [](const TypeVariableType *typeVar) {
-    return typeVar->getImpl().isPackExpansion();
-  });
-}
-
 ConstraintSystem::TypeMatchResult
 ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
                              TypeMatchOptions flags,
@@ -7416,29 +7399,6 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
                                     : TupleType::get({type2}, getASTContext()),
           kind, flags, locator);
     }
-  }
-
-  // Dependent members cannot be simplified if base type contains unresolved
-  // pack expansion type variables because they don't give enough information
-  // to substitution logic to form a correct type. For example:
-  //
-  // ```
-  // protocol P { associatedtype V }
-  // struct S<each T> : P { typealias V = (repeat (each T)?) }
-  // ```
-  //
-  // If pack expansion is represented as `$T1` and its pattern is `$T2`, a
-  // reference to `V` would get a type `S<Pack{$T}>.V` and simplified version
-  // would be `Optional<Pack{$T1}>` instead of `Pack{repeat Optional<$T2>}`
-  // because `$T1` is treated as a substitution for `each T` until bound.
-  if (isDependentMemberTypeWithBaseThatContainsUnresolvedPackExpansions(
-          *this, origType1) ||
-      isDependentMemberTypeWithBaseThatContainsUnresolvedPackExpansions(
-          *this, origType2)) {
-    // It's important to preserve the original types here because any attempt
-    // at simplification or canonicalization wouldn't produce a correct type
-    // util pack expansion type variables are bound.
-    return formUnsolvedResult(/*useOriginalTypes=*/true);
   }
 
   llvm::SmallVector<RestrictionOrFix, 4> conversionsOrFixes;
