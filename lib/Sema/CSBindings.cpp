@@ -137,7 +137,8 @@ bool BindingSet::isDelayed() const {
       if (Bindings.empty())
         return true;
 
-      if (Bindings[0].BindingType->is<ProtocolType>()) {
+      if (Bindings[0]
+              .BindingType->is<ProtocolType, ProtocolCompositionType>()) {
         auto *bindingLoc = Bindings[0].getLocator();
         // This set shouldn't be delayed because there won't be any
         // other inference sources when the protocol binding got
@@ -647,6 +648,7 @@ void BindingSet::inferTransitiveUnresolvedMemberRefBindings() {
         // \endcode
         inferTransitiveProtocolRequirements();
 
+        SmallVector<Type, 4> protos;
         if (TransitiveProtocols.has_value()) {
           for (auto *constraint : *TransitiveProtocols) {
             Type protocolTy = constraint->getSecondType();
@@ -659,7 +661,14 @@ void BindingSet::inferTransitiveUnresolvedMemberRefBindings() {
                   continue;
             }
 
-            addBinding({protocolTy, AllowedBindingKind::Exact, constraint},
+            protos.push_back(protocolTy);
+          }
+          if (!protos.empty()) {
+            auto *source = *TransitiveProtocols->begin();
+            auto ty = ProtocolCompositionType::get(CS.getASTContext(), protos,
+                                                   InvertibleProtocolSet(),
+                                                   /*anyObject*/ false);
+            addBinding({ty, AllowedBindingKind::Exact, source},
                        /*isTransitive=*/false);
           }
         }
@@ -1741,8 +1750,10 @@ PotentialBindings::inferFromRelational(ConstraintSystem &CS,
     // type of a chain, Result should always be a concrete type which conforms
     // to the protocol inferred for the base.
     if (constraint->getKind() == ConstraintKind::UnresolvedMemberChainBase &&
-        kind == AllowedBindingKind::Subtypes && type->is<ProtocolType>())
+        kind == AllowedBindingKind::Subtypes &&
+        type->is<ProtocolType, ProtocolCompositionType>()) {
       return std::nullopt;
+    }
   }
 
   if (constraint->getKind() == ConstraintKind::LValueObject) {

@@ -10651,23 +10651,25 @@ performMemberLookup(ConstraintKind constraintKind, DeclNameRef memberName,
         return;
       }
 
-      // Cannot instantiate a protocol or reference a member on
-      // protocol composition type.
-      if (isa<ConstructorDecl>(decl) ||
-          instanceTy->is<ProtocolCompositionType>()) {
-        result.addUnviable(candidate,
-                           MemberLookupResult::UR_TypeMemberOnInstance);
+      if (getConcreteReplacementForProtocolSelfType(decl)) {
+        result.addViable(candidate);
         return;
       }
 
-      if (getConcreteReplacementForProtocolSelfType(decl)) {
-        result.addViable(candidate);
-      } else {
-        result.addUnviable(
-            candidate,
-            MemberLookupResult::UR_InvalidStaticMemberOnProtocolMetatype);
+      // Cannot instantiate a protocol or reference a member on
+      // protocol composition type.
+      if (!memberLocator->isLastElement<LocatorPathElt::UnresolvedMember>()) {
+        if (isa<ConstructorDecl>(decl) ||
+            instanceTy->is<ProtocolCompositionType>()) {
+          result.addUnviable(candidate,
+                             MemberLookupResult::UR_TypeMemberOnInstance);
+          return;
+        }
       }
 
+      result.addUnviable(
+          candidate,
+          MemberLookupResult::UR_InvalidStaticMemberOnProtocolMetatype);
       return;
     } else {
       if (!hasStaticMembers) {
@@ -12096,7 +12098,7 @@ ConstraintSystem::simplifyUnresolvedMemberChainBaseConstraint(
     return SolutionKind::Unsolved;
   }
 
-  if (baseTy->is<ProtocolType>()) {
+  if (baseTy->is<ProtocolType, ProtocolCompositionType>()) {
     auto *baseExpr =
         castToExpr<UnresolvedMemberChainResultExpr>(locator.getAnchor())
             ->getChainBase();
@@ -12108,10 +12110,17 @@ ConstraintSystem::simplifyUnresolvedMemberChainBaseConstraint(
 
     auto *memberRef = findResolvedMemberRef(memberLoc);
     if (memberRef && (memberRef->isStatic() || isa<TypeAliasDecl>(memberRef))) {
-      return simplifyConformsToConstraint(
-          resultTy, baseTy, ConstraintKind::ConformsTo,
-          getConstraintLocator(memberLoc, ConstraintLocator::MemberRefBase),
-          flags);
+      auto layout = baseTy->getExistentialLayout();
+      for (auto *proto : layout.getProtocols()) {
+        if (simplifyConformsToConstraint(
+                resultTy, proto, ConstraintKind::ConformsTo,
+                getConstraintLocator(memberLoc,
+                                     ConstraintLocator::MemberRefBase),
+                flags) == SolutionKind::Error) {
+          return SolutionKind::Error;
+        }
+      }
+      return SolutionKind::Solved;
     }
   }
 
