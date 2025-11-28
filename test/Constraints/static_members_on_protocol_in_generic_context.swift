@@ -382,3 +382,17 @@ test(.instanceProp)
 test(.instanceProp2)
 // expected-error@-1 {{instance member 'instanceProp2' cannot be used on type 'P'}}
 // expected-error@-2 {{property 'instanceProp2' requires the types 'Self' and 'S' be equivalent}}
+
+protocol UnrelatedProto {}
+extension UnrelatedProto where Self == B {
+  static var bar: A {}
+}
+
+struct A: TestWithAssoc, UnrelatedProto {
+  typealias U = B
+}
+struct B: UnrelatedProto {}
+
+// Make sure we don't try to use UnrelatedProto as a base type.
+func testUnrelatedRequirement<T: TestWithAssoc>(_ x: T) where T.U: UnrelatedProto {}
+testUnrelatedRequirement(.bar) // expected-error {{type 'TestWithAssoc' has no member 'bar'}}

@@ -58,8 +58,13 @@ BindingSet::BindingSet(ConstraintSystem &CS, TypeVariableType *TypeVar,
     switch (constraint->getKind()) {
     case ConstraintKind::NonisolatedConformsTo:
     case ConstraintKind::ConformsTo:
-      if (constraint->getSecondType()->is<ProtocolType>())
-        Protocols.push_back(constraint);
+      // Pick up any protocol conformances for the binding.
+      if (auto *lhsTV = constraint->getFirstType()->getAs<TypeVariableType>()) {
+        if (constraint->getSecondType()->is<ProtocolType>() &&
+            CS.getRepresentative(lhsTV) == TypeVar) {
+          Protocols.push_back(constraint);
+        }
+      }
       break;
 
     case ConstraintKind::LiteralConformsTo:
