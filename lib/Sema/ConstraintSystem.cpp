@@ -3441,6 +3441,14 @@ bool ConstraintSystem::diagnoseAmbiguity(ArrayRef<Solution> solutions) {
   return false;
 }
 
+Type OpenUnboundGenericType::operator()(UnboundGenericType *unboundTy,
+                                        DeclRefTypeRepr *,
+                                        const TypeResolution &) const {
+  return cs.openUnboundGenericType(unboundTy->getDecl(), unboundTy->getParent(),
+                                   locator,
+                                   /*isTypeResolution=*/true);
+}
+
 void OpenGenericTypeRequirements::operator()(GenericTypeDecl *decl,
                                              TypeSubstitutionFn subst) const {
   auto *outerDC = decl->getDeclContext();

@@ -59,6 +59,7 @@ class Expr;
 class FuncDecl;
 class BraseStmt;
 enum class TypeCheckExprFlags;
+class TypeResolution;
 
 namespace constraints {
 
@@ -5668,11 +5669,8 @@ public:
                                   const ConstraintLocatorBuilder &locator)
       : cs(cs), locator(locator) {}
 
-  Type operator()(UnboundGenericType *unboundTy) const {
-    return cs.openUnboundGenericType(unboundTy->getDecl(),
-                                     unboundTy->getParent(), locator,
-                                     /*isTypeResolution=*/true);
-  }
+  Type operator()(UnboundGenericType *unboundTy, DeclRefTypeRepr *,
+                  const TypeResolution &) const;
 };
 
 /// A function object suitable for use as an \c OpenRequirementFn that "opens"

@@ -109,7 +109,9 @@ Type ConstraintSystem::openUnboundGenericType(GenericTypeDecl *decl,
   auto result =
       TypeResolution::forInterface(
           DC, std::nullopt,
-          [](auto) -> Type { llvm_unreachable("should not be used"); },
+          [](auto, auto, auto) -> Type {
+            llvm_unreachable("should not be used");
+          },
           [](auto &, auto) -> Type { llvm_unreachable("should not be used"); },
           [](auto, auto) -> Type { llvm_unreachable("should not be used"); },
           [](auto, auto) { /*will be called, but we already handled reqs*/ })

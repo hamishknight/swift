@@ -1441,7 +1441,7 @@ TypeResolver::applyGenericArguments(Type type, DeclRefTypeRepr *repr,
         // TODO: We should be able to just open the generic arguments as N
         // different PlaceholderTypes.
         if (const auto openerFn = resolution.getUnboundTypeOpener())
-          if (const auto boundTy = openerFn(unboundTy))
+          if (const auto boundTy = openerFn(unboundTy, repr, resolution))
             return boundTy;
 
         return type;

@@ -24,8 +24,10 @@ namespace swift {
 
 class ASTContext;
 class AvailabilityContext;
+class DeclRefTypeRepr;
 class QualifiedIdentTypeRepr;
 class TypeRepr;
+class TypeResolution;
 class PackElementTypeRepr;
 class GenericEnvironment;
 class GenericSignature;
@@ -563,7 +565,8 @@ public:
 /// out of them.
 ///
 /// \returns the \c null type on failure.
-using OpenUnboundGenericTypeFn = llvm::function_ref<Type(UnboundGenericType *)>;
+using OpenUnboundGenericTypeFn = llvm::function_ref<Type(
+    UnboundGenericType *, DeclRefTypeRepr *, const TypeResolution &)>;
 
 /// A function reference used to handle a PlaceholderTypeRepr.
 using HandlePlaceholderTypeReprFn =
@@ -675,7 +678,9 @@ public:
     return unboundTyOpener;
   }
 
-  static Type defaultUnboundTypeOpener(UnboundGenericType *ty) {
+  static Type defaultUnboundTypeOpener(UnboundGenericType *ty,
+                                       DeclRefTypeRepr *,
+                                       const TypeResolution &) {
     // FIXME: Don't let unbound generic types escape type resolution.
     // For now, just return the unbound generic type.
     return ty;
