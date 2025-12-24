@@ -1434,8 +1434,7 @@ TypeResolver::applyGenericArguments(Type type, DeclRefTypeRepr *repr,
 
   if (!repr->hasGenericArgList()) {
     if (auto *const unboundTy = type->getAs<UnboundGenericType>()) {
-      if (!options.is(TypeResolverContext::TypeAliasDecl) &&
-          !options.is(TypeResolverContext::ExtensionBinding)) {
+      if (!options.is(TypeResolverContext::ExtensionBinding)) {
         // If the resolution object carries an opener, attempt to open
         // the unbound generic type.
         // TODO: We should be able to just open the generic arguments as N
@@ -1791,6 +1790,7 @@ Type TypeResolution::applyUnboundGenericArguments(
 
   // For a typealias, use the underlying type. We'll wrap up the result
   // later.
+  // FIXME: Should we be querying underlying for structural?
   auto typealias = dyn_cast<TypeAliasDecl>(decl);
   if (typealias) {
     resultType = typealias->getUnderlyingType();
@@ -2444,8 +2444,7 @@ TypeResolver::resolveQualifiedIdentTypeRepr(Type parentTy,
       return ErrorType::get(ctx);
     }
 
-    // Only the last component of the underlying type of a type alias may
-    // be an unbound generic.
+    // Unbound parent types are never allowed in typealiases.
     if (options.is(TypeResolverContext::TypeAliasDecl)) {
       if (parentTy->is<UnboundGenericType>()) {
         diagnoseUnboundGenericType(parentTy, parentRange.End);
@@ -5160,8 +5159,8 @@ TypeResolver::resolveDeclRefTypeRepr(DeclRefTypeRepr *repr,
 
   // Diagnose an error if generic arguments are missing.
   if (result->is<UnboundGenericType>() && !repr->hasGenericArgList() &&
-      !resolution.getUnboundTypeOpener() &&
-      !options.is(TypeResolverContext::TypeAliasDecl) &&
+      (!resolution.getUnboundTypeOpener() ||
+       options.contains(TypeResolutionFlags::ForbidUnhandledUnboundTypes)) &&
       !options.is(TypeResolverContext::ExtensionBinding)) {
 
     if (!options.contains(TypeResolutionFlags::SilenceDiagnostics)) {

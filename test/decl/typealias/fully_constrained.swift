@@ -37,9 +37,6 @@ func use(_: Generic.NonGeneric,
 
   // FIXME: Get these working too
 #if false
-  let _ = Generic.Unbound<String>.self
-  let _ = Generic.UnboundInExtension<String>.self
-
   let _ = Generic.UnconstrainedNonGeneric.self
   let _ = Generic.UnconstrainedFake<String>.self
   let _ = Generic.UnconstrainedUnbound<String>.self
@@ -54,8 +51,10 @@ func use(_: Generic.NonGeneric,
   let _ = Generic.NonGenericInExtension.self
   let _ = Generic.FakeGenericInExtension.self
 
-  let _ = Generic.Generic<String>.self
+  let _ = Generic.Unbound<String>.self
+  let _ = Generic.UnboundInExtension<String>.self
 
+  let _ = Generic.Generic<String>.self
   let _ = Generic.GenericInExtension<String>.self
 
   let _: Generic.NonGeneric = 123

@@ -976,6 +976,49 @@ GenericSignatureRequest::evaluate(Evaluator &evaluator,
     llvm_unreachable("Unknown generic declaration kind");
   }
 
+  if (genericParams) {
+    // Add any requirements inferred for an unbound generic typealias.
+    if (auto *origDecl = genericParams->getOriginalRequirementSource()) {
+      ASSERT(!genericParams->getOuterParameters());
+
+      auto origSig = origDecl->getGenericSignature();
+      auto *origParams = origDecl->getGenericParams();
+      ASSERT(genericParams->size() == origParams->size());
+
+      TypeSubstitutionMap paramMap;
+      for (auto idx : indices(origParams->getParams())) {
+        auto orig = origParams->getParams()[idx]->getDeclaredInterfaceType();
+        auto mapped = genericParams->getParams()[idx]->getDeclaredInterfaceType();
+        paramMap[orig->getCanonicalType()->castTo<GenericTypeParamType>()] = mapped;
+      }
+
+      QueryTypeSubstitutionMap subs{paramMap};
+
+      // FIXME: Copy and pasted
+      auto skipRequirement = [&](Requirement req) {
+        if (!origDecl->preconcurrency())
+          return false;
+
+        // If this decl is `@preconcurrency`, include concurrency
+        // requirements. The explicit annotation directly on the decl
+        // will still exclude `Sendable` requirements from ABI.
+        auto *decl = GC->getAsDecl();
+        if (!decl || decl->preconcurrency())
+          return false;
+
+        return (req.getKind() == RequirementKind::Conformance &&
+                req.getProtocolDecl()->isSpecificProtocol(KnownProtocolKind::Sendable));
+      };
+
+      auto origParentSig = origDecl->getParent()->getGenericSignatureOfContext();
+      for (auto req : origSig.requirementsNotSatisfiedBy(origParentSig)) {
+        if (skipRequirement(req))
+          continue;
+        extraReqs.push_back(req.subst(subs, LookUpConformanceInModule()));
+      }
+    }
+  }
+
   auto request = InferredGenericSignatureRequest{
       parentSig.getPointer(),
       genericParams, WhereClauseOwner(GC),

@@ -1805,6 +1805,50 @@ IsImplicitlyUnwrappedOptionalRequest::evaluate(Evaluator &evaluator,
   return (TyR && TyR->getKind() == TypeReprKind::ImplicitlyUnwrappedOptional);
 }
 
+static Type openTypeAliasUnboundType(
+    UnboundGenericType *unboundTy, TypeAliasDecl *alias,
+    TypeRepr *underlyingRepr, DeclRefTypeRepr *unboundRepr,
+    const TypeResolution &resolution,
+    llvm::DenseMap<Decl *, GenericParamList *> &inferredGenericParamMap) {
+  // We can only open the top level underlying type.
+  if (underlyingRepr->getWithoutParens() != unboundRepr)
+    return Type();
+
+  // If the alias has parsed generic parameters we never infer parameters.
+  if (alias->hasParsedGenericParamList())
+    return Type();
+
+  auto *D = unboundTy->getDecl();
+
+  GenericParamList *inferredGenericParams = nullptr;
+  switch (resolution.getStage()) {
+  case TypeResolutionStage::Interface: {
+    inferredGenericParams = alias->getGenericParams();
+    break;
+  }
+  case TypeResolutionStage::Structural: {
+    auto &genericParamResult = inferredGenericParamMap[D];
+    if (!genericParamResult) {
+      auto *DC = alias->getDeclContext();
+      genericParamResult = D->getGenericParams()->clone(DC, /*reqs*/ false);
+      genericParamResult->setOriginalRequirementSource(D);
+      genericParamResult->setDepth(DC->getGenericContextDepth() + 1);
+    }
+    inferredGenericParams = genericParamResult;
+    break;
+  }
+  }
+  if (!inferredGenericParams)
+    return Type();
+
+  SmallVector<Type, 2> genericArgs;
+  for (auto *GP : *inferredGenericParams)
+    genericArgs.push_back(GP->getDeclaredInterfaceType());
+
+  return resolution.applyUnboundGenericArguments(D, unboundTy->getParent(),
+                                                 alias->getLoc(), genericArgs);
+}
+
 /// Validate the underlying type of the given typealias.
 Type
 UnderlyingTypeRequest::evaluate(Evaluator &evaluator,
@@ -1817,6 +1861,7 @@ UnderlyingTypeRequest::evaluate(Evaluator &evaluator,
   TypeResolutionOptions options((typeAlias->getGenericParams()
                                      ? TypeResolverContext::GenericTypeAliasDecl
                                      : TypeResolverContext::TypeAliasDecl));
+  options |= TypeResolutionFlags::ForbidUnhandledUnboundTypes;
   if (typeAlias->preconcurrency())
     options |= TypeResolutionFlags::Preconcurrency;
 
@@ -1826,9 +1871,15 @@ UnderlyingTypeRequest::evaluate(Evaluator &evaluator,
   if (!underlyingRepr)
     return errorResult();
 
+  llvm::DenseMap<Decl *, GenericParamList *> inferredGenericParamMap;
+  auto unboundOpener = [&](UnboundGenericType *ty, DeclRefTypeRepr *unboundRepr,
+                           const TypeResolution &resolution) -> Type {
+    return openTypeAliasUnboundType(ty, typeAlias, underlyingRepr, unboundRepr,
+                                    resolution, inferredGenericParamMap);
+  };
+
   const auto result =
-      TypeResolution::forInterface(typeAlias, options,
-                                   /*unboundTyOpener*/ nullptr,
+      TypeResolution::forInterface(typeAlias, options, unboundOpener,
                                    /*placeholderHandler*/ nullptr,
                                    /*packElementOpener*/ nullptr)
           .resolveType(underlyingRepr);
@@ -1839,16 +1890,18 @@ UnderlyingTypeRequest::evaluate(Evaluator &evaluator,
   return result;
 }
 
-Type StructuralTypeRequest::evaluate(Evaluator &evaluator,
-                                     TypeAliasDecl *typeAlias) const {
-  auto errorResult = [&]() -> Type {
+TypeAliasStructuralType
+StructuralTypeRequest::evaluate(Evaluator &evaluator,
+                                TypeAliasDecl *typeAlias) const {
+  auto errorResult = [&]() -> TypeAliasStructuralType {
     typeAlias->setInvalid();
-    return ErrorType::get(typeAlias->getASTContext());
+    return {ErrorType::get(typeAlias->getASTContext()), nullptr};
   };
 
   TypeResolutionOptions options((typeAlias->hasParsedGenericParamList()
                                      ? TypeResolverContext::GenericTypeAliasDecl
                                      : TypeResolverContext::TypeAliasDecl));
+  options |= TypeResolutionFlags::ForbidUnhandledUnboundTypes;
 
   auto underlyingTypeRepr = typeAlias->getUnderlyingTypeRepr();
 
@@ -1857,8 +1910,15 @@ Type StructuralTypeRequest::evaluate(Evaluator &evaluator,
   if (!underlyingTypeRepr)
     return errorResult();
 
-  auto result = TypeResolution::forStructural(typeAlias, options,
-                                              /*unboundTyOpener*/ nullptr,
+  llvm::DenseMap<Decl *, GenericParamList *> inferredGenericParamMap;
+  auto unboundOpener = [&](UnboundGenericType *ty, DeclRefTypeRepr *unboundRepr,
+                           const TypeResolution &resolution) -> Type {
+    return openTypeAliasUnboundType(ty, typeAlias, underlyingTypeRepr,
+                                    unboundRepr, resolution,
+                                    inferredGenericParamMap);
+  };
+
+  auto result = TypeResolution::forStructural(typeAlias, options, unboundOpener,
                                               /*placeholderHandler*/ nullptr,
                                               /*packElementOpener*/ nullptr)
           .resolveType(underlyingTypeRepr);
@@ -1868,14 +1928,27 @@ Type StructuralTypeRequest::evaluate(Evaluator &evaluator,
   if (parentDC->isTypeContext())
     parent = parentDC->getSelfInterfaceType();
 
+  GenericParamList *inferredGenericParams = nullptr;
+  if (auto *GT = dyn_cast<AnyGenericType>(result.getPointer())) {
+    inferredGenericParams = inferredGenericParamMap[GT->getDecl()];
+  } else if (auto *TA = dyn_cast<TypeAliasType>(result.getPointer())) {
+    inferredGenericParams = inferredGenericParamMap[TA->getDecl()];
+  }
+  ASSERT(!result->is<UnboundGenericType>());
+  ASSERT(!(inferredGenericParams && typeAlias->hasParsedGenericParamList()));
+
+  auto *genericParams = inferredGenericParams
+                            ? inferredGenericParams
+                            : typeAlias->getParsedGenericParams();
   SmallVector<Type, 2> genericArgs;
-  if (auto *params = typeAlias->getGenericParams()) {
-    for (auto *param : *params) {
+  if (genericParams) {
+    for (auto *param : *genericParams)
       genericArgs.push_back(param->getDeclaredInterfaceType());
-    }
   }
 
-  return TypeAliasType::get(typeAlias, parent, genericArgs, result);
+  auto ty =
+      TypeAliasType::get(typeAlias, parent, genericParams, genericArgs, result);
+  return {ty, inferredGenericParams};
 }
 
 /// Bind the given function declaration, which declares an operator, to the

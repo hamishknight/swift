@@ -6108,9 +6108,9 @@ SourceRange TypeAliasDecl::getSourceRange() const {
 
 Type TypeAliasDecl::getUnderlyingType() const {
   auto &ctx = getASTContext();
-  if (auto type = evaluateOrDefault(ctx.evaluator,
-           UnderlyingTypeRequest{const_cast<TypeAliasDecl *>(this)},
-           Type()))
+  if (auto type = evaluateOrDefault(
+          ctx.evaluator,
+          UnderlyingTypeRequest{const_cast<TypeAliasDecl *>(this)}, Type()))
     return type;
   return ErrorType::get(ctx);
 }
@@ -6121,8 +6121,8 @@ void TypeAliasDecl::setUnderlyingType(Type underlying) {
   assert(!underlying->hasArchetype() || !isGenericContext());
 
   getASTContext().evaluator.cacheOutput(
-          StructuralTypeRequest{const_cast<TypeAliasDecl *>(this)},
-          std::move(underlying));
+      StructuralTypeRequest{const_cast<TypeAliasDecl *>(this)},
+      TypeAliasStructuralType{underlying, nullptr});
   getASTContext().evaluator.cacheOutput(
           UnderlyingTypeRequest{const_cast<TypeAliasDecl *>(this)},
           std::move(underlying));
@@ -6143,12 +6143,12 @@ UnboundGenericType *TypeAliasDecl::getUnboundGenericType() const {
 
 Type TypeAliasDecl::getStructuralType() const {
   auto &ctx = getASTContext();
-  if (auto type = evaluateOrDefault(
-      ctx.evaluator,
-      StructuralTypeRequest{const_cast<TypeAliasDecl *>(this)},
-      Type()))
-    return type;
-  return ErrorType::get(ctx);
+  StructuralTypeRequest req{const_cast<TypeAliasDecl *>(this)};
+  auto type = evaluateOrDefault(ctx.evaluator, req, {}).type;
+  if (!type)
+    return ErrorType::get(ctx);
+
+  return type;
 }
 
 GenericTypeParamDecl::GenericTypeParamDecl(DeclContext *dc, Identifier name,

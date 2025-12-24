@@ -347,7 +347,8 @@ SWIFT_REQUEST(TypeChecker, MemberwiseInitPropertiesRequest,
 SWIFT_REQUEST(TypeChecker, MemberwiseInitMaxAccessLevel,
               AccessLevel(NominalTypeDecl *),
               Cached, NoLocationInfo)
-SWIFT_REQUEST(TypeChecker, StructuralTypeRequest, Type(TypeAliasDecl *), Cached,
+SWIFT_REQUEST(TypeChecker, StructuralTypeRequest,
+              TypeAliasStructuralType(TypeAliasDecl *), Cached,
               NoLocationInfo)
 SWIFT_REQUEST(TypeChecker, SuperclassTypeRequest,
               Type(NominalTypeDecl *, TypeResolutionStage), SeparatelyCached,

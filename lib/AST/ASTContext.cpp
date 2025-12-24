@@ -3514,8 +3514,8 @@ StringRef swift::getSwiftName(KnownFoundationEntity kind) {
 //===----------------------------------------------------------------------===//
 
 TypeAliasType::TypeAliasType(TypeAliasDecl *typealias, Type parent,
-                             ArrayRef<Type> genericArgs,
-                             Type underlying,
+                             GenericParamList *genericParams,
+                             ArrayRef<Type> genericArgs, Type underlying,
                              RecursiveTypeProperties properties)
     : SugarType(TypeKind::TypeAlias, underlying, properties),
       typealias(typealias) {
@@ -3528,24 +3528,23 @@ TypeAliasType::TypeAliasType(TypeAliasDecl *typealias, Type parent,
     Bits.TypeAliasType.HasParent = false;
   }
 
-  auto *params = typealias->getGenericParams();
   unsigned count = genericArgs.size();
 
   // Record the generic arguments.
   if (count > 0) {
-    ASSERT(params->size() == count);
+    ASSERT(genericParams->size() == count);
     Bits.TypeAliasType.GenericArgCount = count;
     std::uninitialized_copy(genericArgs.begin(), genericArgs.end(),
                             getTrailingObjects() + (parent ? 1 : 0));
   } else {
-    ASSERT(params == nullptr);
+    ASSERT(genericParams == nullptr);
     Bits.TypeAliasType.GenericArgCount = 0;
   }
 }
 
 TypeAliasType *TypeAliasType::get(TypeAliasDecl *typealias, Type parent,
-                                  ArrayRef<Type> genericArgs,
-                                  Type underlying) {
+                                  GenericParamList *genericParams,
+                                  ArrayRef<Type> genericArgs, Type underlying) {
   // Compute the recursive properties.
   //
   auto properties = underlying->getRecursiveProperties();
@@ -3578,10 +3577,16 @@ TypeAliasType *TypeAliasType::get(TypeAliasDecl *typealias, Type parent,
   // Build a new type.
   auto size = totalSizeToAlloc<Type>((parent ? 1 : 0) + genericArgs.size());
   auto mem = ctx.Allocate(size, alignof(TypeAliasType), arena);
-  auto result = new (mem) TypeAliasType(typealias, parent, genericArgs,
-                                        underlying, properties);
+  auto result = new (mem) TypeAliasType(typealias, parent, genericParams,
+                                        genericArgs, underlying, properties);
   types.InsertNode(result, insertPos);
   return result;
+}
+
+TypeAliasType *TypeAliasType::get(TypeAliasDecl *typealias, Type parent,
+                                  ArrayRef<Type> genericArgs, Type underlying) {
+  return TypeAliasType::get(typealias, parent, typealias->getGenericParams(),
+                            genericArgs, underlying);
 }
 
 void TypeAliasType::Profile(llvm::FoldingSetNodeID &id) const {

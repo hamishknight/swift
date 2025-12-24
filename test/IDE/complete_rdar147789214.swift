@@ -15,7 +15,7 @@ typealias Invalid2 = R<K>.S
 
 let _: S = #^COMPLETE^#
 // COMPLETE-DAG: Decl[TypeAlias]/CurrModule: Foo[#S<T>#]; name=Foo
-// COMPLETE-DAG: Decl[TypeAlias]/CurrModule: Bar[#S<T>#]; name=Bar
+// COMPLETE-DAG: Decl[TypeAlias]/CurrModule: Bar[#Foo<T>#]; name=Bar
 // COMPLETE-DAG: Decl[TypeAlias]/CurrModule: Baz[#S<T>#]; name=Baz
 // COMPLETE-DAG: Decl[TypeAlias]/CurrModule: Invalid[#Invalid#]; name=Invalid
 // COMPLETE-DAG: Decl[TypeAlias]/CurrModule: Invalid2[#Invalid2#]; name=Invalid2

@@ -143,15 +143,20 @@ protocol P3 {
 }
 
 // Test for not crashing on recursive aliases
-// FIXME: Nonsense redundant requirement warnings
+// FIXME: Ideally we'd emit only a single cycle diag
 protocol Circular {
-  typealias Y = Self.Y // expected-error {{type alias 'Y' references itself}} expected-note {{while resolving type 'Self.Y'}}
+  typealias Y = Self.Y // expected-note {{while resolving type 'Self.Y'}}
+  // expected-error@-1 {{type alias 'Y' references itself}}
 
-  typealias Y2 = Y2 // expected-error {{type alias 'Y2' references itself}} expected-note {{while resolving type 'Y2'}}
+  typealias Y2 = Y2 // expected-note 2{{while resolving type 'Y2'}}
+  // expected-error@-1 {{type alias 'Y2' references itself}}
+  // expected-error@-2 {{circular reference}}
 
-  typealias Y3 = Y4 // expected-error {{type alias 'Y3' references itself}} expected-note {{while resolving type 'Y4'}}
+  typealias Y3 = Y4 // expected-note 2{{while resolving type 'Y4'}}
+  // expected-error@-1 {{type alias 'Y3' references itself}}
+  // expected-error@-2 {{circular reference}}
 
-  typealias Y4 = Y3 // expected-note {{through reference here}} expected-note {{while resolving type 'Y3'}}
+  typealias Y4 = Y3 // expected-note 2{{through reference here}} expected-note 2{{while resolving type 'Y3'}}
 }
 
 // Qualified and unqualified references to protocol typealiases from concrete type

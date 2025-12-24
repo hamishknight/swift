@@ -1104,11 +1104,16 @@ public:
   bool isCached() const { return true; }
 };
 
+struct TypeAliasStructuralType {
+  Type type;
+  GenericParamList *inferredGenericParams;
+};
+
 /// Retrieve the structural type of an alias type.
-class StructuralTypeRequest :
-    public SimpleRequest<StructuralTypeRequest,
-                         Type(TypeAliasDecl*),
-                         RequestFlags::Cached> {
+class StructuralTypeRequest
+    : public SimpleRequest<StructuralTypeRequest,
+                           TypeAliasStructuralType(TypeAliasDecl *),
+                           RequestFlags::Cached> {
 public:
   using SimpleRequest::SimpleRequest;
 
@@ -1116,7 +1121,7 @@ private:
   friend SimpleRequest;
 
   // Evaluation.
-  Type evaluate(Evaluator &eval, TypeAliasDecl *d) const;
+  TypeAliasStructuralType evaluate(Evaluator &eval, TypeAliasDecl *d) const;
 
 public:
   // Caching.

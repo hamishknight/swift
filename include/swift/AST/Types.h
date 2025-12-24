@@ -2377,10 +2377,15 @@ class TypeAliasType final
 
   friend class ASTContext;
   friend TrailingObjects;
+  friend class StructuralTypeRequest;
 
   TypeAliasType(TypeAliasDecl *typealias, Type parent,
-                ArrayRef<Type> genericArgs, Type underlying,
-                RecursiveTypeProperties properties);
+                GenericParamList *genericParams, ArrayRef<Type> genericArgs,
+                Type underlying, RecursiveTypeProperties properties);
+
+  static TypeAliasType *get(TypeAliasDecl *typealias, Type parent,
+                            GenericParamList *genericParams,
+                            ArrayRef<Type> genericArgs, Type underlying);
 
   size_t numTrailingObjects(OverloadToken<Type>) const {
     return (Bits.TypeAliasType.HasParent ? 1 : 0) +

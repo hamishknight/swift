@@ -3996,6 +3996,16 @@ GenericParamListRequest::evaluate(Evaluator &evaluator, GenericContext *value) c
 
   auto parsedGenericParams = value->getParsedGenericParams();
 
+  auto *typeAlias = dyn_cast<TypeAliasDecl>(value);
+  if (!parsedGenericParams && typeAlias) {
+    if (auto *underlyingTypeRepr = typeAlias->getUnderlyingTypeRepr()) {
+      if (isa<DeclRefTypeRepr>(underlyingTypeRepr->getWithoutParens())) {
+        StructuralTypeRequest req{typeAlias};
+        return evaluateOrDefault(evaluator, req, {}).inferredGenericParams;
+      }
+    }
+  }
+
   // Create implicit generic parameters due to opaque parameters, if we need
   // them.
   auto implicitGenericParams =

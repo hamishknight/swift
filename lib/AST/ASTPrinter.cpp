@@ -3652,14 +3652,24 @@ void PrintAST::visitTypeAliasDecl(TypeAliasDecl *decl) {
   printAccess(decl);
   Printer.printIntroducerKeyword("typealias", Options, " ");
   printContextIfNeeded(decl);
+
+  bool ShouldPrint = true;
+  Type Ty = decl->getUnderlyingType();
+
+  auto TyL = TypeLoc(decl->getUnderlyingTypeRepr(), Ty);
+  auto printTypeRepr = willUseTypeReprPrinting(TyL, CurrentType, Options);
+
   recordDeclLoc(
       decl,
       [&] { Printer.printName(name, getTypeMemberPrintNameContext(decl)); },
       [&] { // Signature
+        // Don't print implicit generic params if we're printing TypeReprs.
+        if (printTypeRepr && !decl->hasParsedGenericParamList() &&
+            decl->getGenericParams()) {
+          return;
+        }
         printGenericDeclGenericParams(decl);
       });
-  bool ShouldPrint = true;
-  Type Ty = decl->getUnderlyingType();
 
   // If the underlying type is private, don't print it.
   if (Options.SkipPrivateSystemDecls && Ty && Ty.isPrivateSystemType())
@@ -3667,7 +3677,7 @@ void PrintAST::visitTypeAliasDecl(TypeAliasDecl *decl) {
 
   if (ShouldPrint) {
     Printer << " = ";
-    printTypeLoc(TypeLoc(decl->getUnderlyingTypeRepr(), Ty));
+    printTypeLoc(TyL);
     printDeclGenericRequirements(decl);
   }
 }

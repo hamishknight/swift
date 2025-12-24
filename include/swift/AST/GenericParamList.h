@@ -233,6 +233,8 @@ class GenericParamList final :
 
   GenericParamList *OuterParameters;
 
+  GenericTypeDecl *OriginalRequirementSource = nullptr;
+
   GenericParamList(SourceLoc LAngleLoc,
                    ArrayRef<GenericTypeParamDecl *> Params,
                    SourceLoc WhereLoc,
@@ -324,6 +326,26 @@ public:
   /// for more information.
   void setOuterParameters(GenericParamList *Outer) { OuterParameters = Outer; }
 
+  /// The original decl for a cloned GenericParamList where the whole set of
+  /// inner requirements should be preserved. This is used to handle unbound
+  /// generic typealiases e.g:
+  ///
+  /// ```
+  /// struct S<T> where T: P {}
+  /// typealias A = S
+  /// ```
+  ///
+  /// We clone the generic parameter list `<T>` onto `A` but also want to
+  /// copy the requirements from  `S`'s trailing where clause. As such we set
+  /// `S` as the `OriginalRequirementSource` and
+  /// `InferredGenericSignatureRequest` handles injecting these requirements.
+  GenericTypeDecl *getOriginalRequirementSource() const {
+    return OriginalRequirementSource;
+  }
+  void setOriginalRequirementSource(GenericTypeDecl *D) {
+    OriginalRequirementSource = D;
+  }
+
   void setDeclContext(DeclContext *dc);
 
   SourceLoc getLAngleLoc() const { return Brackets.Start; }
@@ -349,7 +371,7 @@ public:
   /// Create a copy of the generic parameter list and all of its generic
   /// parameter declarations. The copied generic parameters are re-parented
   /// to the given DeclContext.
-  GenericParamList *clone(DeclContext *dc) const;
+  GenericParamList *clone(DeclContext *dc, bool withReqs = true) const;
 
   bool walk(ASTWalker &walker);
 

@@ -70,14 +70,15 @@ GenericParamList::create(const ASTContext &Context,
 }
 
 GenericParamList *
-GenericParamList::clone(DeclContext *dc) const {
+GenericParamList::clone(DeclContext *dc, bool withReqs) const {
   auto &ctx = dc->getASTContext();
   SmallVector<GenericTypeParamDecl *, 2> params;
   for (auto param : getParams()) {
     auto *newParam = GenericTypeParamDecl::createImplicit(
         dc, param->getName(), GenericTypeParamDecl::InvalidDepth,
         param->getIndex(), param->getParamKind(), param->getOpaqueTypeRepr());
-    newParam->setInherited(param->getInherited().getEntries());
+    if (withReqs || param->isValue())
+      newParam->setInherited(param->getInherited().getEntries());
 
     // Cache the value type computed from the previous param to the new one.
     ctx.evaluator.cacheOutput(

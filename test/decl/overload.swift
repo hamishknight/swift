@@ -87,9 +87,9 @@ protocol mixed_redecl4 {} // expected-error {{invalid redeclaration}}
 // expected-note@-1{{found this candidate}}
 protocol mixed_redecl4a : mixed_redecl4 {} // expected-error {{'mixed_redecl4' is ambiguous for type lookup in this context}}
 
-class mixed_redecl5 {} // expected-note {{previously declared here}}
-typealias mixed_redecl5 = Int // expected-error {{invalid redeclaration}}
-typealias mixed_redecl5a = mixed_redecl5
+class mixed_redecl5 {} // expected-note {{previously declared here}} expected-note {{found this candidate}}
+typealias mixed_redecl5 = Int // expected-error {{invalid redeclaration}} expected-note {{found this candidate}}
+typealias mixed_redecl5a = mixed_redecl5 // expected-error {{'mixed_redecl5' is ambiguous for type lookup}}
 
 func mixed_redecl6() {} // expected-note {{'mixed_redecl6()' previously declared here}}
 var mixed_redecl6: Int // expected-error {{invalid redeclaration of 'mixed_redecl6'}}

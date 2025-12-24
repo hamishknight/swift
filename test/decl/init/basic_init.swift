@@ -10,7 +10,10 @@ class C {
 	init() {}
 }
 
-typealias t = t // expected-error {{type alias 't' references itself}} expected-note {{while resolving type 't'}}
+// FIXME: Ideally we'd emit only a single cycle diag
+typealias t = t // expected-note 2{{while resolving type 't'}}
+// expected-error@-1 {{type alias 't' references itself}}
+// expected-error@-2 {{circular reference}}
 
 extension Foo {
   convenience init() {} // expected-error{{invalid redeclaration of synthesized 'init()'}}
