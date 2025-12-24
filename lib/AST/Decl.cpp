@@ -192,7 +192,7 @@ DescriptiveDeclKind Decl::getDescriptiveKind() const {
   TRIVIAL_KIND(Using);
 
   case DeclKind::TypeAlias:
-    return cast<TypeAliasDecl>(this)->getGenericParams()
+    return cast<TypeAliasDecl>(this)->hasParsedGenericParamList()
              ? DescriptiveDeclKind::GenericTypeAlias
              : DescriptiveDeclKind::TypeAlias;
 
