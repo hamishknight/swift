@@ -1060,12 +1060,6 @@ TypeAliasRequirementsRequest::evaluate(Evaluator &evaluator,
       if (genReq->hasGenericParamList())
         return false;
 
-    // Ignore typealiases with UnboundGenericType, since they
-    // are like generic typealiases.
-    if (auto *typeAlias = dyn_cast<TypeAliasDecl>(req))
-      if (getStructuralType(typeAlias)->is<UnboundGenericType>())
-        return false;
-
     return true;
   };
 

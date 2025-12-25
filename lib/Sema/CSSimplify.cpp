@@ -14531,23 +14531,12 @@ ConstraintSystem::simplifyExplicitGenericArgumentsConstraint(
   if (simplifiedBoundType->isTypeVariableOrMember())
     return formUnsolved();
 
-  std::function<GenericParamList *(ValueDecl *)> getGenericParams =
-      [&](ValueDecl *decl) -> GenericParamList * {
+  auto getGenericParams = [&](ValueDecl *decl) -> GenericParamList * {
     auto genericContext = decl->getAsGenericContext();
     if (!genericContext)
       return nullptr;
 
-    auto genericParams = genericContext->getGenericParams();
-    if (!genericParams) {
-      // If declaration is a non-generic typealias, let's point
-      // to the underlying generic declaration.
-      if (auto *TA = dyn_cast<TypeAliasDecl>(decl)) {
-        if (auto *UGT = TA->getUnderlyingType()->getAs<AnyGenericType>())
-          return getGenericParams(UGT->getDecl());
-      }
-    }
-
-    return genericParams;
+    return genericContext->getGenericParams();
   };
 
   auto fixInvalidSpecialization = [&](ValueDecl *decl) -> SolutionKind {

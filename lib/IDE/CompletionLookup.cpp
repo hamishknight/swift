@@ -1524,25 +1524,6 @@ Type CompletionLookup::getTypeAliasType(const TypeAliasDecl *TAD,
   if (underlyingTy->hasError())
     return ty;
 
-  // The underlying type might be unbound for e.g:
-  //
-  // struct S<T> {}
-  // typealias X = S
-  //
-  // Introduce type parameters such that we print the underlying type as
-  // 'S<T>'. We only expect unbound generics at the top-level of a type-alias,
-  // they are rejected by type resolution in any other position.
-  //
-  // FIXME: This is a hack – using the declared interface type isn't correct
-  // since the generic parameters ought to be introduced at a higher depth,
-  // i.e we should be treating it as `typealias X<T> = S<T>`. Ideally this would
-  // be fixed by desugaring the unbound typealias during type resolution. For
-  // now this is fine though since we only use the resulting type for printing
-  // the type annotation; the type relation logic currently skips type
-  // parameters.
-  if (auto *UGT = underlyingTy->getAs<UnboundGenericType>())
-    underlyingTy = UGT->getDecl()->getDeclaredInterfaceType();
-
   ASSERT(!underlyingTy->hasUnboundGenericType());
   return underlyingTy;
 }
