@@ -161,7 +161,6 @@ static unsigned getGenericRequirementKind(TypeResolutionOptions options) {
   case TypeResolverContext::VariadicGenericArgument:
   case TypeResolverContext::ExtensionBinding:
   case TypeResolverContext::TypeAliasDecl:
-  case TypeResolverContext::GenericTypeAliasDecl:
   case TypeResolverContext::ExistentialConstraint:
   case TypeResolverContext::MetatypeBase:
   case TypeResolverContext::InExpression:
@@ -2192,7 +2191,6 @@ static SelfTypeKind getSelfTypeKind(DeclContext *dc,
   case TypeResolverContext::AbstractFunctionDecl:
   case TypeResolverContext::SubscriptDecl:
   case TypeResolverContext::TypeAliasDecl:
-  case TypeResolverContext::GenericTypeAliasDecl:
     // When checking a function or subscript parameter list, we have to go up
     // one level to determine if we're in a local context or not.
     if (dc->getParent()->isLocalContext())
@@ -5689,7 +5687,6 @@ NeverNullType TypeResolver::resolveImplicitlyUnwrappedOptionalType(
   case TypeResolverContext::MacroDecl:
   case TypeResolverContext::EnumPatternPayload:
   case TypeResolverContext::TypeAliasDecl:
-  case TypeResolverContext::GenericTypeAliasDecl:
   case TypeResolverContext::GenericRequirement:
   case TypeResolverContext::ExistentialConstraint:
   case TypeResolverContext::SameTypeRequirement:

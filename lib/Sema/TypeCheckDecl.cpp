@@ -1858,9 +1858,7 @@ UnderlyingTypeRequest::evaluate(Evaluator &evaluator,
     return ErrorType::get(typeAlias->getASTContext());
   };
 
-  TypeResolutionOptions options((typeAlias->getGenericParams()
-                                     ? TypeResolverContext::GenericTypeAliasDecl
-                                     : TypeResolverContext::TypeAliasDecl));
+  TypeResolutionOptions options(TypeResolverContext::TypeAliasDecl);
   options |= TypeResolutionFlags::ForbidUnhandledUnboundTypes;
   if (typeAlias->preconcurrency())
     options |= TypeResolutionFlags::Preconcurrency;
@@ -1898,9 +1896,7 @@ StructuralTypeRequest::evaluate(Evaluator &evaluator,
     return {ErrorType::get(typeAlias->getASTContext()), nullptr};
   };
 
-  TypeResolutionOptions options((typeAlias->hasParsedGenericParamList()
-                                     ? TypeResolverContext::GenericTypeAliasDecl
-                                     : TypeResolverContext::TypeAliasDecl));
+  TypeResolutionOptions options(TypeResolverContext::TypeAliasDecl);
   options |= TypeResolutionFlags::ForbidUnhandledUnboundTypes;
 
   auto underlyingTypeRepr = typeAlias->getUnderlyingTypeRepr();

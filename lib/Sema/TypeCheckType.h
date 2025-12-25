@@ -175,9 +175,6 @@ enum class TypeResolverContext : uint8_t {
   /// Whether we are checking the underlying type of a non-generic typealias.
   TypeAliasDecl,
 
-  /// Whether we are checking the underlying type of a generic typealias.
-  GenericTypeAliasDecl,
-
   /// Whether we are in the constraint type of an existential type.
   ExistentialConstraint,
 
@@ -300,7 +297,6 @@ public:
     case Context::MacroDecl:
     case Context::EnumPatternPayload:
     case Context::TypeAliasDecl:
-    case Context::GenericTypeAliasDecl:
     case Context::GenericRequirement:
     case Context::ExistentialConstraint:
     case Context::SameTypeRequirement:
@@ -330,7 +326,6 @@ public:
     case Context::AssociatedTypeInherited:
     case Context::ExtensionBinding:
     case Context::TypeAliasDecl:
-    case Context::GenericTypeAliasDecl:
     case Context::GenericRequirement:
     case Context::ExistentialConstraint:
     case Context::MetatypeBase:
@@ -384,7 +379,6 @@ public:
     case Context::AssociatedTypeInherited:
     case Context::ExtensionBinding:
     case Context::TypeAliasDecl:
-    case Context::GenericTypeAliasDecl:
     case Context::GenericRequirement:
     case Context::ExistentialConstraint:
     case Context::MetatypeBase:
@@ -427,7 +421,6 @@ public:
     case Context::SameTypeRequirement:
     case Context::ExtensionBinding:
     case Context::TypeAliasDecl:
-    case Context::GenericTypeAliasDecl:
     case Context::ExistentialConstraint:
     case Context::MetatypeBase:
     case Context::InExpression:
@@ -474,7 +467,6 @@ public:
     case Context::VariadicGenericArgument:
     case Context::ExtensionBinding:
     case Context::TypeAliasDecl:
-    case Context::GenericTypeAliasDecl:
     case Context::ExistentialConstraint:
     case Context::MetatypeBase:
     case Context::InExpression:
