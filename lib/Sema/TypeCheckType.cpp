@@ -1083,20 +1083,18 @@ bool TypeChecker::checkContextualRequirements(GenericTypeDecl *decl,
     return true;
   }
 
-  // Protocols can't appear in constrained extensions, and their where
-  // clauses pertain to the requirement signature of the protocol and not
-  // its generic signature.
-  if (isa<ProtocolDecl>(decl))
+  // Bail early if we have an invalid nested type, they'll be diagnosed
+  // separately.
+  auto *dc = decl->getParentForLookup();
+  auto *nominal = dc->getSelfNominalTypeDecl();
+  if (!nominal)
     return true;
 
-  auto *dc = decl->getDeclContext();
+  auto outerGenericSig = dc->getGenericSignatureOfContext();
+  auto genericSig = decl->getGenericSignature();
 
-  const auto genericSig = decl->getGenericSignature();
-
-  if (genericSig.getPointer() ==
-      dc->getSelfNominalTypeDecl()->getGenericSignature().getPointer()) {
+  if (genericSig.getPointer() == nominal->getGenericSignature().getPointer())
     return true;
-  }
 
   // Otherwise, our decl has a where clause of its own, or its inside of a
   // constrained extension.
@@ -1116,6 +1114,13 @@ bool TypeChecker::checkContextualRequirements(GenericTypeDecl *decl,
 
   const auto subMap = parentTy->getContextSubstitutionMap(dc);
   const auto substitutions = [&](SubstitutableType *type) -> Type {
+    // If we have a nested type with its own generic params we can substitute
+    // them with archetypes since the parent type substitution map won't have
+    // entries for them.
+    if (auto *GP = dyn_cast<GenericTypeParamType>(type)) {
+      if (GP->getDepth() >= outerGenericSig.getNextDepth())
+        return genericSig.getGenericEnvironment()->mapTypeIntoEnvironment(GP);
+    }
     auto result = QuerySubstitutionMap{subMap}(type);
     if (result->hasTypeParameter()) {
       if (contextSig) {
