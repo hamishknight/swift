@@ -8,6 +8,11 @@ struct Generic<T> {
 
   typealias Unbound = OtherGeneric where T == Int
   typealias Generic<U> = OtherGeneric<U> where T == Int
+
+  typealias UnconstrainedNonGeneric = Int
+  typealias UnconstrainedFake<U> = Int
+  typealias UnconstrainedUnbound = OtherGeneric
+  typealias UnconstrainedGeneric<U> = OtherGeneric<U>
 }
 
 extension Generic where T == Int {
@@ -24,7 +29,11 @@ func use(_: Generic.NonGeneric,
          _: Generic.Generic<String>,
          _: Generic.NonGenericInExtension,
          _: Generic.UnboundInExtension<String>,
-         _: Generic.GenericInExtension<String>) {
+         _: Generic.GenericInExtension<String>,
+         _: Generic.UnconstrainedNonGeneric,
+         _: Generic.UnconstrainedFake<String>,
+         _: Generic.UnconstrainedUnbound<String>,
+         _: Generic.UnconstrainedGeneric<String>) {
 
   // FIXME: Get these working too
 #if false
@@ -35,6 +44,13 @@ func use(_: Generic.NonGeneric,
   let _ = Generic.NonGenericInExtension.self
   let _ = Generic.FakeGenericInExtension.self
   let _ = Generic.UnboundInExtension<String>.self
+
+  let _ = Generic.UnconstrainedNonGeneric.self
+  let _ = Generic.UnconstrainedFake<String>.self
+  let _ = Generic.UnconstrainedUnbound<String>.self
+  let _ = Generic.UnconstrainedGeneric<String>.self
+
+  let _: Generic.UnconstrainedGeneric = OtherGeneric<String>()
 #endif
 
   let _ = Generic.Generic<String>.self
@@ -51,6 +67,10 @@ func use(_: Generic.NonGeneric,
 
   let _: Generic.UnboundInExtension = OtherGeneric<String>()
   let _: Generic.GenericInExtension = OtherGeneric<String>()
+
+  let _: Generic.UnconstrainedNonGeneric = 0
+  let _: Generic.UnconstrainedFake<String> = 0
+  let _: Generic.UnconstrainedUnbound = OtherGeneric<String>()
 }
 
 struct Use {
@@ -62,6 +82,10 @@ struct Use {
   let b2: Generic.FakeGenericInExtension
   let c2: Generic.UnboundInExtension<String>
   let d2: Generic.GenericInExtension<String>
+  let e1: Generic.UnconstrainedNonGeneric
+  let e2: Generic.UnconstrainedFake<String>
+  let e3: Generic.UnconstrainedUnbound<String>
+  let e4: Generic.UnconstrainedGeneric<String>
 }
 
 extension Generic.NonGeneric {}
@@ -71,3 +95,8 @@ extension Generic.Generic {}
 extension Generic.NonGenericInExtension {}
 extension Generic.UnboundInExtension {}
 extension Generic.GenericInExtension {}
+
+extension Generic.UnconstrainedNonGeneric {}
+extension Generic.UnconstrainedFake<String> {}
+extension Generic.UnconstrainedUnbound<String> {}
+extension Generic.UnconstrainedGeneric<String> {}
