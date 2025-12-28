@@ -1817,16 +1817,21 @@ void TypeResolver::diagnoseUnboundGenericType(Type ty, SourceLoc loc) {
   if (auto unbound = ty->getAs<UnboundGenericType>()) {
     auto *decl = unbound->getDecl();
     {
+      bool useGenericArgFixIt = true;
+      if (auto *PD = dyn_cast<ProtocolDecl>(decl->getDeclContext())) {
+        if (PD->isComputingRequirementSignature())
+          useGenericArgFixIt = false;
+      }
       // Compute the string before creating a new diagnostic, since
       // getDefaultGenericArgumentsString() might emit its own
       // diagnostics.
       SmallString<64> genericArgsToAdd;
-      bool hasGenericArgsToAdd =
-          TypeChecker::getDefaultGenericArgumentsString(genericArgsToAdd,
-                                                        decl);
-
+      if (useGenericArgFixIt) {
+        useGenericArgFixIt = TypeChecker::getDefaultGenericArgumentsString(
+            genericArgsToAdd, decl);
+      }
       auto diag = diagnose(loc, diag::generic_type_requires_arguments, ty);
-      if (hasGenericArgsToAdd)
+      if (useGenericArgFixIt)
         diag.fixItInsertAfter(loc, genericArgsToAdd);
     }
 
