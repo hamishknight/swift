@@ -3519,6 +3519,7 @@ TypeAliasType::TypeAliasType(TypeAliasDecl *typealias, Type parent,
                              RecursiveTypeProperties properties)
     : SugarType(TypeKind::TypeAlias, underlying, properties),
       typealias(typealias) {
+  ASSERT(isValidParent(parent));
   // Record the parent (or absence of a parent).
   if (parent) {
     Bits.TypeAliasType.HasParent = true;
@@ -3599,6 +3600,14 @@ void TypeAliasType::Profile(
   for (auto arg : genericArgs)
     id.AddPointer(arg.getPointer());
   id.AddPointer(underlying.getPointer());
+}
+
+bool TypeAliasType::isValidParent(Type ty) {
+  // Top-level is always fine.
+  if (!ty)
+    return true;
+
+  return !(ty->isAnyExistentialType() || ty->hasUnboundGenericType());
 }
 
 LocatableType::LocatableType(SourceLoc loc, Type underlying,

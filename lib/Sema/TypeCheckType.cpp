@@ -1780,7 +1780,7 @@ Type TypeResolution::applyUnboundGenericArguments(
                                 LookUpConformanceInModule());
 
   // Form a sugared typealias reference.
-  if (typealias && (!parentTy || !parentTy->isAnyExistentialType())) {
+  if (typealias && TypeAliasType::isValidParent(parentTy)) {
     resultType = TypeAliasType::get(typealias, parentTy, genericArgs,
                                     resultType);
   }
@@ -6417,9 +6417,8 @@ Type TypeChecker::substMemberTypeWithBase(TypeDecl *member,
 
   // If we're referring to a typealias within a generic context, build
   // a sugared alias type.
-  if (aliasDecl && (!sugaredBaseTy || !sugaredBaseTy->isAnyExistentialType())) {
+  if (aliasDecl && TypeAliasType::isValidParent(sugaredBaseTy))
     resultType = TypeAliasType::get(aliasDecl, sugaredBaseTy, {}, resultType);
-  }
 
   // However, if overload resolution finds a value generic decl from name
   // lookup, replace the returned member type to be the underlying value type

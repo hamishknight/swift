@@ -7,7 +7,7 @@ struct Generic<T> {
   typealias FakeGeneric = T where T == Int
 
   typealias Unbound = OtherGeneric where T == Int
-  typealias Generic = OtherGeneric where T == Int
+  typealias Generic<U> = OtherGeneric<U> where T == Int
 }
 
 extension Generic where T == Int {
@@ -15,7 +15,7 @@ extension Generic where T == Int {
   typealias FakeGenericInExtension = T
 
   typealias UnboundInExtension = OtherGeneric
-  typealias GenericInExtension = OtherGeneric
+  typealias GenericInExtension<U> = OtherGeneric<U>
 }
 
 func use(_: Generic.NonGeneric,
