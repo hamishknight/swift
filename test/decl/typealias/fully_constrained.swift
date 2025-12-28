@@ -31,13 +31,15 @@ func use(_: Generic.NonGeneric,
   let _ = Generic.NonGeneric.self
   let _ = Generic.FakeGeneric.self
   let _ = Generic.Unbound<String>.self
-  let _ = Generic.Generic<String>.self
 
   let _ = Generic.NonGenericInExtension.self
   let _ = Generic.FakeGenericInExtension.self
   let _ = Generic.UnboundInExtension<String>.self
-  let _ = Generic.GenericInExtension<String>.self
 #endif
+
+  let _ = Generic.Generic<String>.self
+
+  let _ = Generic.GenericInExtension<String>.self
 
   let _: Generic.NonGeneric = 123
   let _: Generic.FakeGeneric = 123
