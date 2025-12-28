@@ -1078,10 +1078,11 @@ static bool isPointerToVoid(ASTContext &Ctx, Type Ty, bool &IsMutable) {
 bool TypeChecker::checkContextualRequirements(GenericTypeDecl *decl,
                                               Type parentTy, SourceLoc loc,
                                               GenericSignature contextSig) {
-  assert(parentTy && "expected a parent type");
-  if (parentTy->hasUnboundGenericType() || parentTy->hasTypeVariable()) {
+  ASSERT(parentTy && "expected a parent type");
+  ASSERT(!parentTy->hasTypeVariable());
+
+  if (parentTy->hasUnboundGenericType())
     return true;
-  }
 
   // Bail early if we have an invalid nested type, they'll be diagnosed
   // separately.
@@ -1447,30 +1448,45 @@ TypeResolver::applyGenericArguments(Type type, DeclRefTypeRepr *repr,
       }
     }
 
-    if (inStage(TypeResolutionStage::Structural))
-      return type;
+    if (inStage(TypeResolutionStage::Interface)) {
+      GenericTypeDecl *decl = nullptr;
+      Type parentTy;
+      if (auto *aliasTy = dyn_cast<TypeAliasType>(type.getPointer())) {
+        decl = aliasTy->getDecl();
+        parentTy = aliasTy->getParent();
+      } else if (auto *nominalTy = type->getAs<NominalType>()) {
+        decl = nominalTy->getDecl();
+        parentTy = nominalTy->getParent();
+      } else {
+        return type;
+      }
 
-    GenericTypeDecl *decl;
-    Type parentTy;
-    if (auto *aliasTy = dyn_cast<TypeAliasType>(type.getPointer())) {
-      decl = aliasTy->getDecl();
-      parentTy = aliasTy->getParent();
-    } else if (auto *nominalTy = type->getAs<NominalType>()) {
-      decl = nominalTy->getDecl();
-      parentTy = nominalTy->getParent();
-    } else {
-      return type;
+      if (!parentTy)
+        return type;
+
+      if (parentTy->hasTypeVariable()) {
+        auto reqOpener = resolution.getRequirementOpener();
+        ASSERT(reqOpener && "Must have requirement opener for type vars");
+        auto subs = parentTy->getContextSubstitutionMap(decl->getDeclContext());
+        auto subst = [&](SubstitutableType *type) -> Type {
+          auto result = QuerySubstitutionMap{subs}(type);
+          if (result->hasTypeParameter()) {
+            if (auto contextSig = resolution.getGenericSignature()) {
+              // Avoid building this generic environment unless we need it.
+              auto *genericEnv = contextSig.getGenericEnvironment();
+              return genericEnv->mapTypeIntoEnvironment(result);
+            }
+          }
+          return result;
+        };
+        reqOpener(decl, subst);
+      } else {
+        auto sig = resolution.getGenericSignature();
+        if (!TypeChecker::checkContextualRequirements(decl, parentTy, loc, sig))
+          return ErrorType::get(getASTContext());
+      }
     }
-
-    if (!parentTy) {
-      return type;
-    }
-
-    if (TypeChecker::checkContextualRequirements(
-            decl, parentTy, loc, resolution.getGenericSignature()))
-      return type;
-
-    return ErrorType::get(getASTContext());
+    return type;
   }
 
   if (type->hasError()) {

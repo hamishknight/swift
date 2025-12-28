@@ -37,12 +37,7 @@ func use(_: Generic.NonGeneric,
 
   // FIXME: Get these working too
 #if false
-  let _ = Generic.NonGeneric.self
-  let _ = Generic.FakeGeneric.self
   let _ = Generic.Unbound<String>.self
-
-  let _ = Generic.NonGenericInExtension.self
-  let _ = Generic.FakeGenericInExtension.self
   let _ = Generic.UnboundInExtension<String>.self
 
   let _ = Generic.UnconstrainedNonGeneric.self
@@ -52,6 +47,12 @@ func use(_: Generic.NonGeneric,
 
   let _: Generic.UnconstrainedGeneric = OtherGeneric<String>()
 #endif
+
+  let _ = Generic.NonGeneric.self
+  let _ = Generic.FakeGeneric.self
+
+  let _ = Generic.NonGenericInExtension.self
+  let _ = Generic.FakeGenericInExtension.self
 
   let _ = Generic.Generic<String>.self
 
@@ -100,3 +101,24 @@ extension Generic.UnconstrainedNonGeneric {}
 extension Generic.UnconstrainedFake<String> {}
 extension Generic.UnconstrainedUnbound<String> {}
 extension Generic.UnconstrainedGeneric<String> {}
+
+protocol P {}
+
+func testPlaceholderAndConformance() {
+  struct S<T, U> {
+    typealias X = Int where T == String, U: P
+  }
+  func foo<U>(_ x: U) {
+    // FIXME: Misleading diagnostic
+    _ = S<_, U>.X.self // expected-error {{struct 'Int' requires that 'U' conform to 'P'}}
+
+    // FIXME
+    // let _: S<_, U>.X = 0
+  }
+  func bar<U: P>(_ x: U) {
+    _ = S<_, U>.X.self
+
+    // FIXME
+    // let _: S<_, U>.X = 0
+  }
+}
