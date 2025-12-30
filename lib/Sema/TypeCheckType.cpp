@@ -2967,7 +2967,6 @@ NeverNullType TypeResolver::resolveType(TypeRepr *repr,
       }
     }
     // Try to resolve the constraint upper bound type as a placeholder.
-    options |= TypeResolutionFlags::SilenceDiagnostics;
     auto constraintType = resolveType(opaqueRepr->getConstraint(),
                                       options);
 
