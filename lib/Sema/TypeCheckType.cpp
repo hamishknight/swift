@@ -2894,6 +2894,10 @@ static Type evaluateTypeResolution(const TypeResolution *resolution,
       // If we had any error, mark the TypeRepr invalid so we don't run type
       // resolution again to avoid duplicate diagnostics.
       TyR->setInvalid();
+    } else if (resolution->getStage() == TypeResolutionStage::Structural) {
+      // If we have no errors but are doing structural resolution, ignore any
+      // warnings since they'll be emitted again by interface resolution.
+      diagQueue.clear();
     }
   }
 
@@ -4617,21 +4621,19 @@ NeverNullType TypeResolver::resolveASTFunctionType(
 
   // Check that we don't have more than one isolated parameter.
   unsigned numIsolatedParams = countIsolatedParamsUpTo(repr, 2);
-  if (!repr->isWarnedAbout() && numIsolatedParams > 1) {
+  if (numIsolatedParams > 1) {
     diagnose(repr->getLoc(), diag::isolated_parameter_duplicate_type)
         .warnUntilLanguageMode(LanguageMode::v6);
 
     if (ctx.isLanguageModeAtLeast(LanguageMode::v6))
       return ErrorType::get(ctx);
-    else
-      repr->setWarned();
   }
 
   if (attrs) {
     CustomAttr *globalActorAttr = nullptr;
     Type globalActor = resolveGlobalActor(repr->getLoc(), parentOptions,
                                           globalActorAttr, *attrs);
-    if (globalActor && !globalActor->hasError() && !globalActorAttr->isInvalid()) {
+    if (globalActor && !globalActor->hasError()) {
       if (numIsolatedParams != 0) {
         diagnose(repr->getLoc(), diag::isolated_parameter_global_actor_type)
             .warnUntilLanguageMode(LanguageMode::v6);
@@ -4640,7 +4642,7 @@ NeverNullType TypeResolver::resolveASTFunctionType(
         diagnose(repr->getLoc(), diag::isolated_attr_global_actor_type,
                  isolatedAttr->getIsolationKindName());
         globalActorAttr->setInvalid();
-      } else {
+      } else if (!globalActorAttr->isInvalid()) {
         isolation = FunctionTypeIsolation::forGlobalActor(globalActor);
 
         // This inference is currently gated because `@Sendable` impacts mangling.
@@ -4847,17 +4849,14 @@ NeverNullType TypeResolver::resolveASTFunctionType(
 
   // If this is a function type without parens around the parameter list,
   // diagnose this and produce a fixit to add them.
-  if (!repr->isWarnedAbout()) {
-    // If someone wrote (Void) -> () in Swift 3, they probably meant
-    // () -> (), but (Void) -> () is (()) -> () so emit a warning
-    // asking if they meant () -> ().
-    auto args = repr->getArgsTypeRepr();
-    if (args->getNumElements() == 1) {
-      if (args->getElementType(0)->isSimpleUnqualifiedIdentifier(ctx.Id_Void)) {
-        diagnose(args->getStartLoc(), diag::paren_void_probably_void)
-            .fixItReplace(args->getSourceRange(), "()");
-        repr->setWarned();
-      }
+  // If someone wrote (Void) -> () in Swift 3, they probably meant
+  // () -> (), but (Void) -> () is (()) -> () so emit a warning
+  // asking if they meant () -> ().
+  auto args = repr->getArgsTypeRepr();
+  if (args->getNumElements() == 1) {
+    if (args->getElementType(0)->isSimpleUnqualifiedIdentifier(ctx.Id_Void)) {
+      diagnose(args->getStartLoc(), diag::paren_void_probably_void)
+          .fixItReplace(args->getSourceRange(), "()");
     }
   }
 
