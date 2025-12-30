@@ -516,14 +516,17 @@ class TypeAttrSet;
 
 class TypeResolver {
   const TypeResolution &resolution;
+  DiagnosticEngine &diags;
 
   /// Used in SIL mode.
   SILTypeResolutionContext *silContext;
 
 public:
   explicit TypeResolver(const TypeResolution &resolution,
+                        DiagnosticEngine &diags,
                         SILTypeResolutionContext *silContext = nullptr)
-      : resolution(resolution), silContext(silContext) {}
+      : resolution(resolution),
+        diags(diags), silContext(silContext) {}
 
   NeverNullType resolveType(TypeRepr *repr, TypeResolutionOptions options);
 
@@ -551,20 +554,17 @@ private:
 private:
   template <typename... ArgTypes>
   InFlightDiagnostic diagnose(ArgTypes &&...Args) const {
-    auto &diags = getASTContext().Diags;
     return diags.diagnose(std::forward<ArgTypes>(Args)...);
   }
 
   template <typename... ArgTypes>
   InFlightDiagnostic diagnoseInvalid(TypeRepr *repr, ArgTypes &&...Args) const {
-    auto &diags = getASTContext().Diags;
     repr->setInvalid();
     return diags.diagnose(std::forward<ArgTypes>(Args)...);
   }
 
   InFlightDiagnostic diagnose(SourceLoc Loc, DiagID ID,
                               ArrayRef<DiagnosticArgument> Args) {
-    auto &diags = getASTContext().Diags;
     return diags.diagnose(Loc, ID, Args);
   }
 
@@ -774,7 +774,7 @@ public:
 };
 
 class TypeAttrSet {
-  const ASTContext &ctx;
+  DiagnosticEngine &diags;
 
   /// FIXME:
   ///  `nonisolated(nonsending)` is modeled as a separate `TypeRepr`, but
@@ -796,9 +796,9 @@ class TypeAttrSet {
 #endif
 
 public:
-  TypeAttrSet(const ASTContext &ctx,
+  TypeAttrSet(DiagnosticEngine &diags,
               NonisolatedNonsendingTypeRepr *nonisolatedNonsendingAttr = nullptr)
-      : ctx(ctx), nonisolatedNonsendingAttr(nonisolatedNonsendingAttr) {}
+      : diags(diags), nonisolatedNonsendingAttr(nonisolatedNonsendingAttr) {}
 
   TypeAttrSet(const TypeAttrSet &) = delete;
   TypeAttrSet &operator=(const TypeAttrSet &) = delete;
@@ -895,7 +895,6 @@ private:
 
   template <typename... ArgTypes>
   InFlightDiagnostic diagnose(ArgTypes &&...Args) const {
-    auto &diags = ctx.Diags;
     return diags.diagnose(std::forward<ArgTypes>(Args)...);
   }
 };
@@ -2877,17 +2876,25 @@ static Type evaluateTypeResolution(const TypeResolution *resolution,
                                    SILTypeResolutionContext *silContext) {
   const auto options = resolution->getOptions();
   auto &ctx = resolution->getASTContext();
-  auto result =
-      TypeResolver(*resolution, silContext)
-          .resolveType(TyR, resolution->getOptions());
 
-  // If we resolved down to an error, and we haven't silenced diagnostics, make
-  // sure to mark the typeRepr as invalid so we don't produce a redundant
-  // diagnostic.
-  if (result->hasError()) {
-    if (!options.contains(TypeResolutionFlags::SilenceDiagnostics))
+  Type result;
+  {
+    // Ensure type resolution diagnostics get captured so we can control the
+    // behavior depending on options and resolution stage.
+    DiagnosticQueue diagQueue(ctx.Diags, /*emitOnDestroy*/ true);
+
+    result = TypeResolver(*resolution, diagQueue.getDiags(), silContext)
+                 .resolveType(TyR, resolution->getOptions());
+
+    if (options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
+      // If we're silencing diagnostics, we can drop all the ones recorded. We
+      // don't want to mark the TypeRepr invalid in this case.
+      diagQueue.clear();
+    } else if (result->hasError() || diagQueue.hadAnyError()) {
+      // If we had any error, mark the TypeRepr invalid so we don't run type
+      // resolution again to avoid duplicate diagnostics.
       TyR->setInvalid();
-    return result;
+    }
   }
 
   auto loc = TyR->getLoc();
@@ -3264,7 +3271,8 @@ TypeResolver::resolveOpenedExistentialArchetype(
     SILInnerGenericContextRAII scope(silContext,
                                      ctx.getSelfGenericParamList(dc));
 
-    TypeResolver interfaceTypeResolver(structuralResolution, silContext);
+    TypeResolver interfaceTypeResolver(structuralResolution, diags,
+                                       silContext);
     return interfaceTypeResolver.resolveType(repr, options);
   }();
 
@@ -3344,7 +3352,7 @@ TypeResolver::resolvePackElementArchetype(
   auto interfaceType = [&] {
     SILInnerGenericContextRAII scope(silContext, entry->Params);
 
-    TypeResolver interfaceTypeResolver(structuralResolution, silContext);
+    TypeResolver interfaceTypeResolver(structuralResolution, diags, silContext);
     return interfaceTypeResolver.resolveType(repr, options);
   }();
 
@@ -3700,7 +3708,7 @@ void TypeAttrSet::diagnoseUnclaimed(TypeAttribute *attr,
 
         // We need to get the underlying string to handle cases like
         // @isolated(any)
-        auto &SM = ctx.SourceMgr;
+        auto &SM = resolution.getASTContext().SourceMgr;
         auto CSR = Lexer::getCharSourceRangeFromSourceRange(
             SM, attr->getSourceRange());
         if (CSR.isValid()) {
@@ -3783,7 +3791,7 @@ const clang::Type *TypeResolver::tryParseClangType(ConventionTypeAttr *conv,
 NeverNullType
 TypeResolver::resolveAttributedTypeRepr(AttributedTypeRepr *attrRepr,
                                         TypeResolutionOptions options) {
-  TypeAttrSet attrs(getASTContext());
+  TypeAttrSet attrs(diags);
   TypeRepr *underlyingRepr = attrs.accumulate(attrRepr);
 
   auto result = resolveAttributedType(underlyingRepr, options, attrs);
@@ -4988,7 +4996,7 @@ NeverNullType TypeResolver::resolveSILBoxType(SILBoxTypeRepr *repr,
     }
 
     SILInnerGenericContextRAII scope(silContext, genericParams);
-    TypeResolver fieldResolver{fieldResolution, silContext};
+    TypeResolver fieldResolver{fieldResolution, diags, silContext};
     for (auto &fieldRepr : repr->getFields()) {
       auto fieldTy = fieldResolver.resolveType(fieldRepr.getFieldType(), options);
       fields.push_back({fieldTy->getCanonicalType(), fieldRepr.isMutable()});
@@ -5214,7 +5222,7 @@ NeverNullType TypeResolver::resolveSILFunctionType(FunctionTypeRepr *repr,
     SILInnerGenericContextRAII innerGenericContext(silContext,
                                                    componentGenericParams);
 
-    TypeResolver silResolver{functionResolution, silContext};
+    TypeResolver silResolver{functionResolution, diags, silContext};
     for (auto elt : argsTuple->getElements()) {
       auto elementOptions = options;
       elementOptions.setContext(TypeResolverContext::FunctionInput);
@@ -5271,11 +5279,12 @@ NeverNullType TypeResolver::resolveSILFunctionType(FunctionTypeRepr *repr,
       patternSubs = resolveSubstitutions(repr->getPatternGenericSignature(),
                                          repr->getPatternSubstitutions(),
                                          TypeResolver{resolveSILParameters,
+                                                      diags,
                                                       silContext});
     } else {
       patternSubs = resolveSubstitutions(repr->getPatternGenericSignature(),
                                          repr->getPatternSubstitutions(),
-                                         TypeResolver{resolution,
+                                         TypeResolver{resolution, diags,
                                                       silContext});
     }
   }
@@ -5285,7 +5294,7 @@ NeverNullType TypeResolver::resolveSILFunctionType(FunctionTypeRepr *repr,
   if (!repr->getInvocationSubstitutions().empty()) {
     invocationSubs = resolveSubstitutions(repr->getGenericSignature(),
                                           repr->getInvocationSubstitutions(),
-                                          TypeResolver{resolution,
+                                          TypeResolver{resolution, diags,
                                                        silContext});
   }
 
@@ -5385,7 +5394,7 @@ SILParameterInfo TypeResolver::resolveSILParameter(
     attrs = yieldAttrs;
     assert(!isa<AttributedTypeRepr>(repr));
   } else if (auto attrRepr = dyn_cast<AttributedTypeRepr>(repr)) {
-    attrsBuffer.emplace(getASTContext());
+    attrsBuffer.emplace(diags);
     attrs = &*attrsBuffer;
     repr = attrs->accumulate(attrRepr);
   }
@@ -5478,7 +5487,7 @@ bool TypeResolver::resolveSingleSILResult(
   }
 
   if (auto attrRepr = dyn_cast<AttributedTypeRepr>(repr)) {
-    TypeAttrSet attrs(getASTContext());
+    TypeAttrSet attrs(diags);
     auto repr = attrs.accumulate(attrRepr);
 
     // Recognize @yields.
@@ -5999,7 +6008,7 @@ TypeResolver::resolveNonisolatedNonsendingTypeRepr(NonisolatedNonsendingTypeRepr
                                             TypeResolutionOptions options) {
   Type type;
   {
-    TypeAttrSet attrs(getASTContext(), repr);
+    TypeAttrSet attrs(diags, repr);
 
     auto *baseRepr = repr->getBase();
     if (auto *attrRepr = dyn_cast<AttributedTypeRepr>(baseRepr)) {
