@@ -91,6 +91,10 @@ func blub<T>() -> T where T == some P { return 1 } // expected-error{{'some' typ
 
 protocol OP: some P {} // expected-error{{'some' types are only permitted}}
 
+struct Flam: some Undefined {}
+// expected-error@-1 {{'some' types are only permitted}}
+// expected-error@-2 {{cannot find type 'Undefined' in scope}}
+
 func foo() -> some P {
   let x = (some P).self // expected-error*{{}}
   return 1
