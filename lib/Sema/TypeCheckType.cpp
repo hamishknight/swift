@@ -197,7 +197,7 @@ Type TypeResolution::resolveDependentMemberType(
   ASTContext &ctx = DC->getASTContext();
 
   if (repr->getNameRef().hasModuleSelector()) {
-    if (!this->getOptions().contains(TypeResolutionFlags::SilenceErrors)) {
+    if (!this->getOptions().contains(TypeResolutionFlags::SilenceDiagnostics)) {
       ctx.Diags.diagnose(repr->getNameLoc().getModuleSelectorLoc(),
                          diag::module_selector_dependent_member_type_not_allowed)
           .fixItRemoveChars(repr->getNameLoc().getModuleSelectorLoc(),
@@ -226,7 +226,7 @@ Type TypeResolution::resolveDependentMemberType(
   if (auto nestedType = genericSig->lookupNestedType(baseTy, refIdentifier)) {
     if (options.isGenericRequirement()) {
       if (auto *protoDecl = nestedType->getDeclContext()->getExtendedProtocolDecl()) {
-        if (!options.contains(TypeResolutionFlags::SilenceErrors)) {
+        if (!options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
           unsigned kind = getGenericRequirementKind(options);
           ctx.Diags.diagnose(repr->getNameLoc(),
                              diag::protocol_extension_in_where_clause,
@@ -902,7 +902,7 @@ static bool resolveGenericArguments(ValueDecl *decl,
     // the number of declared generic parameters match the number of
     // arguments.
     if (genericArgs.size() != genericParams->size()) {
-      if (!options.contains(TypeResolutionFlags::SilenceErrors)) {
+      if (!options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
         diagnoseInvalidGenericArguments(
             loc, decl, genericArgs.size(), genericParams->size(),
             /*hasParameterPack=*/false, repr->getAngleBrackets());
@@ -927,7 +927,7 @@ static bool resolveGenericArguments(ValueDecl *decl,
 
   PackMatcher matcher(params, args, ctx);
   if (matcher.match() || matcher.pairs.size() != params.size()) {
-    if (!options.contains(TypeResolutionFlags::SilenceErrors)) {
+    if (!options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
       diagnoseInvalidGenericArguments(
           loc, decl, genericArgs.size(), genericParams->size(),
           /*hasParameterPack=*/true, repr->getAngleBrackets());
@@ -1125,7 +1125,7 @@ static Type applyGenericArguments(Type type,
 
   // We must either have an unbound generic type, or a generic type alias.
   if (!type->is<UnboundGenericType>()) {
-     if (!options.contains(TypeResolutionFlags::SilenceErrors)) {
+     if (!options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
       auto diag = diags.diagnose(loc, diag::not_a_generic_type, type);
 
       // Don't add fixit on module type; that isn't the right type regardless
@@ -1914,7 +1914,7 @@ resolveUnqualifiedIdentTypeRepr(const TypeResolution &resolution,
   // Complain about any ambiguities we detected.
   // FIXME: We could recover by looking at later components.
   if (isAmbiguous) {
-    if (!options.contains(TypeResolutionFlags::SilenceErrors)) {
+    if (!options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
       diags
           .diagnose(repr->getNameLoc(), diag::ambiguous_type_base,
                     repr->getNameRef())
@@ -1969,7 +1969,7 @@ resolveUnqualifiedIdentTypeRepr(const TypeResolution &resolution,
   }
 
   // If we're not allowed to complain, bail out.
-  if (options.contains(TypeResolutionFlags::SilenceErrors))
+  if (options.contains(TypeResolutionFlags::SilenceDiagnostics))
     return ErrorType::get(ctx);
 
   // Complain and give ourselves a chance to recover.
@@ -2021,7 +2021,7 @@ static Type resolveQualifiedIdentTypeRepr(const TypeResolution &resolution,
           resolution.getOptions());
     }
 
-    if (options.contains(TypeResolutionFlags::SilenceErrors)) {
+    if (options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
       if (TypeChecker::isUnsupportedMemberTypeAccess(
               parentTy, member, hasUnboundOpener, isExtensionBinding) !=
           TypeChecker::UnsupportedMemberTypeAccessKind::None)
@@ -2054,7 +2054,7 @@ static Type resolveQualifiedIdentTypeRepr(const TypeResolution &resolution,
     // be an unbound generic.
     if (options.is(TypeResolverContext::TypeAliasDecl)) {
       if (parentTy->is<UnboundGenericType>()) {
-        if (!options.contains(TypeResolutionFlags::SilenceErrors))
+        if (!options.contains(TypeResolutionFlags::SilenceDiagnostics))
           diagnoseUnboundGenericType(parentTy, parentRange.End);
 
         return ErrorType::get(ctx);
@@ -2062,7 +2062,7 @@ static Type resolveQualifiedIdentTypeRepr(const TypeResolution &resolution,
     }
 
     // Diagnose a bad conformance reference if we need to.
-    if (!options.contains(TypeResolutionFlags::SilenceErrors) &&
+    if (!options.contains(TypeResolutionFlags::SilenceDiagnostics) &&
         inferredAssocType && memberType->hasError()) {
       maybeDiagnoseBadConformanceRef(DC, parentTy, repr->getLoc(),
                                      inferredAssocType);
@@ -2130,7 +2130,7 @@ static Type resolveQualifiedIdentTypeRepr(const TypeResolution &resolution,
   // FIXME: Could try to apply generic arguments first, and see whether
   // that resolves things. But do we really want that to succeed?
   if (memberTypes.size() > 1) {
-    if (!options.contains(TypeResolutionFlags::SilenceErrors))
+    if (!options.contains(TypeResolutionFlags::SilenceDiagnostics))
       diagnoseAmbiguousMemberType(parentTy, parentRange, repr->getNameRef(),
                                   repr->getNameLoc(), memberTypes);
     return ErrorType::get(ctx);
@@ -2143,7 +2143,7 @@ static Type resolveQualifiedIdentTypeRepr(const TypeResolution &resolution,
   if (!memberTypes) {
     // If we're not allowed to complain or we couldn't fix the
     // source, bail out.
-    if (options.contains(TypeResolutionFlags::SilenceErrors))
+    if (options.contains(TypeResolutionFlags::SilenceDiagnostics))
       return ErrorType::get(ctx);
 
     memberType = diagnoseUnknownType(resolution, parentTy, parentRange, repr,
@@ -2710,7 +2710,7 @@ static Type evaluateTypeResolution(const TypeResolution *resolution,
   // sure to mark the typeRepr as invalid so we don't produce a redundant
   // diagnostic.
   if (result->hasError()) {
-    if (!options.contains(TypeResolutionFlags::SilenceErrors))
+    if (!options.contains(TypeResolutionFlags::SilenceDiagnostics))
       TyR->setInvalid();
     return result;
   }
@@ -2731,7 +2731,7 @@ static Type evaluateTypeResolution(const TypeResolution *resolution,
 
 bool TypeResolver::diagnoseDisallowedExistential(TypeRepr *repr) {
   auto options = resolution.getOptions();
-  if (!(options & TypeResolutionFlags::SilenceErrors) &&
+  if (!(options & TypeResolutionFlags::SilenceDiagnostics) &&
       options.contains(TypeResolutionFlags::DisallowOpaqueTypes)) {
     // We're specifically looking at an existential type `any P<some Q>`,
     // so emit a tailored diagnostic. We don't emit an ErrorType here
@@ -2958,13 +2958,13 @@ NeverNullType TypeResolver::resolveType(TypeRepr *repr,
     }
     if (!repr->isInvalid() && !hasInvalidPlaceholder){
       // We are not inside an `OpaqueTypeDecl`, so diagnose an error.
-      if (!(options & TypeResolutionFlags::SilenceErrors)) {
+      if (!(options & TypeResolutionFlags::SilenceDiagnostics)) {
         diagnose(opaqueRepr->getOpaqueLoc(),
                  diag::unsupported_opaque_type);
       }
     }
     // Try to resolve the constraint upper bound type as a placeholder.
-    options |= TypeResolutionFlags::SilenceErrors;
+    options |= TypeResolutionFlags::SilenceDiagnostics;
     auto constraintType = resolveType(opaqueRepr->getConstraint(),
                                       options);
 
@@ -3012,7 +3012,7 @@ NeverNullType TypeResolver::resolveType(TypeRepr *repr,
     }
 
     // We are not inside an `OpaqueTypeDecl`, so diagnose an error.
-    if (!(options & TypeResolutionFlags::SilenceErrors)) {
+    if (!(options & TypeResolutionFlags::SilenceDiagnostics)) {
       diagnose(repr->getStartLoc(), diag::unsupported_opaque_type);
     }
 
@@ -3027,7 +3027,7 @@ NeverNullType TypeResolver::resolveType(TypeRepr *repr,
         return ty;
 
     // Complain if we're allowed to and bail out with an error.
-    if (!options.contains(TypeResolutionFlags::SilenceErrors)) {
+    if (!options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
       ctx.Diags.diagnose(repr->getLoc(),
                          diag::placeholder_type_not_allowed);
     }
@@ -4466,7 +4466,7 @@ NeverNullType TypeResolver::resolveASTFunctionType(
     if (thrownTy->hasError()) {
       thrownTy = Type();
     } else if (inStage(TypeResolutionStage::Interface) &&
-               !options.contains(TypeResolutionFlags::SilenceErrors)) {
+               !options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
       auto thrownTyInContext = GenericEnvironment::mapTypeIntoEnvironment(
         resolution.getGenericSignature().getGenericEnvironment(), thrownTy);
       if (!checkConformance(thrownTyInContext, ctx.getErrorDecl())) {
@@ -5206,7 +5206,7 @@ TypeResolver::resolveDeclRefTypeRepr(DeclRefTypeRepr *repr,
       !options.is(TypeResolverContext::TypeAliasDecl) &&
       !options.is(TypeResolverContext::ExtensionBinding)) {
 
-    if (!options.contains(TypeResolutionFlags::SilenceErrors)) {
+    if (!options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
       // Tailored diagnostic for custom attributes.
       if (options.is(TypeResolverContext::CustomAttr)) {
         SmallString<64> scratch;
@@ -5231,7 +5231,7 @@ TypeResolver::resolveDeclRefTypeRepr(DeclRefTypeRepr *repr,
     if (options.contains(TypeResolutionFlags::AllowModule))
       return moduleTy;
     // Otherwise, emit an error.
-    if (!options.contains(TypeResolutionFlags::SilenceErrors)) {
+    if (!options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
       auto moduleName = moduleTy->getModule()->getName();
       diagnose(repr->getNameLoc(), diag::cannot_find_type_in_scope,
                DeclNameRef(moduleName));
@@ -5318,7 +5318,7 @@ TypeResolver::resolveDeclRefTypeRepr(DeclRefTypeRepr *repr,
         options.isAnyExpr() ||
         options.is(TypeResolverContext::RawLayoutAttr) ||
         options.contains(TypeResolutionFlags::SILMode))) {
-    if (!options.contains(TypeResolutionFlags::SilenceErrors)) {
+    if (!options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
       diagnose(repr->getNameLoc(), diag::value_generic_unexpected, result);
     }
     return ErrorType::get(getASTContext());
@@ -5767,7 +5767,7 @@ NeverNullType TypeResolver::resolveImplicitlyUnwrappedOptionalType(
     break;
   }
 
-  if (doDiag && !options.contains(TypeResolutionFlags::SilenceErrors)) {
+  if (doDiag && !options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
     // In language modes up to Swift 5, we allow `T!` in invalid position for
     // compatibility and downgrade the error to a warning.
     const unsigned swiftLangModeForError = 5;
