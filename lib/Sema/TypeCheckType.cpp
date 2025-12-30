@@ -511,14 +511,18 @@ namespace {
 
   class TypeResolver {
     const TypeResolution &resolution;
+    DiagnosticEngine &diags;
 
     /// Used in SIL mode.
     SILTypeResolutionContext *silContext;
 
   public:
     explicit TypeResolver(const TypeResolution &resolution,
-                          SILTypeResolutionContext *silContext = nullptr)
-        : resolution(resolution), silContext(silContext) {}
+                          SILTypeResolutionContext *silContext = nullptr,
+                          DiagnosticEngine *diags = nullptr)
+        : resolution(resolution),
+          diags(diags ? *diags : resolution.getASTContext().Diags),
+          silContext(silContext) {}
 
     NeverNullType resolveType(TypeRepr *repr, TypeResolutionOptions options);
 
@@ -546,21 +550,18 @@ namespace {
   private:
     template<typename ...ArgTypes>
     InFlightDiagnostic diagnose(ArgTypes &&...Args) const {
-      auto &diags = getASTContext().Diags;
       return diags.diagnose(std::forward<ArgTypes>(Args)...);
     }
 
     template <typename... ArgTypes>
     InFlightDiagnostic diagnoseInvalid(TypeRepr *repr,
-                                       ArgTypes &&... Args) const {
-      auto &diags = getASTContext().Diags;
+                                       ArgTypes &&...Args) const {
       repr->setInvalid();
       return diags.diagnose(std::forward<ArgTypes>(Args)...);
     }
 
     InFlightDiagnostic diagnose(SourceLoc Loc, DiagID ID,
                                 ArrayRef<DiagnosticArgument> Args) {
-      auto &diags = getASTContext().Diags;
       return diags.diagnose(Loc, ID, Args);
     }
 
@@ -767,7 +768,7 @@ namespace {
   };
 
   class TypeAttrSet {
-    const ASTContext &ctx;
+    DiagnosticEngine &diags;
 
     /// FIXME:
     ///  `nonisolated(nonsending)` is modeled as a separate `TypeRepr`, but
@@ -785,9 +786,9 @@ namespace {
 #endif
 
   public:
-    TypeAttrSet(const ASTContext &ctx,
+    TypeAttrSet(DiagnosticEngine &diags,
                 CallerIsolatedTypeRepr *nonisolatedNonsendingAttr = nullptr)
-        : ctx(ctx), nonisolatedNonsendingAttr(nonisolatedNonsendingAttr) {}
+        : diags(diags), nonisolatedNonsendingAttr(nonisolatedNonsendingAttr) {}
 
     TypeAttrSet(const TypeAttrSet &) = delete;
     TypeAttrSet &operator=(const TypeAttrSet &) = delete;
@@ -886,7 +887,6 @@ namespace {
 
     template<typename ...ArgTypes>
     InFlightDiagnostic diagnose(ArgTypes &&...Args) const {
-      auto &diags = ctx.Diags;
       return diags.diagnose(std::forward<ArgTypes>(Args)...);
     }
   };
@@ -2705,17 +2705,29 @@ static Type evaluateTypeResolution(const TypeResolution *resolution,
                                    SILTypeResolutionContext *silContext) {
   const auto options = resolution->getOptions();
   auto &ctx = resolution->getASTContext();
-  auto result =
-      TypeResolver(*resolution, silContext)
-          .resolveType(TyR, resolution->getOptions());
 
-  // If we resolved down to an error, and we haven't silenced diagnostics, make
-  // sure to mark the typeRepr as invalid so we don't produce a redundant
-  // diagnostic.
-  if (result->hasError()) {
-    if (!options.contains(TypeResolutionFlags::SilenceDiagnostics))
+  Type result;
+  {
+    // Ensure type resolution diagnostics get captured so we can control the
+    // behavior depending on options and resolution stage.
+    DiagnosticQueue diagQueue(ctx.Diags, /*emitOnDestroy*/ true);
+
+    result = TypeResolver(*resolution, silContext, &diagQueue.getDiags())
+                 .resolveType(TyR, resolution->getOptions());
+
+    if (options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
+      // If we're silencing diagnostics, we can drop all the ones recorded. We
+      // don't want to mark the TypeRepr invalid in this case.
+      diagQueue.clear();
+    } else if (result->hasError() || diagQueue.hadAnyError()) {
+      // If we had any error, mark the TypeRepr invalid so we don't run type
+      // resolution again to avoid duplicate diagnostics.
       TyR->setInvalid();
-    return result;
+    } else if (resolution->getStage() == TypeResolutionStage::Structural) {
+      // If we have no errors but are doing structural resolution, ignore any
+      // warnings since they'll be emitted again by interface resolution.
+      diagQueue.clear();
+    }
   }
 
   auto loc = TyR->getLoc();
@@ -3505,7 +3517,7 @@ const clang::Type *TypeResolver::tryParseClangType(ConventionTypeAttr *conv,
 NeverNullType
 TypeResolver::resolveAttributedTypeRepr(AttributedTypeRepr *attrRepr,
                                         TypeResolutionOptions options) {
-  TypeAttrSet attrs(getASTContext());
+  TypeAttrSet attrs(diags);
   TypeRepr *underlyingRepr = attrs.accumulate(attrRepr);
 
   auto result = resolveAttributedType(underlyingRepr, options, attrs);
@@ -4248,21 +4260,19 @@ NeverNullType TypeResolver::resolveASTFunctionType(
 
   // Check that we don't have more than one isolated parameter.
   unsigned numIsolatedParams = countIsolatedParamsUpTo(repr, 2);
-  if (!repr->isWarnedAbout() && numIsolatedParams > 1) {
+  if (numIsolatedParams > 1) {
     diagnose(repr->getLoc(), diag::isolated_parameter_duplicate_type)
         .warnUntilLanguageMode(6);
 
     if (ctx.isLanguageModeAtLeast(6))
       return ErrorType::get(ctx);
-    else
-      repr->setWarned();
   }
 
   if (attrs) {
     CustomAttr *globalActorAttr = nullptr;
     Type globalActor = resolveGlobalActor(repr->getLoc(), parentOptions,
                                           globalActorAttr, *attrs);
-    if (globalActor && !globalActor->hasError() && !globalActorAttr->isInvalid()) {
+    if (globalActor && !globalActor->hasError()) {
       if (numIsolatedParams != 0) {
         diagnose(repr->getLoc(), diag::isolated_parameter_global_actor_type)
             .warnUntilLanguageMode(6);
@@ -4271,7 +4281,7 @@ NeverNullType TypeResolver::resolveASTFunctionType(
         diagnose(repr->getLoc(), diag::isolated_attr_global_actor_type,
                  isolatedAttr->getIsolationKindName());
         globalActorAttr->setInvalid();
-      } else {
+      } else if (!globalActorAttr->isInvalid()) {
         isolation = FunctionTypeIsolation::forGlobalActor(globalActor);
 
         // This inference is currently gated because `@Sendable` impacts mangling.
@@ -4440,17 +4450,14 @@ NeverNullType TypeResolver::resolveASTFunctionType(
 
   // If this is a function type without parens around the parameter list,
   // diagnose this and produce a fixit to add them.
-  if (!repr->isWarnedAbout()) {
-    // If someone wrote (Void) -> () in Swift 3, they probably meant
-    // () -> (), but (Void) -> () is (()) -> () so emit a warning
-    // asking if they meant () -> ().
-    auto args = repr->getArgsTypeRepr();
-    if (args->getNumElements() == 1) {
-      if (args->getElementType(0)->isSimpleUnqualifiedIdentifier(ctx.Id_Void)) {
-        diagnose(args->getStartLoc(), diag::paren_void_probably_void)
-            .fixItReplace(args->getSourceRange(), "()");
-        repr->setWarned();
-      }
+  // If someone wrote (Void) -> () in Swift 3, they probably meant
+  // () -> (), but (Void) -> () is (()) -> () so emit a warning
+  // asking if they meant () -> ().
+  auto args = repr->getArgsTypeRepr();
+  if (args->getNumElements() == 1) {
+    if (args->getElementType(0)->isSimpleUnqualifiedIdentifier(ctx.Id_Void)) {
+      diagnose(args->getStartLoc(), diag::paren_void_probably_void)
+          .fixItReplace(args->getSourceRange(), "()");
     }
   }
 
@@ -4918,7 +4925,7 @@ SILParameterInfo TypeResolver::resolveSILParameter(
     attrs = yieldAttrs;
     assert(!isa<AttributedTypeRepr>(repr));
   } else if (auto attrRepr = dyn_cast<AttributedTypeRepr>(repr)) {
-    attrsBuffer.emplace(getASTContext());
+    attrsBuffer.emplace(diags);
     attrs = &*attrsBuffer;
     repr = attrs->accumulate(attrRepr);
   }
@@ -5011,7 +5018,7 @@ bool TypeResolver::resolveSingleSILResult(
   }
 
   if (auto attrRepr = dyn_cast<AttributedTypeRepr>(repr)) {
-    TypeAttrSet attrs(getASTContext());
+    TypeAttrSet attrs(diags);
     auto repr = attrs.accumulate(attrRepr);
 
     // Recognize @yields.
@@ -5450,7 +5457,7 @@ TypeResolver::resolveCallerIsolatedTypeRepr(CallerIsolatedTypeRepr *repr,
                                             TypeResolutionOptions options) {
   Type type;
   {
-    TypeAttrSet attrs(getASTContext(), repr);
+    TypeAttrSet attrs(diags, repr);
 
     auto *baseRepr = repr->getBase();
     if (auto *attrRepr = dyn_cast<AttributedTypeRepr>(baseRepr)) {

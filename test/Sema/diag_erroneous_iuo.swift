@@ -67,17 +67,16 @@ func genericFunctionSigil<T>(
   return iuo
 }
 
-// FIXME: Duplicate diagnostics in -swift-version 4
 func genericFunctionSigilArray<T>(
   iuo: [T!]
-  // expected-swift4-warning@-1:10 2 {{using '!' here is deprecated; this is an error in the Swift 5 language mode}}{{none}}
+  // expected-swift4-warning@-1:10 {{using '!' here is deprecated; this is an error in the Swift 5 language mode}}{{none}}
   // expected-swift5-error@-2:10 {{'!' is not allowed here}}{{none}}
-  // expected-swift4-note@-3:10 2 {{use '?' instead}}{{10-11=?}}
+  // expected-swift4-note@-3:10 {{use '?' instead}}{{10-11=?}}
   // expected-swift5-note@-4:10 {{use '?' instead}}{{10-11=?}}
 ) -> [T!] {
-  // expected-swift4-warning@-1:8 2 {{using '!' here is deprecated; this is an error in the Swift 5 language mode}}{{none}}
+  // expected-swift4-warning@-1:8 {{using '!' here is deprecated; this is an error in the Swift 5 language mode}}{{none}}
   // expected-swift5-error@-2:8 {{'!' is not allowed here}}{{none}}
-  // expected-swift4-note@-3:8 2 {{use '?' instead}}{{8-9=?}}
+  // expected-swift4-note@-3:8 {{use '?' instead}}{{8-9=?}}
   // expected-swift5-note@-4:8 {{use '?' instead}}{{8-9=?}}
   return iuo
 }

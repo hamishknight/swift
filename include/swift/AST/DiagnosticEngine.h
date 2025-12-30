@@ -1528,6 +1528,9 @@ namespace swift {
       QueueEngine.forwardTentativeDiagnosticsTo(UnderlyingEngine);
     }
 
+    /// Whether any error diagnostics are present in the queue.
+    bool hadAnyError() const;
+
     ~DiagnosticQueue() {
       if (EmitOnDestruction) {
         emit();

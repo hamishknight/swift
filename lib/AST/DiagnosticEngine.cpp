@@ -1890,6 +1890,17 @@ void DiagnosticQueue::filter(
                  });
 }
 
+bool DiagnosticQueue::hadAnyError() const {
+  return llvm::any_of(QueueEngine.TentativeDiagnostics,
+                      [&](const detail::ActiveDiagnostic &activeDiag) {
+                        auto behavior =
+                            UnderlyingEngine.state.determineBehavior(
+                                activeDiag.Diag, UnderlyingEngine.SourceMgr);
+                        return behavior == DiagnosticBehavior::Fatal ||
+                               behavior == DiagnosticBehavior::Error;
+                      });
+}
+
 EncodedDiagnosticMessage::EncodedDiagnosticMessage(StringRef S)
     : Message(Lexer::getEncodedStringSegment(S, Buf, /*IsFirstSegment=*/true,
                                              /*IsLastSegment=*/true,
