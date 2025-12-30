@@ -292,7 +292,7 @@ namespace swift {
   /// for a transaction.
   struct ActiveDiagnostic {
     Diagnostic Diag;
-    SmallVector<DiagnosticInfo, 2> WrappedDiagnostics;
+    SmallVector<std::unique_ptr<DiagnosticInfo>, 1> WrappedDiagnostics;
     SmallVector<std::vector<DiagnosticArgument>, 4> WrappedDiagnosticArgs;
 
     ActiveDiagnostic(Diagnostic diag) : Diag(std::move(diag)) {}
