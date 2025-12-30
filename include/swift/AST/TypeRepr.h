@@ -65,18 +65,13 @@ protected:
   // clang-format off
   union { uint64_t OpaqueBits;
 
-  SWIFT_INLINE_BITFIELD_BASE(TypeRepr, bitmax(NumTypeReprKindBits,8)+1+1,
+  SWIFT_INLINE_BITFIELD_BASE(TypeRepr, bitmax(NumTypeReprKindBits,8)+1,
     /// The subclass of TypeRepr that this is.
     Kind : bitmax(NumTypeReprKindBits,8),
 
     /// Whether this type representation is known to contain an invalid
     /// type.
-    Invalid : 1,
-
-    /// Whether this type representation had a warning emitted related to it.
-    /// This is a hack related to how we resolve type exprs multiple times in
-    /// generic contexts.
-    Warned : 1
+    Invalid : 1
   );
 
   SWIFT_INLINE_BITFIELD_FULL(TupleTypeRepr, TypeRepr, 32,
@@ -118,7 +113,6 @@ protected:
     Bits.OpaqueBits = 0;
     Bits.TypeRepr.Kind = static_cast<unsigned>(K);
     Bits.TypeRepr.Invalid = false;
-    Bits.TypeRepr.Warned = false;
   }
 
 private:
@@ -138,11 +132,6 @@ public:
   /// Note that this type representation describes an invalid type.
   void setInvalid() { Bits.TypeRepr.Invalid = true; }
 
-  /// If a warning is produced about this type repr, keep track of that so we
-  /// don't emit another one upon further reanalysis.
-  bool isWarnedAbout() const { return Bits.TypeRepr.Warned; }
-  void setWarned() { Bits.TypeRepr.Warned = true; }
-  
   /// Get the representative location for pointing at this type.
   SourceLoc getLoc() const;
 
