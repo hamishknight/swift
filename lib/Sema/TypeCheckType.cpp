@@ -2286,6 +2286,18 @@ TypeResolver::resolveUnqualifiedIdentTypeRepr(UnqualifiedIdentTypeRepr *repr,
     }
   }
 
+  auto lookThoughPassThroughTypeAlias = [&](TypeDecl *TD) -> TypeDecl * {
+    auto *TAD = dyn_cast<TypeAliasDecl>(TD);
+    if (!TAD)
+      return TD;
+
+    auto *nominal = TAD->getUnderlyingType()->getAnyNominal();
+    if (nominal && TypeChecker::isPassThroughTypealias(TAD, nominal))
+      return nominal;
+
+    return TD;
+  };
+
   // Process the names we found.
   Type current;
   TypeDecl *currentDecl = nullptr;
@@ -2312,6 +2324,19 @@ TypeResolver::resolveUnqualifiedIdentTypeRepr(UnqualifiedIdentTypeRepr *repr,
       currentDecl = typeDecl;
       currentDC = foundDC;
       continue;
+    }
+
+    {
+      auto *lhs = lookThoughPassThroughTypeAlias(currentDecl);
+      auto *rhs = lookThoughPassThroughTypeAlias(typeDecl);
+      if (lhs == rhs) {
+        if (isa<TypeAliasDecl>(currentDecl)) {
+          current = type;
+          currentDecl = typeDecl;
+          currentDC = foundDC;
+        }
+        continue;
+      }
     }
 
     // Otherwise, check for an ambiguity.
