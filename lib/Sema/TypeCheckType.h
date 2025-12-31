@@ -768,9 +768,9 @@ public:
                                     bool *diagnosedRequirementFailure=nullptr) const;
 };
 
-void diagnoseInvalidGenericArguments(SourceLoc loc, ValueDecl *decl,
-                                     unsigned argCount, unsigned paramCount,
-                                     bool hasParameterPack,
+void diagnoseInvalidGenericArguments(SourceLoc loc, TypeResolutionOptions opts,
+                                     ValueDecl *decl, unsigned argCount,
+                                     unsigned paramCount, bool hasParameterPack,
                                      SourceRange angleBrackets);
 
 /// \param repr the repr for the type of the parameter.

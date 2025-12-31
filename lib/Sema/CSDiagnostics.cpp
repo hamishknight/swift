@@ -10032,9 +10032,8 @@ bool OutOfPlaceThenStmtFailure::diagnoseAsError() {
 }
 
 bool InvalidTypeSpecializationArity::diagnoseAsError() {
-  diagnoseInvalidGenericArguments(getLoc(), D,
-                                  NumArgs, NumParams,
-                                  HasParameterPack,
+  diagnoseInvalidGenericArguments(getLoc(), TypeResolverContext::None, D,
+                                  NumArgs, NumParams, HasParameterPack,
                                   /*angleBrackets=*/SourceRange());
   return true;
 }
