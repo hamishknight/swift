@@ -967,14 +967,12 @@ TypeResolver::resolveDependentMemberType(Type baseTy,
   ASTContext &ctx = getASTContext();
 
   if (repr->getNameRef().hasModuleSelector()) {
-    if (!options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
-      diagnose(repr->getNameLoc().getModuleSelectorLoc(),
-               diag::module_selector_dependent_member_type_not_allowed)
-          .fixItRemoveChars(repr->getNameLoc().getModuleSelectorLoc(),
-                            repr->getNameLoc().getBaseNameLoc());
-      // If we can check if `refIdentifier` is a protocol ext's concrete type:
-      // FIXME: Conditionally emit fix-it replacing base type with protocol
-    }
+    diagnose(repr->getNameLoc().getModuleSelectorLoc(),
+             diag::module_selector_dependent_member_type_not_allowed)
+        .fixItRemoveChars(repr->getNameLoc().getModuleSelectorLoc(),
+                          repr->getNameLoc().getBaseNameLoc());
+    // If we can check if `refIdentifier` is a protocol ext's concrete type:
+    // FIXME: Conditionally emit fix-it replacing base type with protocol
     return ErrorType::get(baseTy);
   }
 
@@ -997,17 +995,14 @@ TypeResolver::resolveDependentMemberType(Type baseTy,
     if (options.isGenericRequirement()) {
       if (auto *protoDecl =
               nestedType->getDeclContext()->getExtendedProtocolDecl()) {
-        if (!options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
-          unsigned kind = getGenericRequirementKind(options);
-          diagnose(repr->getNameLoc(), diag::protocol_extension_in_where_clause,
-                   nestedType->getName(), protoDecl->getName(), kind);
-          if (protoDecl->getLoc() && nestedType->getLoc()) {
-            diagnose(nestedType->getLoc(),
-                     diag::protocol_extension_in_where_clause_note,
-                     nestedType->getName(), protoDecl->getName());
-          }
+        unsigned kind = getGenericRequirementKind(options);
+        diagnose(repr->getNameLoc(), diag::protocol_extension_in_where_clause,
+                 nestedType->getName(), protoDecl->getName(), kind);
+        if (protoDecl->getLoc() && nestedType->getLoc()) {
+          diagnose(nestedType->getLoc(),
+                   diag::protocol_extension_in_where_clause_note,
+                   nestedType->getName(), protoDecl->getName());
         }
-
         return ErrorType::get(ctx);
       }
     }
@@ -1606,18 +1601,16 @@ TypeResolver::applyGenericArguments(Type type, DeclRefTypeRepr *repr,
 
   // We must either have an unbound generic type, or a generic type alias.
   if (!type->is<UnboundGenericType>()) {
-    if (!options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
-      auto diag = diagnose(loc, diag::not_a_generic_type, type);
+    auto diag = diagnose(loc, diag::not_a_generic_type, type);
 
-      // Don't add fixit on module type; that isn't the right type regardless
-      // of whether it had generic arguments.
-      if (!type->is<ModuleType>()) {
-        // When turning a SourceRange into CharSourceRange the closing angle
-        // brackets on nested generics are lexed as one token.
-        SourceRange angles = repr->getAngleBrackets();
-        diag.fixItRemoveChars(angles.Start,
-                              angles.End.getAdvancedLocOrInvalid(1));
-      }
+    // Don't add fixit on module type; that isn't the right type regardless
+    // of whether it had generic arguments.
+    if (!type->is<ModuleType>()) {
+      // When turning a SourceRange into CharSourceRange the closing angle
+      // brackets on nested generics are lexed as one token.
+      SourceRange angles = repr->getAngleBrackets();
+      diag.fixItRemoveChars(angles.Start,
+                            angles.End.getAdvancedLocOrInvalid(1));
     }
     return ErrorType::get(ctx);
   }
@@ -1890,6 +1883,9 @@ Type TypeResolution::applyUnboundGenericArguments(
 
 /// Diagnose a use of an unbound generic type.
 void TypeResolver::diagnoseUnboundGenericType(Type ty, SourceLoc loc) {
+  if (resolution.getOptions().contains(TypeResolutionFlags::SilenceDiagnostics))
+    return;
+
   if (auto unbound = ty->getAs<UnboundGenericType>()) {
     auto *decl = unbound->getDecl();
     {
@@ -2505,6 +2501,9 @@ void TypeResolver::diagnoseAmbiguousMemberType(Type baseTy,
                                                DeclNameRef name,
                                                DeclNameLoc nameLoc,
                                                LookupTypeResult &lookup) {
+  if (resolution.getOptions().contains(TypeResolutionFlags::SilenceDiagnostics))
+    return;
+
   if (auto moduleTy = baseTy->getAs<ModuleType>()) {
     diagnose(nameLoc, diag::ambiguous_module_type, name,
              moduleTy->getModule()->getName())
@@ -2537,13 +2536,6 @@ TypeResolver::resolveQualifiedIdentTypeRepr(Type parentTy,
                                                 getDeclContext(), options);
     }
 
-    if (options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
-      if (TypeChecker::isUnsupportedMemberTypeAccess(
-              parentTy, member, hasUnboundOpener, isExtensionBinding) !=
-          TypeChecker::UnsupportedMemberTypeAccessKind::None)
-        return ErrorType::get(ctx);
-    }
-
     switch (TypeChecker::isUnsupportedMemberTypeAccess(
         parentTy, member, hasUnboundOpener, isExtensionBinding)) {
     case TypeChecker::UnsupportedMemberTypeAccessKind::None:
@@ -2570,9 +2562,7 @@ TypeResolver::resolveQualifiedIdentTypeRepr(Type parentTy,
     // be an unbound generic.
     if (options.is(TypeResolverContext::TypeAliasDecl)) {
       if (parentTy->is<UnboundGenericType>()) {
-        if (!options.contains(TypeResolutionFlags::SilenceDiagnostics))
-          diagnoseUnboundGenericType(parentTy, parentRange.End);
-
+        diagnoseUnboundGenericType(parentTy, parentRange.End);
         return ErrorType::get(ctx);
       }
     }
@@ -2660,9 +2650,8 @@ TypeResolver::resolveQualifiedIdentTypeRepr(Type parentTy,
   // FIXME: Could try to apply generic arguments first, and see whether
   // that resolves things. But do we really want that to succeed?
   if (memberTypes.size() > 1) {
-    if (!options.contains(TypeResolutionFlags::SilenceDiagnostics))
-      diagnoseAmbiguousMemberType(parentTy, parentRange, repr->getNameRef(),
-                                  repr->getNameLoc(), memberTypes);
+    diagnoseAmbiguousMemberType(parentTy, parentRange, repr->getNameRef(),
+                                repr->getNameLoc(), memberTypes);
     return ErrorType::get(ctx);
   }
 
@@ -2880,8 +2869,7 @@ static Type evaluateTypeResolution(const TypeResolution *resolution,
 
 bool TypeResolver::diagnoseDisallowedExistential(TypeRepr *repr) {
   auto options = resolution.getOptions();
-  if (!(options & TypeResolutionFlags::SilenceDiagnostics) &&
-      options.contains(TypeResolutionFlags::DisallowOpaqueTypes)) {
+  if (options.contains(TypeResolutionFlags::DisallowOpaqueTypes)) {
     // We're specifically looking at an existential type `any P<some Q>`,
     // so emit a tailored diagnostic. We don't emit an ErrorType here
     // for better recovery.
@@ -3104,10 +3092,7 @@ NeverNullType TypeResolver::resolveType(TypeRepr *repr,
     }
     if (!hasInvalidPlaceholder && !isInExistential) {
       // We are not inside an `OpaqueTypeDecl`, so diagnose an error.
-      if (!(options & TypeResolutionFlags::SilenceDiagnostics)) {
-        diagnose(opaqueRepr->getOpaqueLoc(),
-                 diag::unsupported_opaque_type);
-      }
+      diagnose(opaqueRepr->getOpaqueLoc(), diag::unsupported_opaque_type);
     }
     // Try to resolve the constraint upper bound type as a placeholder.
     auto constraintType = resolveType(opaqueRepr->getConstraint(),
@@ -3157,10 +3142,7 @@ NeverNullType TypeResolver::resolveType(TypeRepr *repr,
     }
 
     // We are not inside an `OpaqueTypeDecl`, so diagnose an error.
-    if (!(options & TypeResolutionFlags::SilenceDiagnostics)) {
-      diagnose(repr->getStartLoc(), diag::unsupported_opaque_type);
-    }
-
+    diagnose(repr->getStartLoc(), diag::unsupported_opaque_type);
     return ErrorType::get(getASTContext());
   }
 
@@ -3171,10 +3153,7 @@ NeverNullType TypeResolver::resolveType(TypeRepr *repr,
       if (const auto ty = handlerFn(ctx, cast<PlaceholderTypeRepr>(repr)))
         return ty;
 
-    // Complain if we're allowed to and bail out with an error.
-    if (!options.contains(TypeResolutionFlags::SilenceDiagnostics))
-      diagnose(repr->getLoc(), diag::placeholder_type_not_allowed);
-
+    diagnose(repr->getLoc(), diag::placeholder_type_not_allowed);
     return ErrorType::get(resolution.getASTContext());
   }
 
@@ -5664,13 +5643,12 @@ TypeResolver::resolveDeclRefTypeRepr(DeclRefTypeRepr *repr,
     // Allow module types only if flag is specified.
     if (options.contains(TypeResolutionFlags::AllowModule))
       return moduleTy;
+
     // Otherwise, emit an error.
-    if (!options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
-      auto moduleName = moduleTy->getModule()->getName();
-      diagnose(repr->getNameLoc(), diag::cannot_find_type_in_scope,
-               DeclNameRef(moduleName));
-      diagnose(repr->getNameLoc(), diag::note_module_as_type, moduleName);
-    }
+    auto moduleName = moduleTy->getModule()->getName();
+    diagnose(repr->getNameLoc(), diag::cannot_find_type_in_scope,
+             DeclNameRef(moduleName));
+    diagnose(repr->getNameLoc(), diag::note_module_as_type, moduleName);
     return ErrorType::get(getASTContext());
   }
 
@@ -5754,9 +5732,7 @@ TypeResolver::resolveDeclRefTypeRepr(DeclRefTypeRepr *repr,
         options.isAnyExpr() ||
         options.is(TypeResolverContext::RawLayoutAttr) ||
         options.contains(TypeResolutionFlags::SILMode))) {
-    if (!options.contains(TypeResolutionFlags::SilenceDiagnostics)) {
-      diagnose(repr->getNameLoc(), diag::value_generic_unexpected, result);
-    }
+    diagnose(repr->getNameLoc(), diag::value_generic_unexpected, result);
     return ErrorType::get(getASTContext());
   }
 
