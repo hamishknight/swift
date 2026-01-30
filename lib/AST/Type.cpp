@@ -1788,13 +1788,26 @@ getCanonicalParams(AnyFunctionType *funcType,
   }
 }
 
-AnyFunctionType::Param
-AnyFunctionType::Param::getCanonical(CanGenericSignature genericSig) const {
+AnyFunctionParamType::AnyFunctionParamType(Type t, Identifier l,
+                                           ParameterTypeFlags f,
+                                           Identifier internalLabel)
+    : Ty(t), Label(l), InternalLabel(internalLabel), Flags(f) {
+  assert(t && "param type must be non-null");
+  assert(!t->is<InOutType>() && "set flags instead");
+}
+
+bool AnyFunctionParamType::operator==(AnyFunctionParamType const &b) const {
+  return (Label == b.Label && getPlainType()->isEqual(b.getPlainType()) &&
+          Flags == b.Flags);
+}
+
+AnyFunctionParamType
+AnyFunctionParamType::getCanonical(CanGenericSignature genericSig) const {
   // Canonicalize the type and drop the internal label to canonicalize the
   // Param.
-  return Param(getPlainType()->getReducedType(genericSig),
-               getLabel(), getParameterFlags(),
-               /*InternalLabel=*/Identifier());
+  return AnyFunctionParamType(getPlainType()->getReducedType(genericSig),
+                              getLabel(), getParameterFlags(),
+                              /*InternalLabel=*/Identifier());
 }
 
 CanType TypeBase::computeCanonicalType() {
