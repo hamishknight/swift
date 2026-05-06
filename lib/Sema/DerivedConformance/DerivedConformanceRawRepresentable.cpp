@@ -324,7 +324,10 @@ deriveBodyRawRepresentable_init(AbstractFunctionDecl *initDecl, void *) {
       continue;
 
     // litPat = elt.rawValueExpr as a pattern
-    LiteralExpr *litExpr = cloneRawLiteralExpr(C, elt->getRawValueExpr());
+    auto *rawValueExpr = elt->getRawValueExpr();
+    if (!rawValueExpr)
+      continue;
+    LiteralExpr *litExpr = cloneRawLiteralExpr(C, rawValueExpr);
     if (isStringEnum) {
       // In case of a string enum we are calling the _findStringSwitchCase
       // function from the library and switching on the returned Int value.
