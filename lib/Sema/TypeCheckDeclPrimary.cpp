@@ -4212,13 +4212,11 @@ public:
                              DD->getDeclContext()->getImplementedObjCContext());
       if (!nom || !isa<ClassDecl, StructDecl, EnumDecl>(nom)) {
         DD->diagnose(diag::destructor_decl_outside_class_or_noncopyable);
-      }
-
-      // Temporarily ban deinit on noncopyable enums, unless the experimental
-      // feature flag is set.
-      if (!Ctx.LangOpts.hasFeature(Feature::MoveOnlyEnumDeinits)
+      } else if (!Ctx.LangOpts.hasFeature(Feature::MoveOnlyEnumDeinits)
           && isa<EnumDecl>(nom)
           && !nom->canBeCopyable()) {
+        // Temporarily ban deinit on noncopyable enums, unless the experimental
+        // feature flag is set.
         DD->diagnose(diag::destructor_decl_on_noncopyable_enum);
       }
     }
