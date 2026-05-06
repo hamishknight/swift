@@ -8003,7 +8003,8 @@ void ExpandArrayIntoVarargsFailure::tryDropArrayBracketsFixIt(
     diag.fixItRemove(arrayExpr->getLBracketLoc())
         .fixItRemove(arrayExpr->getRBracketLoc());
     // Handle the case where the array literal has a trailing comma.
-    if (arrayExpr->getNumCommas() == arrayExpr->getNumElements())
+    if (arrayExpr->getNumCommas() > 0 &&
+        arrayExpr->getNumCommas() == arrayExpr->getNumElements())
       diag.fixItRemove(arrayExpr->getCommaLocs().back());
   }
 }
