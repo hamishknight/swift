@@ -2319,7 +2319,7 @@ bool AssignmentFailure::diagnoseAsError() {
     // If we're trying to set an unapplied method, say that.
     if (auto *VD = choice->getDecl()) {
       std::string message = "'";
-      message += VD->getBaseIdentifier().str();
+      message += VD->getBaseName().userFacingName();
       message += "'";
 
       auto diagID = DeclDiagnostic;
@@ -2371,7 +2371,7 @@ bool AssignmentFailure::diagnoseAsError() {
 
     if (auto *DRE = dyn_cast<DeclRefExpr>(AE->getFn()->getValueProvidingExpr()))
       name = std::string("'") +
-             DRE->getDecl()->getBaseIdentifier().str().str() + "'";
+             DRE->getDecl()->getBaseName().userFacingName().str() + "'";
 
     emitDiagnosticAt(Loc, DeclDiagnostic, name + " returns immutable value")
         .highlight(AE->getSourceRange());
