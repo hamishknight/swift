@@ -1930,6 +1930,14 @@ void Lexer::diagnoseSingleQuoteStringLiteral(const char *TokStart,
       // the replacement string.
       replacement.append(OutputPtr, Ptr - 1);
       OutputPtr = Ptr;
+    } else if ((unsigned char)Ptr[-1] < 0x20 || Ptr[-1] == 0x7F) {
+      // Escape non-printable ASCII control characters as \u{XX} so the fix-it
+      // text is valid for diagnostic rendering.
+      replacement.append(OutputPtr, Ptr - 1);
+      OutputPtr = Ptr;
+      char buf[7];
+      snprintf(buf, sizeof(buf), "\\u{%02x}", (unsigned char)Ptr[-1]);
+      replacement.append(buf);
     }
   }
   assert(Ptr == TokEnd && Ptr[-1] == '\'');
