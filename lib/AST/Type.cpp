@@ -1388,6 +1388,9 @@ Type TypeBase::removeArgumentLabels(unsigned numArgumentLabels) {
   // If there is nothing to remove, don't.
   if (numArgumentLabels == 0) return Type(this);
 
+  // We may encounter an ErrorType for invalid code; bail.
+  if (is<ErrorType>()) return Type(this);
+
   auto fnType = castTo<AnyFunctionType>();
 
   // Drop argument labels from the input type.
