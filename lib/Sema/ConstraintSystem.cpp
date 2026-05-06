@@ -2476,17 +2476,23 @@ static bool diagnoseAmbiguityWithContextualType(
       -> Type {
     auto &solution = *entry.first;
     auto anchor = entry.second->getLocator()->getAnchor();
+    if (!solution.hasType(anchor))
+      return Type();
     return solution.simplifyType(solution.getType(anchor));
   };
 
   auto resultType = getResultType(aggregateFix.front());
+  if (!resultType)
+    return false;
+
   // If right-hand side of the conversion (result of the AST node)
   // is the same across all of the solutions let's diagnose it as if
   // it it as a single failure.
   if (llvm::all_of(
           aggregateFix,
           [&](const std::pair<const Solution *, const ConstraintFix *> &entry) {
-            return resultType->isEqual(getResultType(entry));
+            auto type = getResultType(entry);
+            return type && resultType->isEqual(type);
           })) {
     auto &fix = aggregateFix.front();
     return fix.second->diagnose(*fix.first, /*asNote=*/false);
