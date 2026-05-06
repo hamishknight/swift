@@ -2687,7 +2687,11 @@ static bool fixMissingArguments(ConstraintSystem &cs, ASTNode anchor,
             if (!isParam(UDE->getBase()))
               return expr;
 
-            auto name = UDE->getName().getBaseIdentifier();
+            auto baseName = UDE->getName().getBaseName();
+            if (baseName.isSpecial())
+              return expr;
+
+            auto name = baseName.getIdentifier();
             unsigned index = 0;
             if (!name.str().getAsInteger(10, index) ||
                 llvm::any_of(params, [&](const AnyFunctionType::Param &param) {
