@@ -236,6 +236,9 @@ static DeclRefTypeRepr *translateExprToDeclRefTypeRepr(Expr *E, ASTContext &C) {
         return nullptr;
       }
 
+      if (ude->getName().isSpecial() || ude->getName().isOperator())
+        return nullptr;
+
       return QualifiedIdentTypeRepr::create(C, base, ude->getNameLoc(),
                                             ude->getName());
     }
