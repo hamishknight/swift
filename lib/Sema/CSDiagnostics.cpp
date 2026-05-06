@@ -7482,6 +7482,9 @@ bool InOutConversionFailure::diagnoseAsError() {
       assert(locator->findLast<LocatorPathElt::ContextualType>());
       auto anchor = getAnchor();
       auto contextualType = getContextualType(anchor);
+      if (!contextualType)
+        return false;
+
       auto purpose = getContextualTypePurpose();
       auto diagnostic = getDiagnosticFor(purpose, contextualType);
 
