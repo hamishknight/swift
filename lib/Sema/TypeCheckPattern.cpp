@@ -532,6 +532,11 @@ public:
     if (isa<UnresolvedSpecializeExpr>(ce->getFn()))
       return nullptr;
 
+    // Inout expressions (e.g. `&x`) are not valid in pattern argument lists.
+    // Let it be diagnosed as an expression.
+    if (ce->getArgs()->hasAnyInOutArgs())
+      return nullptr;
+
     if (isa<UnresolvedMemberExpr>(ce->getFn())) {
       auto *P = visit(ce->getFn());
       if (!P)
