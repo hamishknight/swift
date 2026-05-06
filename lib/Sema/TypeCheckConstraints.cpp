@@ -1647,6 +1647,12 @@ TypeChecker::typeCheckCheckedCast(Type fromType, Type toType,
       || toType->getMetatypeInstanceType()->isNoncopyable())
     return CheckedCastKind::Unresolved;
   
+  // Anything can be cast to Any. Note that the isConvertibleTo check above may
+  // not catch this for types like non-escaping functions, which cannot be
+  // directly converted to Any since that would allow them to escape.
+  if (toType->isAny())
+    return CheckedCastKind::Coercion;
+
   // Check for a bridging conversion.
   // Anything bridges to AnyObject.
   if (toType->isAnyObject())
