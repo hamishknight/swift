@@ -1252,6 +1252,7 @@ public:
     unsigned numExtraneous = 0;
     unsigned numRenames = 0;
     unsigned numOutOfOrder = 0;
+    unsigned numMissing = 0;
 
     for (unsigned i : indices(newLabels)) {
       // It's already known how many arguments are missing,
@@ -1276,8 +1277,16 @@ public:
         } else {
           ++numRenames;
         }
+      } else if (!paramLabel.empty()) {
+        ++numMissing;
       }
     }
+
+    // If there are no actual label mismatches (e.g., all differences are
+    // unlabeled trailing closures matched to labeled params), don't create
+    // a relabeling fix. Missing arguments are handled separately.
+    if (numExtraneous + numRenames + numOutOfOrder + numMissing == 0)
+      return false;
 
     auto *locator = CS.getConstraintLocator(Locator);
     auto *fix = RelabelArguments::create(CS, newLabels, locator);
