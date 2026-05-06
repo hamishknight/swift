@@ -5362,8 +5362,11 @@ bool MissingArgumentsFailure::diagnoseAsError() {
   // let _: (Int) -> Void = foo
   // ```
   if (locator->isLastElement<LocatorPathElt::ContextualType>()) {
+    auto contextualType = getContextualType(getAnchor());
+    if (!contextualType)
+      return false;
     emitDiagnostic(diag::cannot_convert_initializer_value, getType(anchor),
-                   resolveType(getContextualType(getAnchor())));
+                   resolveType(contextualType));
     // TODO: It would be great so somehow point out which arguments are missing.
     return true;
   }
