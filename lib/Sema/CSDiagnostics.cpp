@@ -8085,7 +8085,7 @@ bool ExtraneousCallFailure::diagnoseAsError() {
 void NonEphemeralConversionFailure::emitSuggestionNotes() const {
   auto getPointerKind = [](Type ty) -> PointerTypeKind {
     PointerTypeKind pointerKind;
-    auto pointeeType = ty->lookThroughSingleOptionalType()
+    auto pointeeType = ty->lookThroughAllOptionalTypes()
                          ->getAnyPointerElementType(pointerKind);
     assert(pointeeType && "Expected a pointer!");
     (void)pointeeType;
