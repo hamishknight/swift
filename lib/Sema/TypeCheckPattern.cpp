@@ -411,6 +411,13 @@ public:
   
   // Convert all tuples to patterns.
   Pattern *visitTupleExpr(TupleExpr *E) {
+    // A single unlabeled element is a paren pattern, not a tuple pattern.
+    if (E->getNumElements() == 1 && E->getElementName(0).empty()) {
+      Pattern *pattern = getSubExprPattern(E->getElement(0));
+      return new (Context)
+          ParenPattern(E->getLoc(), pattern, E->getRParenLoc());
+    }
+
     // Construct a TuplePattern.
     SmallVector<TuplePatternElt, 4> patternElts;
 
