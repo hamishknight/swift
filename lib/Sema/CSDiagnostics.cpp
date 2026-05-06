@@ -3198,7 +3198,10 @@ bool ContextualFailure::diagnoseConversionToBool() const {
   if (!toType->isBool())
     return false;
 
-  auto *anchor = castToExpr(getAnchor());
+  auto *anchor = getAsExpr(getAnchor());
+  if (!anchor)
+    return false;
+
   // Check for "=" converting to Bool.  The user probably meant ==.
   if (auto *AE = dyn_cast<AssignExpr>(anchor->getValueProvidingExpr())) {
     emitDiagnosticAt(AE->getEqualLoc(), diag::use_of_equal_instead_of_equality)
