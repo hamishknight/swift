@@ -304,10 +304,11 @@ static void diagSyntacticUseRestrictions(const Expr *E, const DeclContext *DC,
         if (E->getType()->isNoncopyable()
             && !Ctx.LangOpts.hasFeature(Feature::MoveOnlyTuples)) {
           auto noncopyableTy = E->getType();
-          assert(noncopyableTy->is<TupleType>() && "will use poor wording");
-          Ctx.Diags.diagnose(E->getLoc(),
-                             diag::tuple_containing_move_only_not_supported,
-                             noncopyableTy);
+          if (noncopyableTy->is<TupleType>()) {
+            Ctx.Diags.diagnose(E->getLoc(),
+                               diag::tuple_containing_move_only_not_supported,
+                               noncopyableTy);
+          }
         }
       }
 
