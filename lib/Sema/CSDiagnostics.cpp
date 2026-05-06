@@ -4965,16 +4965,15 @@ bool AllowTypeOrInstanceMemberFailure::diagnoseAsError() {
       // If the parent context is not a type context, we expect it
       // to be a defaulted parameter in a function declaration.
       if (!TypeDC->isTypeContext()) {
-        assert(TypeDC->getContextKind() ==
-               DeclContextKind::AbstractFunctionDecl &&
-               "Expected function decl context for initializer!");
-        TypeDC = TypeDC->getParent();
-        propertyInitializer = false;
+        if (TypeDC->getContextKind() ==
+            DeclContextKind::AbstractFunctionDecl) {
+          TypeDC = TypeDC->getParent();
+          propertyInitializer = false;
+        }
       }
-      
-      assert(TypeDC->isTypeContext() && "Expected type decl context!");
-      
-      if (TypeDC->getSelfNominalTypeDecl() == instanceTy->getAnyNominal()) {
+
+      if (TypeDC->isTypeContext() &&
+          TypeDC->getSelfNominalTypeDecl() == instanceTy->getAnyNominal()) {
         if (propertyInitializer) {
           emitDiagnostic(diag::instance_member_in_initializer, Name);
           return true;
