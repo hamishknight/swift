@@ -3934,7 +3934,9 @@ bool MissingCallFailure::diagnoseAsError() {
     case ConstraintLocator::ContextualType:
     case ConstraintLocator::ApplyArgToParam: {
       auto type = getType(anchor)->lookThroughAllOptionalTypes();
-      auto fnType = type->castTo<FunctionType>();
+      auto fnType = type->getAs<FunctionType>();
+      if (!fnType)
+        return false;
 
       if (MissingArgumentsFailure::isMisplacedMissingArgument(getSolution(), locator)) {
         ArgumentMismatchFailure failure(
@@ -4076,7 +4078,9 @@ bool SubscriptMisuseFailure::diagnoseAsError() {
   auto *locator = getLocator();
   auto &sourceMgr = getASTContext().SourceMgr;
 
-  auto *memberExpr = castToExpr<UnresolvedDotExpr>(getRawAnchor());
+  auto *memberExpr = getAsExpr<UnresolvedDotExpr>(getRawAnchor());
+  if (!memberExpr)
+    return false;
   auto *base = memberExpr->getBase();
 
   auto diag = emitDiagnostic(diag::could_not_find_subscript_member_did_you_mean,
@@ -6060,6 +6064,9 @@ bool OutOfOrderArgumentFailure::diagnoseAsError() {
   auto anchor = getRawAnchor();
   auto *args = getArgumentListFor(getLocator());
   if (!args)
+    return false;
+
+  if (ArgIdx >= args->size() || PrevArgIdx >= args->size())
     return false;
 
   Identifier first = args->getLabel(ArgIdx);
