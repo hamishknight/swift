@@ -2542,7 +2542,8 @@ static bool diagnoseAmbiguityWithContextualType(
     if (auto *decl = overload.choice.getDeclOrNull()) {
       auto type = solution.simplifyType(overload.boundType);
 
-      if (isExpr<ApplyExpr>(anchor) || isExpr<SubscriptExpr>(anchor)) {
+      if ((isExpr<ApplyExpr>(anchor) || isExpr<SubscriptExpr>(anchor)) &&
+          type->is<FunctionType>()) {
         auto fnType = type->castTo<FunctionType>();
         DE.diagnose(
             decl,
