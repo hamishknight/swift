@@ -1,5 +1,5 @@
 // {"kind":"typecheck","signature":"swift::constraints::FunctionTypeMismatch::FunctionTypeMismatch(swift::constraints::Solution const&, swift::ContextualTypePurpose, swift::Type, swift::Type, llvm::ArrayRef<unsigned int>, swift::constraints::ConstraintLocator*)","signatureAssert":"Assertion failed: (getFromType()->is<AnyFunctionType>() && getToType()->is<AnyFunctionType>()), function FunctionTypeMismatch","signatureNext":"AllowFunctionTypeMismatch::coalesceAndDiagnose"}
-// RUN: not --crash %target-swift-frontend -typecheck %s
+// RUN: not %target-swift-frontend -typecheck %s
 class a < b, c {
   typealias d = b typealias e =
       c class f<b, c> : a<b, c> class g<h, i> : f<(h, i), c> {

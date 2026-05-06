@@ -734,6 +734,14 @@ bool AllowFunctionTypeMismatch::coalesceAndDiagnose(
     return false;
 
   std::tie(purpose, fromType, toType) = *contextualTypeInfo;
+
+  // The structural types may no longer be function types after resolution
+  // (e.g., in malformed code). Fall back to the generic diagnostic.
+  if (!fromType->is<AnyFunctionType>() || !toType->is<AnyFunctionType>()) {
+    ContextualFailure failure(solution, purpose, fromType, toType, locator);
+    return failure.diagnose(asNote);
+  }
+
   FunctionTypeMismatch failure(solution, purpose, fromType, toType, indices,
                                locator);
   return failure.diagnose(asNote);
