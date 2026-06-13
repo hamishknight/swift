@@ -1555,8 +1555,8 @@ public:
     }
 
     // check the kind of type this discard statement appears within.
-    if (!diagnosed) {
-      auto *nominalDecl = fn->getDeclContext()->getSelfNominalTypeDecl();
+    auto *nominalDecl = fn->getDeclContext()->getSelfNominalTypeDecl();
+    if (!diagnosed && nominalDecl) {
       Type nominalType =
           fn->mapTypeIntoEnvironment(nominalDecl->getDeclaredInterfaceType());
 
