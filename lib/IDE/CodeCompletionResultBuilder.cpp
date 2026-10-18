@@ -102,8 +102,10 @@ static NullTerminatedStringRef copySwiftUSR(llvm::BumpPtrAllocator &Allocator,
 ///
 /// This is intended for testing only.
 static void verifyUSRToDeclReconstruction(const Decl *D) {
+  // Avoid verifying for invalid decls since there's no way to map the USR back
+  // to the right decl.
   auto *VD = dyn_cast<ValueDecl>(D);
-  if (!VD)
+  if (!VD || VD->isInvalid())
     return;
 
   if (!shouldCopyAssociatedUSRForDecl(VD))
